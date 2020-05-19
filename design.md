@@ -2,26 +2,28 @@
 
 Poodle clusters and nodes are identified by crypto keys.
 
-- Each Poodle cluster is identified by a cluster specific public / private ECDSA key.
-- Each Poodle node is identified by a node specific public / private ECDSA key.
+- Each Poodle cluster is identified by a cluster specific public / private
+  ECDSA key.
+- Each Poodle node is identified by a node specific public / private
+  ECDSA key.
 
 A Poodle node is added to a Poodle cluster by a message containing the
-__poodle.node.membership__ domain, the Poodle node public key, a 'SET'
+__poodle.cluster.membership__ domain, the Poodle node public key, a 'UPDATE'
 operation, and a timestamp, signed by the Poodle cluster private key.
 
 A Poodle node is removed from a Poodle cluster by a message containing the
-__poodle.node.membership__ domain, the Poodle node public key, a 'CLEAR'
+__poodle.cluster.membership__ domain, the Poodle node public key, a 'CLEAR'
 operation, and a timestamp, signed by the Poodle cluster private key.
 
 
 # Global Config #
 
-Poodle global config is set by a message containing the specific config information,
-a 'SET' or 'CLEAR' operation, and a timestamp, signed by the Poodle cluster private
-key.
+Poodle global config is set by a message containing the specific config
+information, a 'UPDATE' or 'CLEAR' operation, and a timestamp, signed by
+the Poodle cluster private key.
 
-Global config information are stored on all Poodle nodes.  All Poodle nodes in the
-same cluster will replicate the entire global config with change logs.
+Global config information are stored on all Poodle nodes.  All Poodle nodes
+in the same cluster will replicate the entire global config with change logs.
 
 Poodle global configs are associated with domain: __poodle.config__
  
@@ -281,12 +283,12 @@ The first byte is a __magic__.
   - 10 means 2 bytes to represent domain length (up to 65565 bytes)
   - 11 means domain is encoded with __data encoding__
 - Bit 1 is the clear bit
-  - 1 means 'clear' operation
-  - 0 means 'set' operation
+  - 1 means 'CLEAR' operation
+  - 0 means 'UPDATE' operation
 - Bit 0 is the signature bit
   - 1 means there is a timestamp and signature at the end of the record
   - 0 means no timestamp or signature at the end of the record
-  - If signature bit is set to 1, the content of data are in raw format,
+  - If signature bit is 1, the content of data are in raw format,
     and cannot be encoded with lookup scheme, or compression scheme
   
 ### Record Encoding ###
@@ -320,34 +322,45 @@ indicates the data follows __data encoding__. In this case, the first byte
 of the data encoding is another magic that represents __data encoding
 magic__.
 
-    lookup
-    | |
-    | |     length
-    | |     | |
-    7 6 5 4 3 2 1 0
-        | |     | |
-        | |     reserved
-        | |
-        compression
+         lookup
+          | |
+    array | |
+     bit  | |    length
+      |   | |     | |
+      7 6 5 4 3 2 1 0
+        |     | |
+        |     | |
+    composite | |
+       bit    | |
+             compression
 
-- Bit 7 and 6 are encoding for lookup scheme
+- Bit 7 is array bit
+  - 1 means the content is an array 
+  - 0 means content is not array
+  - when this bit is 1, length value means # of elements in the array
+- Bit 6 is composite bit
+  - 1 means content is a composite (key/value pairs)
+  - 0 means content is not composite
+  - when this bit is 1, length value means # of elements in the composite
+  - bit 7 and bit 6 cannot be 1 at the same time. When both bit 7 and bit 6
+    are 1, this has no defined behavior
+- Bit 5 and 4 are encoding for lookup scheme
   - 00 means no lookup scheme
   - 01 means 1 byte lookup scheme
   - 10 means 2 byte lookup scheme
   - 11 is reserved
-- Bit 5 and 4 are encoding for compression scheme
+- Bit 3 and 2 are encoding for compression scheme
   - 00 means no compression scheme
   - 01 means 1 byte compression scheme
   - 10 means 2 bytes compression scheme
   - 11 is reserved
-- Bit 3 and 2 are encoding for length of data length
+- Bit 1 and 0 are encoding for length of data length
   - When lookup bits are not 00, this 2 bits represent data length, not length
     of data length
   - 00 means 0 length
   - 01 means 1 byte length
   - 10 means 2 bytes length
   - 11 is reserved
-- Bit 1 and 0 are reserved
 
 ### Data Encoding ###
 
@@ -396,3 +409,255 @@ A poodle consensus keeps a list of cluster wide compression schemes.
 The list of schemes are registered across the cluster, and can be
 used to encode data.
 
+
+# Packet #
+
+Poodle uses UDP Packet for fast metadata operations.  A UDP packet
+consists of a list of Request(s) and Response(s)) followed by the
+Packet Timestamp and Signature
+
+### Packet Encoding ###
+
+A Poodle Packet is encoded below:
+
+                    request
+                      or
+    Node ID         response                 8 bytes timestamp
+    |     |         |     |                  |     |
+    X ... X X ... X X ... X ... ...  X ... X X ... X X ... ... X
+            |     |                  |     |         |         |
+            request                  request         32 bytes signature
+              or                       or
+            response                 response
+
+Poodle Packet is constructed as UDP packet, a Poodle packet must be less
+than 64KB.
+
+Poodle Node gathers multiple requests and responses in a buffer during
+a very short time period (e.g. 1-20ms), then send the aggregated requests
+and responses to the destination Node and Port.  If destination buffer
+exceeded a predefined threshold (default 8KB), Poodle will send the content
+of the buffer without waiting for the timer.
+
+- Node ID
+  - Node ID is encoded with DATA
+- A list of requests and responses
+  - a list of requests and responses as in the request response encoding
+- Timestamp
+  - 8 bytes timestamp represent node own timestamp
+- Signature
+  - 32 bytes signature covers a list of requests and responses and the
+    timestamp
+
+### Request and Response Magic ###
+
+              test
+               |
+    request    | error
+      bit  ops |   |
+       |   | | |   |
+       7 6 5 4 3 2 1 0
+         |       |   |
+      response   |  reserved
+        bit      |
+                test
+               millis
+                
+- Bit 7 is Request bit
+  - 1 means this is a request
+  - 0 means this is not a request
+- Bit 6 is Response bit
+  - 1 means this is a response
+  - 0 means this is not a response
+- Bit 5 and 4 are ops bits
+  - 00 means GET
+    - this gets the specified key of specific domain
+  - 01 means SET
+    - this sets value of the specified key of specific domain. Both
+      UPDATE and CLEAR record are considered SET
+  - 10 means KEYS
+    - this retrieves a list of keys under the specified key of specific
+      domain
+  - 11 means VALUES
+    - this retrieves a list of records (key/value) under the specified
+      key of specific domain
+- Bits 3 is test bit
+  - Test bit enables atomic operation for handling of locked operation
+  - When ops is POST (bits 4 and 5 are 01), this will test if a key
+    matches the specified value and then UPDATE or CLEAR the key. e.g.
+  - Set __value__ to __v1__ for __domain=d1__, __key=k1__ if this value
+    is not already set:
+    - ops=POST, test=TEST, record=SET, domain=d1, key=k1, value=v1
+    - if a value is already set, this operation will return an error
+    - if a value is not set, this operation will set the value, and will
+      return success
+  - Clear __value__ for __domain=d1__, __key=k2__ if value is already
+    set to __v2__:
+    - ops=POST, test=1, record=SET, domain=d1, key=k1, value=v2
+    - if a value is not set, this operation will return success
+    - if a value is set, but value is not __v2__, this operation
+      will return an error
+    - if a value is set, and value is __v2__, this operation will
+      clear the value, and return success
+- Bit 2 is test millis bit
+  - This bit is valid only if both request bit and test bit are 1
+  - 1 means a test milliseconds (4 bytes unsigned integer) is added to
+    the end of the request
+    - This test milliseconds is checked against record timestamp
+    - If record timestamp not exist, this operation will return error
+    - If record timestamp is newer than test milliseconds ago, this
+      operation will perform the checks as normal test bit will do 
+      for UPDATE and CLEAR records
+    - If record timestamp is older than test milliseconds ago, this
+      operation will treat the value as if it is already cleared, and
+      will not perform the test checks
+  - 0 means no test milliseconds at the end of the request
+- Bit 1 is error bit
+  - This bit is valid only if response bit is 1
+  - 1 means error occurred
+    - When error occurred, the record value field is the error content
+  - 0 means no error
+- Bit 0 is reserved
+
+### Request and Response Encoding ###
+
+A Request and Response is encoded with a Magic, followed by record
+content, followed by optional test millis:
+
+     Request
+       and
+     Response
+      Magic           Test Millis (optional)
+        |             |     |
+        X X ... ... X X ... X
+          |         |
+          Record Content
+
+
+# Service #
+
+Like Poodle Node and Cluster, a Poodle Service is identified by crypto
+keys.
+
+A Poodle Service can consists a set of nodes together offering services
+to its clients.  E.g.
+
+- Poodle POSIX File System Service
+  - This is a distributed POSIX compliant file system service
+- Poodle Key-Value Store Service
+  - This is a distributed Key-Value service
+- Poodle Metadata Service
+  - This service is provided as part of Poodle core
+
+Each Poodle Cluster has one and only one Metadata Service.
+
+A Poodle Cluster can have zero or more other services, such as POSIX
+File System Service(s), and Key-Value Store Service(s).
+
+While a Poodle Cluster offers Service(s), from time to time, the Cluster
+may make changes to the Service(s), e.g.:
+
+- Move a Poodle Service to from one Poodle Cluster another Poodle Cluster
+- Enable Federated Services running across multiple Poodle Clusters
+
+These operations further extend operability of Poodle Cluster(s) and
+Poodle Service(s).  E.g.
+
+- If an organization decided to segregate multiple services that were
+  running on a single cluster, into two separate clusters for ease of
+  future management, the operator can create another Poodle Cluster,
+  and move the selected Poodle Service(s) to the other Poodle Cluster
+  without disruption to a running production Poodle Service.
+- Moving service from one set of hardware to another set of hardware.
+  This use case can be supported similar to the earlier case, by creating
+  separate Poodle cluster on new hardware, and move the service over
+  to the new cluster running on new hardware.  The entire operation
+  can happen with live production traffic.
+- Setup Poodle Service Federation across Poodle Cluster(s).  All the
+  nodes in a Poodle Cluster is usually co-located in the same data
+  center.  There can be needs to run services across data centers.
+  In this case, Poodle Service Federation can run across multiple
+  Poodle Clusters that serves the clients from federated service(s).
+
+
+# Nodes, Clusters, and Universe #
+
+### Clusters and Nodes ###
+
+Poodle Node and Cluster are related by many-to-many relationship.
+
+Naturally, a Poodle Cluster consists of many nodes.  These nodes
+forms consensus within the Cluster.
+
+Similarly, a Poodle Node can belong to more than one Poodle Cluster.
+
+- Node Membership
+  - To add a Node to a Cluster, the Node sends a JOIN request,
+    signed by Node private key.  Upon receiving the request, the
+    Cluster can accept or reject by signing with Cluster private
+    key.
+  - To remove a Node from a Cluster, the Cluster sends a CLR
+    request, signed by Cluster private key.
+- Node Attributes
+  - To update Node Attributes, such as IP Addr and Port Num, a
+    Node signs a message with updated attributes, broadcast to
+    the cluster.  Config is updated to other nodes once the
+    Cluster Consensus accepts to the change.
+
+A pre-requisite for a Poodle Node to belong to multiple cluster is:
+
+- A Poodle Node can belong to multiple cluster if-and-only-if these
+  clusters are in the same Poodle Universe.
+- Neither Poodle Node, nor Poodle Cluster can cross multiple Poodle
+  Universe.
+
+### Universe ###
+
+A Poodle Universe is formed from multiple Poodle Clusters.
+
+Like Poodle Node and Poodle Cluster, a Poodle Universe is identified
+by crypto keys.
+
+Each Poodle Cluster can designate a set of nodes as Space-Port.
+The Space-Port nodes from all Poodle Clusters in the same Universe
+connects to each other and participates in Poodle Universe Consensus.
+
+A Poodle Universe Consensus requires 2/3 of the Clusters to verify
+the message.  For a Cluster to verify the message, 2/3 of the
+Space-Port nodes must verify the message.
+
+The Space-Port nodes will share the Poodle Universe consensus
+with the Poodle Cluster, all of the Poodle Node keeps a copy
+of Poodle Universe Consensus.
+
+- Cluster Membership
+  - To add a Cluster to a Universe, the Cluster sends a JOIN
+    request, signed by Cluster private key.  Upon receiving the
+    request, the Universe can accept or reject by signing with
+    Universe private key.
+  - To remove a Cluster from a Universe, the Universe sends a CLR
+    request, signed by Universe private key.
+- Space-Port Membership
+  - To assign Space-Port, the Cluster signed a request to record
+    Node as Space-Port.  The Space-Port Node broadcast the signed
+    message to the Universe.  Space-Port Membership is accepted
+    when Universe Consensus accepts the Node as Space-Port.
+  - To un-assign Space-Port, the Cluster sign a request to un-assign
+    Node as Space-Port.
+- Trust Relationship
+  - Poodle Clusters in the same Universe can establish trust
+    relationship.
+  - Trust relationship is established by Cluster 1 generate a TRUST
+    request to Cluster 2, with Cluster 2 signing the request to
+    accept the TRUST.  Trust is established when the accepted request
+    is accepted by Universe Consensus.
+  - Trust relationship is mutual - e.g. Cluster 1 trust Cluster 2
+    means Cluster 2 also trust Cluster 1.
+  - Trust relationship is not transferable. Cluster 1 trust Cluster 2,
+    and Cluster 2 trust Cluster 3, this does not mean Cluster 1 trust
+    Cluster 3  
+
+
+# Multiverse #
+
+Multiverse is not supported

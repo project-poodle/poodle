@@ -1,0 +1,12 @@
+#!/bin/bash
+
+help() {
+    echo "Usage: $0 <cmd> [opt1] [opt2] ..."
+    exit 1
+}
+
+if [ "$1" = "" ]; then
+    help
+fi
+
+echo "$0 $@"

@@ -1,4 +1,4 @@
-package file
+package util
 
 import (
     "fmt"
@@ -43,7 +43,7 @@ func setupSnappyData() ([][]byte, [][]byte) {
     return data, compressed
 }
 
-func TestSetup(t *testing.T) {
+func TestSetupSnappy(t *testing.T) {
     setupSnappyData()
 }
 
