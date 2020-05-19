@@ -1,8 +1,8 @@
 package util
 
 import (
-    "log"
-    //"fmt"
+    //"log"
+    "fmt"
     //"time"
     //"unsafe"
     "testing"
@@ -18,8 +18,8 @@ func TestRandInt32(t *testing.T) {
     d, err := RandInt32()
 
     if err != nil {
-        log.Fatal("RandInt32 : ", err)
+        t.Fatal("RandInt32 : ", err)
     }
 
-    log.Printf("RandInt32 : %x\n", d)
+    fmt.Printf("RandInt32 : %x\n", d)
 }
