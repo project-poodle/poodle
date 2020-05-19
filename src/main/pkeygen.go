@@ -30,12 +30,8 @@ func generate_key_pair(cls int) (string, []byte, error) {
         return "", nil, err
     }
 
-    fmt.Printf("Secret %x\n", secret)
-
     padded_secret   := make([]byte, aes.BlockSize)
     copy(padded_secret, secret)
-
-    fmt.Printf("Padded Secret %x\n", padded_secret)
 
     id := fmt.Sprintf("%x", pub_key.X.Bytes())
     err = util.LCSaveKeyPair(cls, id, pub_key.X, priv_key.D, padded_secret)

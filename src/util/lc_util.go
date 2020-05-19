@@ -11,6 +11,9 @@ import (
     "bytes"
     "io"
     "io/ioutil"
+    "encoding/binary"
+    "encoding/hex"
+    "hash/crc32"
     "crypto/aes"
     "crypto/rand"
     "crypto/cipher"
@@ -20,17 +23,14 @@ import (
 )
 
 
-// var node_secret string  = ""
+////////////////////////////////////////////////////////////////////////////////
+// Util Functions
 
-/*
 func TestEq(a, b []byte) bool {
 
-    if a == nil && b == nil { 
-        return true; 
-    }
-
-    if a == nil || b == nil { 
-        return false; 
+    // If one is nil, the other must also be nil.
+    if (a == nil) != (b == nil) {
+        return false;
     }
 
     if len(a) != len(b) {
@@ -45,10 +45,6 @@ func TestEq(a, b []byte) bool {
 
     return true
 }
-*/
-
-////////////////////////////////////////////////////////////////////////////////
-// Util Functions
 
 func PromptText(prompt string) string {
     reader := bufio.NewReader(os.Stdin)
@@ -239,15 +235,47 @@ func lc_get_priv_key_path(cls int, id string) string {
     }
 }
 
-// pub key are not encrypted
-func lc_load_pub_key(cls int, id string) (*ecdsa.PublicKey, error) {
+// key data encoded as hex dump, with CRC32 at the end
+func lc_load_key_data(filepath string) ([]byte, error) {
 
-    filepath := lc_get_pub_key_path(cls, id)
     if _, stat_err := os.Stat(filepath); os.IsNotExist(stat_err) {
         return nil, stat_err
     }
 
-    data, err := ioutil.ReadFile(filepath)
+    input, err := ioutil.ReadFile(filepath)
+    if err != nil {
+        return nil, err
+    }
+
+    // TODO - decode
+	output  := make([]byte, hex.DecodedLen(len(input)))
+	n, err  := hex.Decode(output, input)
+	if err != nil {
+		return nil, err
+	}
+
+    data        := output[:n-4]
+    compute_crc := make([]byte, 4)
+    binary.LittleEndian.PutUint32(compute_crc, crc32.ChecksumIEEE(data))
+
+    content_crc := output[n-4:n]
+    if !TestEq(compute_crc, content_crc) {
+        return nil, fmt.Errorf("[%s] computed CRC does not match content CRC", filepath)
+    }
+
+    // fmt.Printf("%s\n", filepath)
+    // fmt.Printf("    data : %x\n", data)
+    // fmt.Printf("    compute crc : %x\n", compute_crc)
+    // fmt.Printf("    content crc : %x\n", content_crc)
+
+    return data, nil
+}
+
+// pub key are not encrypted
+func lc_load_pub_key(cls int, id string) (*ecdsa.PublicKey, error) {
+
+    filepath := lc_get_pub_key_path(cls, id)
+    data, err := lc_load_key_data(filepath)
     if err != nil {
         return nil, err
     }
@@ -259,11 +287,7 @@ func lc_load_pub_key(cls int, id string) (*ecdsa.PublicKey, error) {
 func lc_load_priv_key(cls int, id string, secret []byte) (*ecdsa.PrivateKey, error) {
 
     filepath := lc_get_priv_key_path(cls, id)
-    if _, stat_err := os.Stat(filepath); os.IsNotExist(stat_err) {
-        return nil, stat_err
-    }
-
-    data, err := ioutil.ReadFile(filepath)
+    data, err := lc_load_key_data(filepath)
     if err != nil {
         return nil, err
     }
@@ -315,8 +339,11 @@ func lc_save_pub_key(cls int, id string, pub_key *big.Int) error {
     pub_key_filepath    := lc_get_pub_key_path(cls, id)
 
     pub_key_bytes       := ToByteArray32(pub_key)
+    pub_key_crc         := make([]byte, 4)
+    binary.LittleEndian.PutUint32(pub_key_crc, crc32.ChecksumIEEE(pub_key_bytes))
+    pub_data            := append(pub_key_bytes[:], pub_key_crc[:]...)
 
-    pub_write_err   := ioutil.WriteFile(pub_key_filepath, pub_key_bytes, 0644)
+    pub_write_err   := ioutil.WriteFile(pub_key_filepath, []byte(fmt.Sprintf("%X", pub_data)), 0644)
     if pub_write_err != nil {
         return pub_write_err
     }
@@ -350,19 +377,26 @@ func lc_save_key_pair(cls int, id string, pub_key, priv_key *big.Int, secret []b
         return err
     }
 
-    priv_key_bytes  := ToByteArray32(priv_key)
-    pub_key_bytes   := ToByteArray32(pub_key)
+    pub_key_bytes       := ToByteArray32(pub_key)
+    pub_key_crc         := make([]byte, 4)
+    binary.LittleEndian.PutUint32(pub_key_crc, crc32.ChecksumIEEE(pub_key_bytes))
+    pub_data            := append(pub_key_bytes[:], pub_key_crc[:]...)
 
-    ciphertext  := aesgcm.Seal(nil, nonce, priv_key_bytes, nil)
-    priv_data   := append(nonce[:], ciphertext[:]...)
+    priv_key_bytes      := ToByteArray32(priv_key)
+    ciphertext          := aesgcm.Seal(nil, nonce, priv_key_bytes, nil)
+    priv_encrypted      := append(nonce[:], ciphertext[:]...)
+    priv_encrypted_crc  := make([]byte, 4)
+    binary.LittleEndian.PutUint32(priv_encrypted_crc, crc32.ChecksumIEEE(priv_encrypted))
+    priv_data           := append(priv_encrypted[:], priv_encrypted_crc[:]...)
+
     //fmt.Printf("%x\n", priv_data)
 
-    priv_write_err  := ioutil.WriteFile(priv_key_filepath,  priv_data, 0600)
+    priv_write_err  := ioutil.WriteFile(priv_key_filepath, []byte(fmt.Sprintf("%X", priv_data)), 0600)
     if priv_write_err != nil {
         return priv_write_err
     }
 
-    pub_write_err   := ioutil.WriteFile(pub_key_filepath,   pub_key_bytes, 0644) 
+    pub_write_err   := ioutil.WriteFile(pub_key_filepath, []byte(fmt.Sprintf("%X", pub_data)), 0644)
     if pub_write_err != nil {
         return pub_write_err
     }
