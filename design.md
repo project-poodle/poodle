@@ -342,7 +342,7 @@ Scheme consists of the following parts:
 
 - Consensus ID
   - This is Consensus Identity
-  - This is a binary encoded as Consensus ID format
+  - This is in binary, encoded as Consensus ID format
 
 - Domain
   - This is like database or NoSQL schema
@@ -365,6 +365,17 @@ Attribute Group. E.g.
 
     <consensus_id>, <domain>:<table>[/<attribute-group>]
     
+Scheme in Record encoding is encoded differently when transmitted via network,
+or when stored on disk.
+
+- When transmitted via network, Consensus ID is NOT encoded as part of the
+  Record.  Instead, Consensus ID is encoded as part of Consensus Block as
+  defined in P-UDP Packet encoding.
+  
+- When stored on disk, Consensus ID, Domain, and Table are NOT encoded as
+  part of the Record.  Instead, Consensus ID, Domain, and Table are encoded
+  as part of SSTable header as defffined in SSTable encoding.
+
 Examples below:
 
 | Scheme | Consensus ID | Domain | Table | Attribute Group |
