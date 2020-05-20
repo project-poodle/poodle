@@ -88,9 +88,9 @@ and is not affected by the Leap Second.
 Poodle treats all nodes in a Poodle cluster as members on a hash ring. Poodle uses
 the node public key to indicate the location of the node on the ring.
 
-There are two types of consensus in a Poodle cluster:
+There are different types of consensus in a Poodle cluster.
 
-### Cluster Consensus ###
+### Cluster Consensus - Distributed Ledger ###
 
 Poodle cluster level consensus is a distributed ledger with following properties:
 
@@ -113,7 +113,7 @@ e.g.
 Cluster level configs are published to all the nodes in the cluster, and are
 replicated to all the nodes.
 
-### Data Segment Consensus ###
+### Data Segment Consensus - Raft ###
 
 Each segment (raft.size) of the Poodle cluster on the hash ring forms a
 Raft consensus protocol, and keeps a segment of data in a distributed
