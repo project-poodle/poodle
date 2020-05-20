@@ -814,15 +814,15 @@ A SSTable consists of:
 
 - SSTable header:
   - Consensus ID
-  - Domain name and table name
+  - followed by domain name and table name
   - followed by table level (L0, L1, L2, L3, L4 ...)
   - followed by start and end time
-    - for cluster consensus, time is encoded as Epoch # 
-    - for raft consensus, time is encoded as term + milliseconds
-      elapsed + Record count within millisecond
-  - followed by start key
+    - for distributed ledger consensus, time is represented as Epoch # 
+    - for raft consensus, time is represented as Term + milliseconds
+      elapsed + Record count in the same millisecond
+  - followed by file start key
 
-- followed by record offset lookup:
+- followed by Record Offset lookup:
   - the hash scheme for Record lookup
   - followed by the Record offset table
 
