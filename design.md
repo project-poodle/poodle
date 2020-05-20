@@ -59,15 +59,13 @@ is between 300 and 500 milliseconds.
 
 These can be configured with following configs in __cluster:conf__ scheme:
 
-- time.drift.min
-  - effective drift min is:
+- time.drift.min - effective drift min is:
 
-        min(300, max(50, time.drift.min)
+      min(300, max(50, time.drift.min)
   
-- time.drift.max
-  - effective drift max is:
+- time.drift.max - effective drift max is:
   
-        min(500, max(100, time.drift.max, time.drift.min + 50))
+      min(500, max(100, time.drift.max, time.drift.min + 50))
 
 ### Leap Second ###
 
@@ -342,21 +340,22 @@ Scheme consists of the following parts:
 
 - Consensus ID
   - This is Consensus Identity
-  - This is in binary, encoded as Consensus ID format
+  - This ID is in binary, encoded as Consensus ID format
+  - Consensus ID is required as part of full Scheme
 
 - Domain
-  - This is like database or NoSQL schema
+  - This is similar to database or NoSQL schema
   - Domain name is an alpha-numeric string separated by '.'
-  - Domain name is required as part of the Scheme
+  - Domain name is required as part of the standard Scheme
   
 - Table
-  - This is like database or NoSQL table
+  - This is similar to database or NoSQL table
   - Each row is identified by a unique key
   - Table name is an alpha-numeric string separated by '.' 
-  - Table name is required as part of the Scheme
+  - Table name is required as part of the standard Scheme
   
 - Attribute Group
-  - This is like column group in a NoSQL table
+  - This is similar to column group in a NoSQL table
   - Attribute Group name is an alpha-numeric string separated by '/'
   - Attribute Group name is optional part of the Scheme
 
