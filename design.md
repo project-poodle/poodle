@@ -113,10 +113,10 @@ e.g.
 Cluster level configs are published to all the nodes in the cluster, and are
 replicated to all the nodes.
 
-### Data Segment Consensus - Raft ###
+### Segment Consensus - Raft ###
 
-Each segment (raft.size) of the Poodle cluster on the hash ring forms a
-Raft consensus protocol, and keeps a segment of data in a distributed
+Each data segment (raft.size) of the Poodle cluster on the hash ring forms
+a Raft consensus protocol, and keeps a segment of data in a distributed
 key/value store.
 
 The membership of each raft consensus protocol is dynamically determined
@@ -380,18 +380,18 @@ Examples below:
 
 | Scheme | Consensus ID | Domain | Table | Attribute Group |
 | :--- | :--- | :--- | :--- | :--- |
-| \<C\>, cluster:conf                           | \<C\> | cluster wide consensus | cluster conf table | base attribute group |
-| \<C\>, cluster:node                           | \<C\> | cluster wide consensus | node table | base attribute group for membership |
-| \<C\>, cluster:node/conf                      | \<C\> | cluster wide consensus | node table | conf attribute group |
-| \<C\>, cluster:spaceport                      | \<C\> | cluster wide consensus | space port table | base attribute group for membership |
-| \<C\>, cluster:spaceport/conf                 | \<C\> | cluster wide consensus | space port table | conf attribute group |
-| \<C\>, cluster.status:node                    | \<C\> | cluster wide status | node table | base attribute group for status |
-| \<C\>, cluster.status:node/stats              | \<C\> | cluster wide status | node table | stats attribute group |
-| \<C\>, cluster.status:spaceport               | \<C\> | cluster wide status | space port table | base attribute group for status |
-| \<C\>, cluster.status:spaceport/stats         | \<C\> | cluster wide status | space port table | stats attribute group |
-| \<C\>, \<S\>, \<E\>, raft:poodle              | \<C\>, \<S\>, \<E\> | raft consensus | poodle table | base attribute group for poodle metadata service |
-| \<C\>, \<S\>, \<E\>, raft:poodle.status       | \<C\>, \<S\>, \<E\> | raft consensus | poodle status table | status attribute group |
-| \<C\>, \<S\>, \<E\>, raft:poodle.status/stats | \<C\>, \<S\>, \<E\> | raft consensus | poodle status table | stats attribute group |
+| \<C\>, cluster:conf                           | Cluster ID | cluster wide consensus | cluster conf table | base attribute group |
+| \<C\>, cluster:node                           | Cluster ID | cluster wide consensus | node table | base attribute group for membership |
+| \<C\>, cluster:node/conf                      | Cluster ID | cluster wide consensus | node table | conf attribute group |
+| \<C\>, cluster:spaceport                      | Cluster ID | cluster wide consensus | space port table | base attribute group for membership |
+| \<C\>, cluster:spaceport/conf                 | Cluster ID | cluster wide consensus | space port table | conf attribute group |
+| \<C\>, cluster.status:node                    | Cluster ID | cluster wide status | node table | base attribute group for status |
+| \<C\>, cluster.status:node/stats              | Cluster ID | cluster wide status | node table | stats attribute group |
+| \<C\>, cluster.status:spaceport               | Cluster ID | cluster wide status | space port table | base attribute group for status |
+| \<C\>, cluster.status:spaceport/stats         | Cluster ID | cluster wide status | space port table | stats attribute group |
+| \<C\>, \<S\>, \<E\>, raft:poodle              | Cluster ID, Segment Start, Segment End | raft consensus | poodle table | base attribute group for poodle metadata service |
+| \<C\>, \<S\>, \<E\>, raft:poodle.status       | Cluster ID, Segment Start, Segment End | raft consensus | poodle status table | status attribute group |
+| \<C\>, \<S\>, \<E\>, raft:poodle.status/stats | Cluster ID, Segment Start, Segment End | raft consensus | poodle status table | stats attribute group |
 
 ### Record Encoding ###
 
