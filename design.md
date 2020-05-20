@@ -8,11 +8,11 @@ Poodle clusters and nodes are identified by crypto keys.
   ECDSA key.
 
 A Poodle node is added to a Poodle cluster by a message containing the
-__cluster.consensus:node__ scheme, the Poodle node public key, a 'UPDATE'
+__cluster:node__ scheme, the Poodle node public key, a 'UPDATE'
 operation, and a timestamp, signed by the Poodle cluster private key.
 
 A Poodle node is removed from a Poodle cluster by a message containing the
-__cluster.consensus:node__ scheme, the Poodle node public key, a 'CLEAR'
+__cluster:node__ scheme, the Poodle node public key, a 'CLEAR'
 operation, and a timestamp, signed by the Poodle cluster private key.
 
 
@@ -25,7 +25,7 @@ the Poodle cluster private key.
 Global config information are stored on all Poodle nodes.  All Poodle nodes
 in the same cluster will replicate the entire global config with change logs.
 
-Poodle global configs are associated with scheme: __cluster.consensus:conf__
+Poodle global configs are associated with scheme: __cluster:conf__
 
 Some global config Key examples are:
 
@@ -57,8 +57,7 @@ By default, poodle will accept time difference from another node with less than
 randomly chose to accept or reject packet from another node if time difference
 is between 300 and 500 milliseconds.
 
-These can be configured with following configs in __cluster.consensus:conf__
-scheme:
+These can be configured with following configs in __cluster:conf__ scheme:
 
 - time.drift.min
   - effective drift min is:
@@ -127,9 +126,9 @@ by the location of the node on the cluster.  E.g.
   active nodes on the ring with location less than the current node are part
   of the same raft consensus
 
-The key value store is distributed to the ring and specific segmented by: 
+The key value store is distributed to the ring and specific segmented by:
 
-    SHA256( CONCAT(consensus, ':', table, 0x00, key) )
+    SHA256( CONCAT(consensus_id, 0x00, domain, ':', table, 0x00, key) )
 
 
 # Proof of Stake #
@@ -331,6 +330,9 @@ The first byte is a __magic__.
 - Bit 0 is the signature bit
   - 1 means there is a timestamp and signature at the end of the record
   - 0 means no timestamp or signature at the end of the record
+  - source content of the signature include binary consensus ID, concatenated
+    with Record content, including Record Magic, Key, Value, Scheme, and
+    Timestamp
   - If signature bit is 1, the content of data are in raw format,
     and cannot be encoded with lookup scheme, or compression scheme
   
@@ -338,10 +340,14 @@ The first byte is a __magic__.
 
 Scheme consists of the following parts:
 
-- Consensus
+- Consensus ID
+  - This is Consensus Identity
+  - This is a binary encoded as Consensus ID format
+
+- Domain
   - This is like database or NoSQL schema
-  - Consensus name is an alpha-numeric string separated by '.'
-  - Consensus name is required as part of the Scheme
+  - Domain name is an alpha-numeric string separated by '.'
+  - Domain name is required as part of the Scheme
   
 - Table
   - This is like database or NoSQL table
@@ -354,26 +360,27 @@ Scheme consists of the following parts:
   - Attribute Group name is an alpha-numeric string separated by '/'
   - Attribute Group name is optional part of the Scheme
 
-A full Scheme is joined by Consensus, Table, and optional Attribute Group. E.g.
+A full Scheme is joined by Consensus ID, with Domain, Table, and optional
+Attribute Group. E.g.
 
-    <consensus>:<table>[/<attribute-group>]
+    <consensus_id>, <domain>:<table>[/<attribute-group>]
     
 Examples below:
 
-| Scheme | Consensus | Table | Attribute Group |
-| :--- | :--- | :--- | :--- |
-| cluster.consensus:conf                | cluster wide consensus | cluster conf table | base attribute group |
-| cluster.consensus:node                | cluster wide consensus | node table | base attribute group for membership |
-| cluster.consensus:node/conf           | cluster wide consensus | node table | conf attribute group |
-| cluster.consensus:spaceport           | cluster wide consensus | space port table | base attribute group for membership |
-| cluster.consensus:spaceport/conf      | cluster wide consensus | space port table | conf attribute group |
-| cluster.status:node                   | cluster wide status | node table | base attribute group for status |
-| cluster.status:node/stats             | cluster wide status | node table | stats attribute group |
-| cluster.status:spaceport              | cluster wide status | space port table | base attribute group for status |
-| cluster.status:spaceport/stats        | cluster wide status | space port table | stats attribute group |
-| raft.\<S\>.\<E\>:poodle               | raft consensus between \<S\> and \<E\> | poodle table | base attribute group for poodle metadata service |
-| raft.\<S\>.\<E\>:poodle.status        | raft consensus between \<S\> and \<E\> | poodle status table | status attribute group |
-| raft.\<S\>.\<E\>:poodle.status/stats  | raft consensus between \<S\> and \<E\> | poodle status table | stats attribute group |
+| Scheme | Consensus ID | Domain | Table | Attribute Group |
+| :--- | :--- | :--- | :--- | :--- |
+| \<C\>, cluster:conf                           | \<C\> | cluster wide consensus | cluster conf table | base attribute group |
+| \<C\>, cluster:node                           | \<C\> | cluster wide consensus | node table | base attribute group for membership |
+| \<C\>, cluster:node/conf                      | \<C\> | cluster wide consensus | node table | conf attribute group |
+| \<C\>, cluster:spaceport                      | \<C\> | cluster wide consensus | space port table | base attribute group for membership |
+| \<C\>, cluster:spaceport/conf                 | \<C\> | cluster wide consensus | space port table | conf attribute group |
+| \<C\>, cluster.status:node                    | \<C\> | cluster wide status | node table | base attribute group for status |
+| \<C\>, cluster.status:node/stats              | \<C\> | cluster wide status | node table | stats attribute group |
+| \<C\>, cluster.status:spaceport               | \<C\> | cluster wide status | space port table | base attribute group for status |
+| \<C\>, cluster.status:spaceport/stats         | \<C\> | cluster wide status | space port table | stats attribute group |
+| \<C\>, \<S\>, \<E\>, raft:poodle              | \<C\>, \<S\>, \<E\> | raft consensus | poodle table | base attribute group for poodle metadata service |
+| \<C\>, \<S\>, \<E\>, raft:poodle.status       | \<C\>, \<S\>, \<E\> | raft consensus | poodle status table | status attribute group |
+| \<C\>, \<S\>, \<E\>, raft:poodle.status/stats | \<C\>, \<S\>, \<E\> | raft consensus | poodle status table | stats attribute group |
 
 ### Record Encoding ###
 
@@ -530,17 +537,15 @@ by the sender's Timestamp and Signature.
 
 ### Packet Encoding ###
 
-A Poodle Packet is encoded below:
+A P-UDP Packet is encoded below:
 
-                    request
-                      or
-    Node ID         response                 8 bytes timestamp
+                   Consensus
+    Node ID          Block                  8 bytes timestamp
     |     |         |     |                  |     |
     X ... X X ... X X ... X ... ...  X ... X X ... X X ... ... X
             |     |                  |     |         |         |
-            request                  request         32 bytes signature
-              or                       or
-            response                 response
+           Consensus                Consensus        32 bytes signature
+             Block                    Block
 
 Poodle Packet is constructed as UDP packet, a Poodle packet must be less
 than 64KB.
@@ -554,8 +559,8 @@ of the buffer without waiting for the timer.
 - Node ID
   - Node ID is encoded with DATA
   
-- A list of requests and responses
-  - a list of requests and responses as in the request response encoding
+- A list of Consensus Blocks
+  - a list of Consensus Blocks as in the Consensus Block encoding
   
 - Timestamp
   - 8 bytes timestamp represent node own timestamp
@@ -563,6 +568,82 @@ of the buffer without waiting for the timer.
 - Signature
   - 32 bytes signature covers a list of requests and responses and the
     timestamp
+    
+### Consensus ID Magic ###
+
+         Federation
+            bit
+             |
+    Universe | Segment
+        bit  |  bit
+         |   |   |
+         7 6 5 4 3 2 1 0
+           |   |   |   |
+       Cluster |  Reserved
+          bit  |
+               |
+            Service
+              bit
+
+- Bit 7 is Universe bit
+  - 1 means Universe ID is present
+  - 0 means no Universe ID
+  
+- Bit 6 is Cluster bit
+  - 1 means Cluster ID is present
+  - 0 means no Cluster ID
+  
+- Bit 5 is Federation bit
+  - 1 means Federation ID is present
+  - 0 means no Federation ID
+  
+- Bit 4 is Service bit
+  - 1 means Service ID is present
+  - 0 means no Service ID
+  
+- Bit 3 is Segment bit
+  - 1 means Segment Start and Segment End are present
+  - 0 means no Segment start or Segment End
+  
+- Bit 2, 1, and 0 are reserved
+  
+### Consensus ID Encoding ###
+
+                                          Segment
+          Universe       Federation        Start
+          |     |         |     |         |     |
+        X X ... X X ... X X ... X X ... X X ... X X ... X
+        |         |     |         |     |         |     |
+    Consensus     Cluster         Service         Segment
+       ID                                           End
+      Magic
+      
+A Consensus ID is encoded as:
+
+- Consensus ID Magic
+- Followed by optional Universe ID
+- Followed by optional Cluster ID
+- Followed by optional Federation ID
+- Followed by optional Service ID
+- Followed by optional Segment Start and Segment End ID
+
+### Consensus Block Encoding ###
+
+                       Request
+          Operation      or
+           Count       Response
+             |         |     |
+     X ... X X X ... X X ... X ... ... X ... X
+     |     |   |     |                 |     |
+    Consensus  Request                 Request
+       ID        or                      or
+               Response                Response
+
+A Consensus Block is encoded as:
+
+- Consensus ID
+- Followed by 1 byte Operation Count (maximum 255)
+- Followed by a list of Request or Response
 
 ### Request and Response Magic ###
 
@@ -677,17 +758,26 @@ A few properties of SSTable file:
 
 Poodle treats different portion of the Record Scheme separately:
 
-- Consensus
-  - Each Consensus are stored with its own directory structure
-  - Different Consensuses are always stored separately
-  - Consensus information determines directory name of the storage files
-  - Consensus information is stored as the header of the storage files
-  - Consensus information is removed from Scheme when the Record is
+- Consensus ID
+  - Each Consensus ID are stored with its own directory structure
+  - Different Consensus IDs are always stored separately
+  - Consensus ID information determines directory name of the storage files
+  - Consensus ID information is stored as the header of the storage files
+  - Consensus ID information is removed from Scheme when the Record is
+    stored in SSTable
+
+- Domain
+  - Each Domain is stored as separate directory structure under the
+    Consensus ID directory
+  - Different Domains are always stored separately
+  - Domain information determines directory name of the storage files
+  - Domain information is stored as the header of the storage files
+  - Domain information is removed from Scheme when the Record is
     stored in SSTable
   
 - Table
   - Each Table is stored as separate directory structure under the
-    Consensus directory
+    Domain directory
   - Like LevelDB and RocksDB, Poodle Table is a leveled structure of
     multiple SSTables at each level.
   - MemTables are flushed to L0 table
@@ -702,8 +792,8 @@ Poodle treats different portion of the Record Scheme separately:
     stored in SSTable
   
 - Attribute Group
-  - All Attribute Groups of the same Consensus and same Table are stored
-    in the same groups of SSTable
+  - All Attribute Groups of the same Consensus ID, same Domain, and same
+    Table are stored in the same groups of SSTable
   - Attribute Group information is stored in the Scheme field of a Record
     in SSTable
 
@@ -712,7 +802,8 @@ Poodle treats different portion of the Record Scheme separately:
 A SSTable consists of:
 
 - SSTable header:
-  - Consensus name and table name
+  - Consensus ID
+  - Domain name and table name
   - followed by table level (L0, L1, L2, L3, L4 ...)
   - followed by start and end time
     - for cluster consensus, time is encoded as Epoch # 
