@@ -8,11 +8,11 @@ Poodle clusters and nodes are identified by crypto keys.
   ECDSA key.
 
 A Poodle node is added to a Poodle cluster by a message containing the
-__poodle.cluster.membership__ domain, the Poodle node public key, a 'UPDATE'
+__cluster.consensus:node__ scheme, the Poodle node public key, a 'UPDATE'
 operation, and a timestamp, signed by the Poodle cluster private key.
 
 A Poodle node is removed from a Poodle cluster by a message containing the
-__poodle.cluster.membership__ domain, the Poodle node public key, a 'CLEAR'
+__cluster.consensus:node__ scheme, the Poodle node public key, a 'CLEAR'
 operation, and a timestamp, signed by the Poodle cluster private key.
 
 
@@ -25,21 +25,21 @@ the Poodle cluster private key.
 Global config information are stored on all Poodle nodes.  All Poodle nodes
 in the same cluster will replicate the entire global config with change logs.
 
-Poodle global configs are associated with domain: __poodle.config__
+Poodle global configs are associated with scheme: __cluster.consensus:conf__
  
-Some global config examples are:
+Some global config Key examples are:
 
-- poodle.raft.size
+- raft.size
   - Suggested raft consensus size.
   - Actual raft consensus size is:
         
-        min(21, max(4, poodle.raft.size))
+        min(21, max(3, raft.size))
     
-- poodle.raft.quorum
+- raft.quorum
   - Suggested raft quorum size.
   - Actual raft quorum size is:
         
-        min(poodle.raft.size, max(ceil((poodle.raft.size + 2)/2), poodle.raft.quorum))
+        min(raft.size, max(ceil((raft.size + 2)/2), raft.quorum))
 
 
 # Time Synchronization #
@@ -57,15 +57,16 @@ By default, poodle will accept time difference from another node with less than
 randomly chose to accept or reject packet from another node if time difference
 is between 400 and 600 milliseconds.
 
-These can be configured with following configs in __poodle.config__ domain:
+These can be configured with following configs in __cluster.consensus:conf__
+scheme:
 
-- poodle.time.drift.min
+- time.drift.min
 
-      min(800, max(100, poodle.time.drift.min)
+      min(300, max(50, time.drift.min)
   
-- poodle.time.drift.max
+- time.drift.max
   
-      min(1000, max(300, poodle.time.drift.max))
+      min(500, max(100, time.drift.max, time.drift.min + 50))
 
 
 # Consensus #
@@ -77,7 +78,8 @@ There are two types of consensus in a Poodle cluster:
 
 ### Cluster Consensus ###
 
-Poodle cluster level consensus keeps global state for the entire poodle cluster, e.g.
+Poodle cluster level consensus keeps global state for the entire poodle cluster,
+e.g.
 
 - node membership
 - global config parameters
@@ -99,20 +101,20 @@ Poodle cluster level consensus is a distributed ledger with following properties
  
 ### Data Segment Consensus ###
 
-Each segment (poodle.raft.size) of the Poodle cluster on the hash ring
+Each segment (raft.size) of the Poodle cluster on the hash ring
 forms a Raft consensus protocol, and keeps a segment of data in a
 distributed key/value store.
 
 The membership of each raft consensus protocol is dynamically determined
 by the location of the node on the cluster.  E.g.
 
-- if poodle.raft.size == 4, then for a specific node, itself, and 3 neighbor
+- if raft.size == 5, then for a specific node, itself, and 4 neighbor
   active nodes on the ring with location less than the current node are part
   of the same raft consensus
 
 The key value store is distributed to the ring and specific segmented by: 
 
-- (hash value of the key) XOR (hash value of the domain)
+    SHA256( CONCAT(consensus, ':', table, 0x00, key) )
 
 
 # Proof of Stake #
@@ -218,16 +220,18 @@ splitted:
   identities into one.
   
 Raft consensus group identity changes are processed 1 node at a time, and
-is only processed after 3 confirmations of the cluster global consensus protocol.
+is only processed after 3 confirmations of the cluster global consensus
+protocol.
 
-The Raft consensus identities change only when node membership changes (config change).
-Node healthiness (status change) does not change the raft consensus group identities.
+The Raft consensus identities change only when node membership changes
+(config change). Node healthiness (status change) does not change the raft
+consensus group identities.
 
 ### Raft Consensus Membership ###
 
 Node healthiness change, when consistently detected in raft consensus group by
 the leader after one full epoch, will be logged to the Raft consensus log, then
-published to the cluster level consensus as __poodle.node.healthiness__ domain.
+published to the cluster level consensus as __cluster.status:node__ scheme.
 
 Poodle records node status as one of the 3 conditions:
 
@@ -261,7 +265,7 @@ Raft stability.
 
 # Record #
 
-Record a domain, key, value tuple encoded as the following.
+Record consists of a scheme, key, value tuple encoded as the following.
 
 A Record cannot exceed 64 KB, with following constraints:
 
@@ -269,16 +273,16 @@ A Record cannot exceed 64 KB, with following constraints:
   - Maximum key length is 4 KB
 - Value
   - Maximum value length is 56 KB
-- Domain
-  - Maximum domain length is 2 KB
+- Scheme
+  - Maximum scheme length is 2 KB
 
-### Record Magic ###
+### Record Encode Magic ###
 
 The first byte is a __magic__.
 
                Signature
                  bit
-    Key    Domain | 
+    Key    Scheme | 
     | |     | |   |
     7 6 5 4 3 2 1 0
         | |     |
@@ -286,23 +290,23 @@ The first byte is a __magic__.
               Clear
                bit
 
-- Bit 7 and 6 are the key bits for encoding of a key
+- Bit 7 and 6 are the key bits for encoding of key
   - 00 means no key
   - 01 means 1 byte to represent key length (up to 255 bytes)
-  - 10 means 2 bytes to represent key length (up to 65565 bytes)
+  - 10 means 2 bytes to represent key length (up to 4 KB)
   - 11 means key is encoded with __data encoding__
 
-- Bit 5 and 4 are the value bits for encoding of a value 
+- Bit 5 and 4 are the value bits for encoding of value 
   - 00 means no value
   - 01 means 1 byte to represent value length (up to 255 bytes)
-  - 10 means 2 bytes to represent value length (up to 65565 bytes)
+  - 10 means 2 bytes to represent value length (up to 56 KB)
   - 11 means value is encoded with __data encoding__
 
-- Bit 3 and 2 are the value bits for encoding of a value 
-  - 00 means no domain
-  - 01 means 1 byte to represent domain length (up to 255 bytes)
-  - 10 means 2 bytes to represent domain length (up to 65565 bytes)
-  - 11 means domain is encoded with __data encoding__
+- Bit 3 and 2 are the value bits for encoding of scheme 
+  - 00 means no scheme
+  - 01 means 1 byte to represent scheme length (up to 255 bytes)
+  - 10 means 2 bytes to represent scheme length (up to 2 KB)
+  - 11 means scheme is encoded with __data encoding__
 
 - Bit 1 is the clear bit
   - 1 means 'CLEAR' operation
@@ -314,11 +318,52 @@ The first byte is a __magic__.
   - If signature bit is 1, the content of data are in raw format,
     and cannot be encoded with lookup scheme, or compression scheme
   
+### Scheme Format ###
+
+Scheme consists of the following parts:
+
+- Consensus
+  - This is like database or NoSQL schema
+  - Consensus name is an alpha-numeric string separated by '.'
+  - Consensus name is required as part of the Scheme
+  
+- Table
+  - This is like database or NoSQL table
+  - Each row is identified by a unique key
+  - Table name is an alpha-numeric string separated by '.' 
+  - Table name is required as part of the Scheme
+  
+- Attribute Group
+  - This is like column group in a NoSQL table
+  - Attribute Group name is an alpha-numeric string separated by '/'
+  - Attribute Group name is optional part of the Scheme
+
+A full Scheme is joined by Consensus, Table, and optional Attribute Group. E.g.
+
+    <consensus>:<table>[/<attribute-group>]
+    
+Examples below:
+
+| Scheme | Consensus | Table | Attribute Group |
+| :--- | :--- | :--- | :--- |
+| cluster.consensus:conf                | cluster wide consensus | cluster conf table | base attribute group |
+| cluster.consensus:node                | cluster wide consensus | node table | base attribute group for membership |
+| cluster.consensus:node/conf           | cluster wide consensus | node table | conf attribute group |
+| cluster.consensus:spaceport           | cluster wide consensus | space port table | base attribute group for membership |
+| cluster.consensus:spaceport/conf      | cluster wide consensus | space port table | conf attribute group |
+| cluster.status:node                   | cluster wide status | node table | base attribute group for status |
+| cluster.status:node/stats             | cluster wide status | node table | stats attribute group |
+| cluster.status:spaceport              | cluster wide status | space port table | base attribute group for status |
+| cluster.status:spaceport/stats        | cluster wide status | space port table | stats attribute group |
+| raft.\<S\>.\<E\>:poodle               | raft consensus between \<S\> and \<E\> | poodle table | base attribute group for poodle metadata service |
+| raft.\<S\>.\<E\>:poodle.status        | raft consensus between \<S\> and \<E\> | poodle status table | status attribute group |
+| raft.\<S\>.\<E\>:poodle.status/stats  | raft consensus between \<S\> and \<E\> | poodle status table | stats attribute group |
+
 ### Record Encoding ###
 
 A full record is encoded as following:
 
-                                      Domain Length
+                                      Scheme Length
                       Value Length     | |
       Key Length       | |             | |             8 bytes timestamp
        | |             | |             | |             |     |
@@ -326,13 +371,13 @@ A full record is encoded as following:
      |     |         |     |         |     |         |         |         |
      |     Key Content     |         |     |         |         32 bytes signature
      |                    Value Content    |         |
-     |                                    Domain Content
+     |                                    Scheme Content
     Magic
                                       
 - Lead by a __magic__ byte
 - Followed by key length, then key content (if applicable)
 - Followed by value length, then value content (if applicable)
-- Followed by domain length, then domain content (if applicable)
+- Followed by scheme length, then scheme content (if applicable)
 - Followed by timestamp (8 bytes) and signature (32 bytes) (if applicable)
 
 ### Data Encode Magic ###
@@ -340,7 +385,7 @@ A full record is encoded as following:
 Data encoding can significantly reduce size of the data by representing
 data as a lookup, or in compressed format.
 
-When the record encoding bits are __11__ for key, value, or domain, this
+When the record encoding bits are __11__ for key, value, or scheme, this
 indicates the data follows __data encoding__. In this case, the first byte
 of the data encoding is another magic that represents __data encoding
 magic__.
@@ -426,9 +471,9 @@ enumeration of data content is limited, lookup can be an effective
 way of reducing the data size.
  
 A poodle consensus keeps a list of cluster wide lookup schemes.
-The list of schemes are registered across the cluster, and is specific
-to a domain.  The cluster wide lookup schema and can be used to encode
-data.  E.g.
+The list of lookup schemes are registered across the cluster, and is
+specific to a consensus.  The cluster wide lookup scheme and can be
+used to encode data.  E.g.
 
 - A 256 bits ECDSA public key is 32 bytes long.  Sending 32 bytes
   over the wire, or store on disk can represent a significant overhead.
@@ -441,13 +486,13 @@ data.  E.g.
   hash and 2 bytes lookup key will be enough to represent an ECDSA public
   key.
   
-- Considering we will need to continuously evolving lookup schemas (e.g.
+- Considering we will need to continuously evolving lookup schemes (e.g.
   when new nodes are added, and old removed, the lookup scheme will need
   to be updated), we will need to record a list of actively used schemes.
   
-- Assume 1 byte to represent schema, and 2 bytes to represent data content,
+- Assume 1 byte to represent scheme, and 2 bytes to represent data content,
   total encoding length of a 32 bytes ECDSA public key is: 1 magic byte +
-  1 lookup schema byte + 0 compression scheme byte + 0 length byte + 2
+  1 lookup scheme byte + 0 compression scheme byte + 0 length byte + 2
   content bytes = 4 bytes.  This is 87.5% reduction of data size.
 
 When data size is relatively large (larger than ~1k), and when data is not
@@ -459,11 +504,13 @@ The list of schemes are registered across the cluster, and can be
 used to encode data.
 
 
-# Packet #
+# P-UDP Packet #
 
-Poodle uses UDP Packet for fast metadata operations.  A UDP packet
-consists of a list of Request(s) and Response(s)) followed by the
-Packet Timestamp and Signature
+Poodle uses UDP Packet for fast metadata operations.
+
+P-UDP stands for Poodle UDP.  A P-UDP packet consists of the sender's
+node ID, followed by a list of Request(s) and Response(s), followed
+by the sender's Timestamp and Signature.
 
 ### Packet Encoding ###
 
@@ -525,30 +572,31 @@ of the buffer without waiting for the timer.
   
 - Bit 5 and 4 are ops bits
   - 00 means GET
-    - this gets the specified key of specific domain
+    - this gets the specified key of specific Consensus, Table, and
+      Attribute Group
   - 01 means SET
-    - this sets value of the specified key of specific domain. Both
-      UPDATE and CLEAR record are considered SET
+    - this sets value of the specified key of specific Consensus, Table,
+      and Attribute Group. Both UPDATE and CLEAR record are considered SET
   - 10 means KEYS
-    - this retrieves a list of keys under the specified key of specific
-      domain
+    - this retrieves a list of Keys and Attribute Groups under the specified
+      Key of specific Consensus and Table
   - 11 means VALUES
-    - this retrieves a list of records (key/value) under the specified
-      key of specific domain
+    - this retrieves a list of Records (key/value) under the specified
+      Key of specific Consensus and Table
       
 - Bits 3 is test bit
   - Test bit enables atomic operation for handling of locked operation
   - When ops is POST (bits 4 and 5 are 01), this will test if a key
     matches the specified value and then UPDATE or CLEAR the key. e.g.
-  - Set __value__ to __v1__ for __domain=d1__, __key=k1__ if this value
+  - Set __value__ to __v1__ for __scheme=d1__, __key=k1__ if this value
     is not already set:
-    - ops=POST, test=TEST, record=SET, domain=d1, key=k1, value=v1
+    - ops=POST, test=TEST, record=SET, scheme=d1, key=k1, value=v1
     - if a value is already set, this operation will return an error
     - if a value is not set, this operation will set the value, and will
       return success
-  - Clear __value__ for __domain=d1__, __key=k2__ if value is already
+  - Clear __value__ for __scheme=d1__, __key=k2__ if value is already
     set to __v2__:
-    - ops=POST, test=1, record=SET, domain=d1, key=k1, value=v2
+    - ops=POST, test=1, record=SET, scheme=d1, key=k1, value=v2
     - if a value is not set, this operation will return success
     - if a value is set, but value is not __v2__, this operation
       will return an error
@@ -590,6 +638,99 @@ content, followed by optional test millis:
         X X ... ... X X ... X
           |         |
           Record Content
+
+
+# SSTable #
+
+Poodle stores Records as SSTable.
+
+A few properties of SSTable file:
+
+- SSTable is immutable - once written, it is never modified
+  - SSTables are merged with other SSTables
+  - SSTables can be removed once merged and not longer needed
+  - SSTables content are never changed
+
+- Each SSTable have can have no more than 64k Records
+  - This enables generation of 2 bytes Perfect Hash key
+
+- Each SSTable can be no more than 4GB size
+  - Each Record is less than 64 KB
+
+### Record Scheme and SSTable ###
+
+Poodle treats different portion of the Record Scheme separately:
+
+- Consensus
+  - Each Consensus are stored with its own directory structure
+  - Different Consensuses are always stored separately
+  - Consensus information determines directory name of the storage files
+  - Consensus information is stored as the header of the storage files
+  - Consensus information is removed from Scheme when the Record is
+    stored in SSTable
+  
+- Table
+  - Each Table is stored as separate directory structure under the
+    Consensus directory
+  - Like LevelDB and RocksDB, Poodle Table is a leveled structure of
+    multiple SSTables at each level.
+  - MemTables are flushed to L0 table
+  - 10 L0 tables merges into one L1 table
+  - 10 L1 tables merges into one L2 table
+  - 10 L2 tables merges into one L3 table
+  - 10 L3 tables merges into one L4 table
+  - ...
+  - Table information determines directory name of the storage files
+  - Table information is stored as the header of the storage files
+  - Table information is removed from Scheme when the Record is
+    stored in SSTable
+  
+- Attribute Group
+  - All Attribute Groups of the same Consensus and same Table are stored
+    in the same groups of SSTable
+  - Attribute Group information is stored in the Scheme field of a Record
+    in SSTable
+
+### SSTable Structure ###
+
+A SSTable consists of:
+
+- SSTable header:
+  - Consensus name and table name
+  - followed by table level (L0, L1, L2, L3, L4 ...)
+  - followed by start and end time
+    - for cluster consensus, time is encoded as Epoch # 
+    - for raft consensus, time is encoded as term + milliseconds
+      elapsed + Record count within millisecond
+  - followed by start key
+
+- followed by record offset lookup:
+  - the hash scheme for Record lookup
+  - followed by the Record offset table
+
+- followed by a list of Records
+
+- followed by crc32
+
+### Record Offset Lookup ###
+
+For each SSTable, Poodle generates a Perfect Hash for fast lookup
+of Record in the file.
+
+The Hash Key is composed by:
+ 
+    <key_bytes> + 0x00 + <attribute_group_bytes>
+
+Each SSTable file is less than 4GB, the record offset can be represented as
+an uint32.  A 256 KB (64k * 4 bytes) offset table is enough to keep the offset
+of all Records in an SSTable.
+
+### List of Records ###
+
+SSTable uses Sort Key (same as Hash Key) to sort all the Records in a SSTable
+and store the sorted Records in the file:
+
+    <key_bytes> + 0x00 + <attribute_group_bytes>
 
 
 # Service #
