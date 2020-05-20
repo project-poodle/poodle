@@ -1,6 +1,6 @@
 # Identity #
 
-Poodle clusters and nodes are identified by crypto keys.
+Poodle clusters and nodes are identified by [ECDSA](https://golang.org/pkg/crypto/ecdsa/) crypto keys.
 
 - Each Poodle cluster is identified by a cluster specific public / private
   ECDSA key.
