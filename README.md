@@ -6,6 +6,8 @@ Project Poodle is a set of storage services that:
 
 - Supports high throughput distributed operations with no SPOC
 
+- Supports dynamic data movements and migrations without down time
+
 - Dynamically finds and uses available system resources
 
-- Supports dynamic data migrations without down time
+Refer to [design document](./design.md) for more details.

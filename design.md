@@ -26,7 +26,7 @@ Global config information are stored on all Poodle nodes.  All Poodle nodes
 in the same cluster will replicate the entire global config with change logs.
 
 Poodle global configs are associated with scheme: __cluster.consensus:conf__
- 
+
 Some global config Key examples are:
 
 - raft.size
@@ -44,29 +44,44 @@ Some global config Key examples are:
 
 # Time Synchronization #
 
-Poodle assumes all nodes are synced with each other on unix time.  The assumption
-does not require exact sync, and allow drift of 100s of milliseconds of drift.
+Poodle assumes all nodes are synced with each other on Unix time.  The assumption
+does not require exact clock sync, and allows clock drift of 100s of milliseconds.
 
 Each Poodle network message contains a timestamp of the source node.  When the
 destination node received the message, it checks the timestamp against its own,
-and if the timestamp difference is significant high, the receiving node will
-discard the message and log the error.
+and if the timestamp difference is significantly high, the receiving node will
+discard the message and log an error.
 
 By default, poodle will accept time difference from another node with less than
-400 milliseconds difference; reject time difference above 600 milliseconds; and
+300 milliseconds difference; reject time difference above 500 milliseconds; and
 randomly chose to accept or reject packet from another node if time difference
-is between 400 and 600 milliseconds.
+is between 300 and 500 milliseconds.
 
 These can be configured with following configs in __cluster.consensus:conf__
 scheme:
 
 - time.drift.min
+  - effective drift min is:
 
-      min(300, max(50, time.drift.min)
+        min(300, max(50, time.drift.min)
   
 - time.drift.max
+  - effective drift max is:
   
-      min(500, max(100, time.drift.max, time.drift.min + 50))
+        min(500, max(100, time.drift.max, time.drift.min + 50))
+
+### Leap Second ###
+
+[Leap Second](https://en.wikipedia.org/wiki/Leap_second) is a one-second
+adjustment that is occasionally applied to Coordinated Universal Time (UTC),
+to accommodate the difference between precise time (as measured by atomic clocks)
+and imprecise observed solar time.
+
+For Cluster wide consensus, Poodle uses 30 seconds epoch, and can tolerate
+leap second when it occurs.
+
+For Raft consensus, Poodle uses [Unix monotonic clock](https://golang.org/pkg/time/),
+and is not affected by the Leap Second.
 
 
 # Consensus #
@@ -78,19 +93,6 @@ There are two types of consensus in a Poodle cluster:
 
 ### Cluster Consensus ###
 
-Poodle cluster level consensus keeps global state for the entire poodle cluster,
-e.g.
-
-- node membership
-- global config parameters
-- current epoch
-- compaction epoch
-- global lookup schemes
-- global compression schemes
-
-Cluster level configs are published to all the nodes in the cluster, and are
-replicated to all the nodes.
-
 Poodle cluster level consensus is a distributed ledger with following properties:
 
 - Consensus by Proof of Stake, each valid member node has 1/N-th of voting share
@@ -99,11 +101,24 @@ Poodle cluster level consensus is a distributed ledger with following properties
 
 - epoch represented as unsigned int (4 bytes), possible life span ~4000 years
  
+Poodle cluster level consensus keeps global state for the entire poodle cluster,
+e.g.
+
+- node membership
+- global config parameters
+- global status and stats
+- current epoch
+- global lookup schemes
+- global compression schemes
+
+Cluster level configs are published to all the nodes in the cluster, and are
+replicated to all the nodes.
+
 ### Data Segment Consensus ###
 
-Each segment (raft.size) of the Poodle cluster on the hash ring
-forms a Raft consensus protocol, and keeps a segment of data in a
-distributed key/value store.
+Each segment (raft.size) of the Poodle cluster on the hash ring forms a
+Raft consensus protocol, and keeps a segment of data in a distributed
+key/value store.
 
 The membership of each raft consensus protocol is dynamically determined
 by the location of the node on the cluster.  E.g.
@@ -215,6 +230,7 @@ splitted:
 - When new node membership is added, Poodle will split corresponding
   Raft consensus group identity by introducing a new Raft consensus identity,
   then split node membership to serve the newly split Raft consensus identity.
+  
 - When existing node membership is removed, Poodle will merge corresponding
   Raft consensus identity, and merge the metadata from two Raft consensus
   identities into one.
@@ -731,6 +747,16 @@ SSTable uses Sort Key (same as Hash Key) to sort all the Records in a SSTable
 and store the sorted Records in the file:
 
     <key_bytes> + 0x00 + <attribute_group_bytes>
+
+### Compaction ###
+
+SSTables are compacted to the next level when current level reaches 2 * 10
+tables.
+
+Compactions are performed on 10 tables - this keeps the time of compaction
+stable after the compaction. 
+
+This compaction scheme is to enable speedy data replication from the client.
 
 
 # Service #
