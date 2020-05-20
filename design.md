@@ -32,11 +32,14 @@ Some global config examples are:
 - poodle.raft.size
   - Suggested raft consensus size.
   - Actual raft consensus size is:
-    - min(21, max(4, poodle.raft.size))
+        
+        min(21, max(4, poodle.raft.size))
+    
 - poodle.raft.quorum
   - Suggested raft quorum size.
   - Actual raft quorum size is:
-    - min(poodle.raft.size, max(ceil((poodle.raft.size + 2)/2), poodle.raft.quorum))
+        
+        min(poodle.raft.size, max(ceil((poodle.raft.size + 2)/2), poodle.raft.quorum))
 
 
 # Time Synchronization #
@@ -57,9 +60,12 @@ is between 400 and 600 milliseconds.
 These can be configured with following configs in __poodle.config__ domain:
 
 - poodle.time.drift.min
-  - min(800, max(100, poodle.time.drift.min)
+
+      min(800, max(100, poodle.time.drift.min)
+  
 - poodle.time.drift.max
-  - min(1000, max(300, poodle.time.drift.max))
+  
+      min(1000, max(300, poodle.time.drift.max))
 
 
 # Consensus #
@@ -86,7 +92,9 @@ replicated to all the nodes.
 Poodle cluster level consensus is a distributed ledger with following properties:
 
 - Consensus by Proof of Stake, each valid member node has 1/N-th of voting share
+
 - 30 seconds consensus time for each epoch
+
 - epoch represented as unsigned int (4 bytes), possible life span ~4000 years
  
 ### Data Segment Consensus ###
@@ -255,36 +263,51 @@ Raft stability.
 
 Record a domain, key, value tuple encoded as the following.
 
+A Record cannot exceed 64 KB, with following constraints:
+
+- Key
+  - Maximum key length is 4 KB
+- Value
+  - Maximum value length is 56 KB
+- Domain
+  - Maximum domain length is 2 KB
+
 ### Record Magic ###
 
 The first byte is a __magic__.
 
-                  signature bit
-    key    domain | 
+               Signature
+                 bit
+    Key    Domain | 
     | |     | |   |
     7 6 5 4 3 2 1 0
         | |     |
-       value    |
-                clear bit
+       Value    |
+              Clear
+               bit
 
 - Bit 7 and 6 are the key bits for encoding of a key
   - 00 means no key
   - 01 means 1 byte to represent key length (up to 255 bytes)
   - 10 means 2 bytes to represent key length (up to 65565 bytes)
   - 11 means key is encoded with __data encoding__
+
 - Bit 5 and 4 are the value bits for encoding of a value 
   - 00 means no value
   - 01 means 1 byte to represent value length (up to 255 bytes)
   - 10 means 2 bytes to represent value length (up to 65565 bytes)
   - 11 means value is encoded with __data encoding__
+
 - Bit 3 and 2 are the value bits for encoding of a value 
   - 00 means no domain
   - 01 means 1 byte to represent domain length (up to 255 bytes)
   - 10 means 2 bytes to represent domain length (up to 65565 bytes)
   - 11 means domain is encoded with __data encoding__
+
 - Bit 1 is the clear bit
   - 1 means 'CLEAR' operation
   - 0 means 'UPDATE' operation
+  
 - Bit 0 is the signature bit
   - 1 means there is a timestamp and signature at the end of the record
   - 0 means no timestamp or signature at the end of the record
@@ -295,15 +318,15 @@ The first byte is a __magic__.
 
 A full record is encoded as following:
 
-                                     Domain Length
-                     Value Length     | |
-      Key Length      | |             | |             8 bytes timestamp
-      | |             | |             | |             |     |
-    X X X X ... ... X X X X ... ... X X X X ... ... X X ... X X ... ... X
-    |     |         |     |         |     |         |         |         |
-    |     Key Content     |         |     |         |         32 bytes signature
-    |                    Value Content    |         |
-    |                                    Domain Content
+                                      Domain Length
+                      Value Length     | |
+      Key Length       | |             | |             8 bytes timestamp
+       | |             | |             | |             |     |
+     X X X X ... ... X X X X ... ... X X X X ... ... X X ... X X ... ... X
+     |     |         |     |         |     |         |         |         |
+     |     Key Content     |         |     |         |         32 bytes signature
+     |                    Value Content    |         |
+     |                                    Domain Content
     Magic
                                       
 - Lead by a __magic__ byte
@@ -312,7 +335,7 @@ A full record is encoded as following:
 - Followed by domain length, then domain content (if applicable)
 - Followed by timestamp (8 bytes) and signature (32 bytes) (if applicable)
 
-### Data Magic ###
+### Data Encode Magic ###
 
 Data encoding can significantly reduce size of the data by representing
 data as a lookup, or in compressed format.
@@ -322,38 +345,44 @@ indicates the data follows __data encoding__. In this case, the first byte
 of the data encoding is another magic that represents __data encoding
 magic__.
 
-         lookup
-          | |
-    array | |
-     bit  | |    length
-      |   | |     | |
+             Compression
+         Size   |
+    Array | |   |
+     bit  | |   |
+      |   | |   |
       7 6 5 4 3 2 1 0
-        |     | |
-        |     | |
-    composite | |
-       bit    | |
-             compression
+        |     |   | |
+    Composite |   | |
+       bit    |  Length
+              |
+            Lookup
 
 - Bit 7 is array bit
   - 1 means the content is an array 
   - 0 means content is not array
-  - when this bit is 1, length value means # of elements in the array
+  - when this bit is 1, bit 5 and 4 are array size bits 
+
 - Bit 6 is composite bit
   - 1 means content is a composite (key/value pairs)
   - 0 means content is not composite
-  - when this bit is 1, length value means # of elements in the composite
+  - when this bit is 1, bit 5 and 4 are composite size bits 
   - bit 7 and bit 6 cannot be 1 at the same time. When both bit 7 and bit 6
     are 1, this has no defined behavior
-- Bit 5 and 4 are encoding for lookup scheme
-  - 00 means no lookup scheme
-  - 01 means 1 byte lookup scheme
-  - 10 means 2 byte lookup scheme
+
+- Bit 5 and 4 are array or composite size bits
+  - 00 means array or composite has size 0
+  - 01 means 1 byte for array or composite size
+  - 10 means 2 byte2 for array or composite size
   - 11 is reserved
-- Bit 3 and 2 are encoding for compression scheme
-  - 00 means no compression scheme
-  - 01 means 1 byte compression scheme
-  - 10 means 2 bytes compression scheme
-  - 11 is reserved
+
+- Bit 3 is lookup scheme bit
+  - 0 means no lookup scheme
+  - 1 means 2 bytes lookup scheme
+
+- Bit 2 is compression scheme bit
+  - 0 means no compression scheme
+  - 1 means 2 bytes compression scheme
+
 - Bit 1 and 0 are encoding for length of data length
   - When lookup bits are not 00, this 2 bits represent data length, not length
     of data length
@@ -362,19 +391,35 @@ magic__.
   - 10 means 2 bytes length
   - 11 is reserved
 
+Note:
+ 
+- The following encoding schemes are mutually exclusive:
+  - Array
+  - Composite
+  - Lookup
+  - Compression
+  
+- A properly encoded Data can have only one of the encoding schemes from above.
+
+- If none of these encoding scheme are set, and if Data is encoded inside a Record,
+  then Data content will be normalized as part of Record encoding.
+
+
 ### Data Encoding ###
 
 A full __data encoding__ is as following:
 
-              Length
-      Lookup  | |
-      | |     | | Data Content
-      | |     | | |         |
-    X X X X X X X X ... ... X
-    |     | |
-    |     Compression
-    |
-    Magic
+    Magic         Length
+     |    Lookup   | |
+     |     | |     | |
+     |     | |     | |
+     X X X X X X X X X X ... ... X 
+       | |     | |     |         |
+       | |     | |     Data Content
+      Array    | |
+       or     Compression
+    Composite
+      Size
     
 When data size is relatively small (less than ~1k), and when possible
 enumeration of data content is limited, lookup can be an effective
@@ -387,15 +432,19 @@ data.  E.g.
 
 - A 256 bits ECDSA public key is 32 bytes long.  Sending 32 bytes
   over the wire, or store on disk can represent a significant overhead.
+  
 - Instead, if we have a lookup scheme that will lookup the encoded data
   for original content of the data, this can significantly reduce the
   data size to represent an ECDSA public key.
+  
 - Assume there are total 10k nodes (10k possible public keys), a perfect
   hash and 2 bytes lookup key will be enough to represent an ECDSA public
   key.
+  
 - Considering we will need to continuously evolving lookup schemas (e.g.
   when new nodes are added, and old removed, the lookup scheme will need
   to be updated), we will need to record a list of actively used schemes.
+  
 - Assume 1 byte to represent schema, and 2 bytes to represent data content,
   total encoding length of a 32 bytes ECDSA public key is: 1 magic byte +
   1 lookup schema byte + 0 compression scheme byte + 0 length byte + 2
@@ -441,10 +490,13 @@ of the buffer without waiting for the timer.
 
 - Node ID
   - Node ID is encoded with DATA
+  
 - A list of requests and responses
   - a list of requests and responses as in the request response encoding
+  
 - Timestamp
   - 8 bytes timestamp represent node own timestamp
+  
 - Signature
   - 32 bytes signature covers a list of requests and responses and the
     timestamp
@@ -466,9 +518,11 @@ of the buffer without waiting for the timer.
 - Bit 7 is Request bit
   - 1 means this is a request
   - 0 means this is not a request
+  
 - Bit 6 is Response bit
   - 1 means this is a response
   - 0 means this is not a response
+  
 - Bit 5 and 4 are ops bits
   - 00 means GET
     - this gets the specified key of specific domain
@@ -481,6 +535,7 @@ of the buffer without waiting for the timer.
   - 11 means VALUES
     - this retrieves a list of records (key/value) under the specified
       key of specific domain
+      
 - Bits 3 is test bit
   - Test bit enables atomic operation for handling of locked operation
   - When ops is POST (bits 4 and 5 are 01), this will test if a key
@@ -499,6 +554,7 @@ of the buffer without waiting for the timer.
       will return an error
     - if a value is set, and value is __v2__, this operation will
       clear the value, and return success
+      
 - Bit 2 is test millis bit
   - This bit is valid only if both request bit and test bit are 1
   - 1 means a test milliseconds (4 bytes unsigned integer) is added to
@@ -512,11 +568,13 @@ of the buffer without waiting for the timer.
       operation will treat the value as if it is already cleared, and
       will not perform the test checks
   - 0 means no test milliseconds at the end of the request
+  
 - Bit 1 is error bit
   - This bit is valid only if response bit is 1
   - 1 means error occurred
     - When error occurred, the record value field is the error content
   - 0 means no error
+  
 - Bit 0 is reserved
 
 ### Request and Response Encoding ###
@@ -544,8 +602,10 @@ to its clients.  E.g.
 
 - Poodle POSIX File System Service
   - This is a distributed POSIX compliant file system service
+  
 - Poodle Key-Value Store Service
   - This is a distributed Key-Value service
+  
 - Poodle Metadata Service
   - This service is provided as part of Poodle core
 
@@ -558,6 +618,7 @@ While a Poodle Cluster offers Service(s), from time to time, the Cluster
 may make changes to the Service(s), e.g.:
 
 - Move a Poodle Service to from one Poodle Cluster another Poodle Cluster
+
 - Enable Federated Services running across multiple Poodle Clusters
 
 These operations further extend operability of Poodle Cluster(s) and
@@ -568,11 +629,13 @@ Poodle Service(s).  E.g.
   future management, the operator can create another Poodle Cluster,
   and move the selected Poodle Service(s) to the other Poodle Cluster
   without disruption to a running production Poodle Service.
+  
 - Moving service from one set of hardware to another set of hardware.
   This use case can be supported similar to the earlier case, by creating
   separate Poodle cluster on new hardware, and move the service over
   to the new cluster running on new hardware.  The entire operation
   can happen with live production traffic.
+  
 - Setup Poodle Service Federation across Poodle Cluster(s).  All the
   nodes in a Poodle Cluster is usually co-located in the same data
   center.  There can be needs to run services across data centers.
@@ -598,6 +661,7 @@ Similarly, a Poodle Node can belong to more than one Poodle Cluster.
     key.
   - To remove a Node from a Cluster, the Cluster sends a CLR
     request, signed by Cluster private key.
+    
 - Node Attributes
   - To update Node Attributes, such as IP Addr and Port Num, a
     Node signs a message with updated attributes, broadcast to
@@ -608,6 +672,7 @@ A pre-requisite for a Poodle Node to belong to multiple cluster is:
 
 - A Poodle Node can belong to multiple cluster if-and-only-if these
   clusters are in the same Poodle Universe.
+  
 - Neither Poodle Node, nor Poodle Cluster can cross multiple Poodle
   Universe.
 
@@ -637,6 +702,7 @@ of Poodle Universe Consensus.
     Universe private key.
   - To remove a Cluster from a Universe, the Universe sends a CLR
     request, signed by Universe private key.
+    
 - Space-Port Membership
   - To assign Space-Port, the Cluster signed a request to record
     Node as Space-Port.  The Space-Port Node broadcast the signed
@@ -644,6 +710,7 @@ of Poodle Universe Consensus.
     when Universe Consensus accepts the Node as Space-Port.
   - To un-assign Space-Port, the Cluster sign a request to un-assign
     Node as Space-Port.
+    
 - Trust Relationship
   - Poodle Clusters in the same Universe can establish trust
     relationship.
