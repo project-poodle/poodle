@@ -74,7 +74,7 @@ adjustment that is occasionally applied to Coordinated Universal Time (UTC),
 to accommodate the difference between precise time (as measured by atomic clocks)
 and imprecise observed solar time.
 
-For Cluster wide consensus, Poodle uses 30 seconds epoch, and can tolerate
+For Distributed Ledger consensus, Poodle uses 30 seconds epoch, and can tolerate
 leap second when it occurs.
 
 For Raft consensus, Poodle uses [Unix monotonic clock](https://golang.org/pkg/time/),
@@ -86,9 +86,9 @@ and is not affected by the Leap Second.
 Poodle treats all nodes in a Poodle cluster as members on a hash ring. Poodle uses
 the node public key to indicate the location of the node on the ring.
 
-There are different types of consensus in a Poodle cluster.
+There are different types of consensus in Poodle.
 
-### Cluster Consensus - Distributed Ledger ###
+### Distributed Ledger ###
 
 Poodle cluster level consensus is a distributed ledger with following properties:
 
@@ -111,36 +111,36 @@ e.g.
 Cluster level configs are published to all the nodes in the cluster, and are
 replicated to all the nodes.
 
-### Segment Consensus - Raft ###
+### Raft Consensus ###
 
-Each data segment (raft.size) of the Poodle cluster on the hash ring forms
-a Raft consensus protocol, and keeps a segment of data in a distributed
-key/value store.
+Each consecutive segment of nodes (raft.size) on the hash ring in a Poodle
+cluster forms a Raft consensus protocol.  Records are sharded, where each
+Shard of data is stored in the corresponding Raft consensus data store.
 
-The membership of each raft consensus protocol is dynamically determined
-by the location of the node on the cluster.  E.g.
+The membership of each Raft consensus protocol is dynamically determined
+by the location of the node on the hash ring.  E.g.
 
-- if raft.size == 5, then for a specific node, itself, and 4 neighbor
-  active nodes on the ring with location less than the current node are part
-  of the same raft consensus
+- if raft.size == 5, then for a specific node, itself, and 4 neighboring
+  active nodes on the hash ring with location less than the current node
+  are part of the same raft consensus
 
-The key value store is distributed to the ring and specific segmented by:
+Records are distributed to the specific Shard on the hash ring by:
 
-    SHA256( CONCAT(consensus_id, 0x00, domain, ':', table, 0x00, key) )
+    SHA256( CONCAT(consensus_id, domain, table, key) )
 
 
 # Proof of Stake #
 
-Poodle cluster wide consensus is established with Proof of Stake. 2/3 of the
-cluster members must sign a message for cluster wide consensus.
+Poodle distributed ledger consensus is established with Proof of Stake. 2/3
+of the cluster members must sign a message for distributed ledger consensus.
 
 
 # Raft #
 
 ### Raft Quorum ###
 
-As Poodle cluster dynamically adds or removes nodes, the raft protocol for data
-segments will need dynamically add and remove membership.  This poses additional
+As Poodle cluster dynamically adds or removes nodes, the raft protocol for a data
+shard will need to dynamically add and remove membership.  This poses additional
 requirement to the raft consensus quorum.
 
 If a raft consensus will need to add 1 or remove 1 member from the raft, it will
@@ -150,7 +150,7 @@ need more than the usual (N+1)/2 quorum in the consensus protocol.  E.g.
 - to dynamically add M more nodes, a quorum will need (N+1+M)/2 nodes
 
 As raft node addition can be fast, adding and removing 1 node at a time can be
-sufficient for most of the cases.  E.g. to add 2 new nodes and remove 2 existing
+sufficient in most of the cases.  E.g. to add 2 new nodes and remove 2 existing
 nodes, a raft consensus can sequentially add 1 new node, remove 1 existing node,
 then add another new node, then remove another existing node.
 
@@ -176,7 +176,7 @@ nodes. To tolerate 2 node failures, minimum raft size is 6 nodes.
 In Poodle, raft membership is dynamically formed.
 
 All the nodes in a Poodle cluster knows all other nodes in the cluster as
-the public keys of the other node. 
+the public keys of the other node.
 
 Members in raft protocol can be in one of the 3 states:
 
@@ -205,13 +205,13 @@ formally a Follower.
 If the Leader + Follower + Candidate size has reached Maximum Raft Nodes, the
 Leader will choose a Follower to retire from the current raft consensus.  The
 chosen node will be one of the node outside of the designated consensus for
-the corresponding data segment.  A log message is appended to all the nodes
+the corresponding data shard.  A log message is appended to all the nodes
 so that membership change is persisted.  If the Leader itself is to be removed,
 the Leader will append the log to all nodes, waiting for the positive response,
 and then stop itself from participating in the consensus.
 
 The raft consensus will repeat the above steps, until the entire raft consensus
-are running on the desired nodes for the data segment.
+are running on the desired nodes for the data shard.
 
 
 # Bootstrap #
@@ -242,7 +242,7 @@ consensus group identities.
 
 ### Raft Consensus Membership ###
 
-Node healthiness change, when consistently detected in raft consensus group by
+Node healthiness status, when consistently detected in raft consensus group by
 the leader after one full epoch, will be logged to the Raft consensus log, then
 published to the cluster level consensus as __cluster.status:node__ scheme.
 
@@ -336,7 +336,7 @@ The first byte is a __magic__.
   
 ### Scheme Format ###
 
-Scheme consists of the following parts:
+Scheme consists of the following components:
 
 - Consensus ID
   - This is Consensus Identity
@@ -365,7 +365,8 @@ Attribute Group. E.g.
     <consensus_id>, <domain>:<table>[/<attribute-group>]
     
 Scheme in Record encoding is encoded differently when transmitted via network,
-or when stored on disk.
+or when stored on disk.  Not all Scheme components are stored in the Record
+in all format.
 
 - When transmitted via network, Consensus ID is NOT encoded as part of the
   Record.  Instead, Consensus ID is encoded as part of Consensus Block as
@@ -373,24 +374,24 @@ or when stored on disk.
   
 - When stored on disk, Consensus ID, Domain, and Table are NOT encoded as
   part of the Record.  Instead, Consensus ID, Domain, and Table are encoded
-  as part of SSTable header as defffined in SSTable encoding.
+  as part of SSTable header as defined in SSTable encoding.
 
 Examples below:
 
 | Scheme | Consensus ID | Domain | Table | Attribute Group |
 | :--- | :--- | :--- | :--- | :--- |
-| \<C\>, cluster:conf                           | Cluster ID | cluster wide consensus | cluster conf table | base attribute group |
-| \<C\>, cluster:node                           | Cluster ID | cluster wide consensus | node table | base attribute group for membership |
-| \<C\>, cluster:node/conf                      | Cluster ID | cluster wide consensus | node table | conf attribute group |
-| \<C\>, cluster:spaceport                      | Cluster ID | cluster wide consensus | space port table | base attribute group for membership |
-| \<C\>, cluster:spaceport/conf                 | Cluster ID | cluster wide consensus | space port table | conf attribute group |
-| \<C\>, cluster.status:node                    | Cluster ID | cluster wide status | node table | base attribute group for status |
-| \<C\>, cluster.status:node/stats              | Cluster ID | cluster wide status | node table | stats attribute group |
-| \<C\>, cluster.status:spaceport               | Cluster ID | cluster wide status | space port table | base attribute group for status |
-| \<C\>, cluster.status:spaceport/stats         | Cluster ID | cluster wide status | space port table | stats attribute group |
-| \<C\>, \<S\>, \<E\>, raft:poodle              | Cluster ID, Segment Start, Segment End | raft consensus | poodle table | base attribute group for poodle metadata service |
-| \<C\>, \<S\>, \<E\>, raft:poodle.status       | Cluster ID, Segment Start, Segment End | raft consensus | poodle status table | status attribute group |
-| \<C\>, \<S\>, \<E\>, raft:poodle.status/stats | Cluster ID, Segment Start, Segment End | raft consensus | poodle status table | stats attribute group |
+| \<C\>, cluster:conf                           | Cluster ID | cluster consensus | cluster conf table | base attribute group |
+| \<C\>, cluster:node                           | Cluster ID | cluster consensus | node table | base attribute group for membership |
+| \<C\>, cluster:node/conf                      | Cluster ID | cluster consensus | node table | conf attribute group |
+| \<C\>, cluster:spaceport                      | Cluster ID | cluster consensus | space port table | base attribute group for membership |
+| \<C\>, cluster:spaceport/conf                 | Cluster ID | cluster consensus | space port table | conf attribute group |
+| \<C\>, cluster.status:node                    | Cluster ID | cluster status | node table | base attribute group for status |
+| \<C\>, cluster.status:node/stats              | Cluster ID | cluster status | node table | stats attribute group |
+| \<C\>, cluster.status:spaceport               | Cluster ID | cluster status | space port table | base attribute group for status |
+| \<C\>, cluster.status:spaceport/stats         | Cluster ID | cluster status | space port table | stats attribute group |
+| \<C\>, \<S\>, \<E\>, raft:poodle              | Cluster ID, Shard Start, Shard End | Raft consensus | poodle table | base attribute group for poodle metadata service |
+| \<C\>, \<S\>, \<E\>, raft:poodle.status       | Cluster ID, Shard Start, Shard End | Raft consensus | poodle status table | status attribute group |
+| \<C\>, \<S\>, \<E\>, raft:poodle.status/stats | Cluster ID, Shard Start, Shard End | Raft consensus | poodle status table | stats attribute group |
 
 ### Record Encoding ###
 
@@ -405,6 +406,7 @@ A full record is encoded as following:
      |     Key Content     |         |     |         |         32 bytes signature
      |                    Value Content    |         |
      |                                    Scheme Content
+    Record
     Magic
                                       
 - Lead by a __magic__ byte
@@ -424,45 +426,41 @@ of the data encoding is another magic that represents __data encoding
 magic__.
 
              Compression
-         Size   |
-    Array | |   |
-     bit  | |   |
-      |   | |   |
+                |
+         Record |
+          List  |
+          | |   |
       7 6 5 4 3 2 1 0
-        |     |   | |
-    Composite |   | |
-       bit    |  Length
+      | |     |   | |
+     Data     |   | |
+     Array    |  Length
               |
             Lookup
 
-- Bit 7 is array bit
-  - 1 means the content is an array 
-  - 0 means content is not array
-  - when this bit is 1, bit 5 and 4 are array size bits 
-
-- Bit 6 is composite bit
-  - 1 means content is a composite (key/value pairs)
-  - 0 means content is not composite
-  - when this bit is 1, bit 5 and 4 are composite size bits 
-  - bit 7 and bit 6 cannot be 1 at the same time. When both bit 7 and bit 6
-    are 1, this has no defined behavior
-
-- Bit 5 and 4 are array or composite size bits
-  - 00 means array or composite has size 0
-  - 01 means 1 byte for array or composite size
-  - 10 means 2 byte2 for array or composite size
+- Bit 7 and 6 are Data Array bits
+  - 00 means not a Data Array
+  - 01 means 1 byte of array element count
+  - 10 means 2 bytes of array element count
   - 11 is reserved
+  - The Data Array bits cannot be set when Record List bits are also set
+
+- Bit 5 and 4 are Record List bits
+  - 00 means not a Record List
+  - 01 means 1 byte of list element count
+  - 10 means 2 bytes of list element count
+  - 11 is reserved
+  - The Record List bits cannot be set when Data Array bits are also set
 
 - Bit 3 is lookup scheme bit
   - 0 means no lookup scheme
-  - 1 means 2 bytes lookup scheme
+  - 1 means 2 bytes of lookup scheme
 
 - Bit 2 is compression scheme bit
   - 0 means no compression scheme
-  - 1 means 2 bytes compression scheme
+  - 1 means 2 bytes off compression scheme
 
-- Bit 1 and 0 are encoding for length of data length
-  - When lookup bits are not 00, this 2 bits represent data length, not length
+- Bit 1 and 0 are length of data length
+  - When lookup bit is 1, this 2 bits represent lookup data length, not length
     of data length
   - 00 means 0 length
   - 01 means 1 byte length
@@ -470,23 +468,24 @@ magic__.
   - 11 is reserved
 
 Note:
- 
+
 - The following encoding schemes are mutually exclusive:
-  - Array
-  - Composite
-  - Lookup
-  - Compression
-  
+  - Data Array
+  - Record List
+  - Lookup Scheme
+  - Compression Scheme
+
 - A properly encoded Data can have only one of the encoding schemes from above.
 
 - If none of these encoding scheme are set, and if Data is encoded inside a Record,
-  then Data content will be normalized as part of Record encoding.
+  then Data content will be normalized to become as part of Record encoding.
 
 
 ### Data Encoding ###
 
 A full __data encoding__ is as following:
 
+    Data
     Magic         Length
      |    Lookup   | |
      |     | |     | |
@@ -494,11 +493,13 @@ A full __data encoding__ is as following:
      X X X X X X X X X X ... ... X 
        | |     | |     |         |
        | |     | |     Data Content
+      Data     | |
       Array    | |
-       or     Compression
-    Composite
-      Size
-    
+       or    Compression
+      Record
+      List
+      Count
+
 When data size is relatively small (less than ~1k), and when possible
 enumeration of data content is limited, lookup can be an effective
 way of reducing the data size.
@@ -584,7 +585,7 @@ of the buffer without waiting for the timer.
          Federation
             bit
              |
-    Universe | Segment
+    Universe | Shard
         bit  |  bit
          |   |   |
          7 6 5 4 3 2 1 0
@@ -611,20 +612,20 @@ of the buffer without waiting for the timer.
   - 1 means Service ID is present
   - 0 means no Service ID
   
-- Bit 3 is Segment bit
-  - 1 means Segment Start and Segment End are present
-  - 0 means no Segment start or Segment End
+- Bit 3 is Shard bit
+  - 1 means Shard Start and Shard End are present
+  - 0 means no Shard start or Shard End
   
 - Bit 2, 1, and 0 are reserved
   
 ### Consensus ID Encoding ###
 
-                                          Segment
+                                           Shard
           Universe       Federation        Start
           |     |         |     |         |     |
         X X ... X X ... X X ... X X ... X X ... X X ... X
         |         |     |         |     |         |     |
-    Consensus     Cluster         Service         Segment
+    Consensus     Cluster         Service          Shard
        ID                                           End
       Magic
       
@@ -635,7 +636,7 @@ A Consensus ID is encoded as:
 - Followed by optional Cluster ID
 - Followed by optional Federation ID
 - Followed by optional Service ID
-- Followed by optional Segment Start and Segment End ID
+- Followed by optional Shard Start and Shard End ID
 
 ### Consensus Block Encoding ###
 
@@ -679,17 +680,17 @@ A Consensus Block is encoded as:
   
 - Bit 5 and 4 are ops bits
   - 00 means GET
-    - this gets the specified key of specific Consensus, Table, and
+    - this gets the specified key of specific Consensus ID, Domain, Table, and
       Attribute Group
   - 01 means SET
-    - this sets value of the specified key of specific Consensus, Table,
-      and Attribute Group. Both UPDATE and CLEAR record are considered SET
+    - this sets value of the specified key of specific Consensus ID, Domain,
+      Table, and Attribute Group. Both UPDATE and CLEAR Records are considered SET
   - 10 means KEYS
-    - this retrieves a list of Keys and Attribute Groups under the specified
-      Key of specific Consensus and Table
+    - this retrieves a list of Attribute Groups under the specified Key of
+      specific Consensus ID, Domain and Table
   - 11 means VALUES
-    - this retrieves a list of Records (key/value) under the specified
-      Key of specific Consensus and Table
+    - this retrieves a list of Records (key/value/attribute-group) under the
+      specified Key of specific Consensus ID, Domain and Table
       
 - Bits 3 is test bit
   - Test bit enables atomic operation for handling of locked operation
