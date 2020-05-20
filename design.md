@@ -723,7 +723,7 @@ The Hash Key is composed by:
 
 Each SSTable file is less than 4GB, the record offset can be represented as
 an uint32.  A 256 KB (64k * 4 bytes) offset table is enough to keep the offset
-of all Records in an SSTable.
+of all Records in an SSTable file.
 
 ### List of Records ###
 
