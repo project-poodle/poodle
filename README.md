@@ -1,6 +1,6 @@
 # Project Poodle
 
-Project Poodle is a set of storage services that:
+Project Poodle is next generation storage service:
  
 - Dynamically scales from a few nodes to 10s of thousands of nodes per cluster
 
@@ -10,4 +10,4 @@ Project Poodle is a set of storage services that:
 
 - Dynamically finds and uses available system resources
 
-Refer to [design document](./design.md) for more details.
+Refer to [design document](./design.md) for details.
