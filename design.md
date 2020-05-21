@@ -327,14 +327,20 @@ The first byte is a __magic__.
   - 1 means 'CLEAR' operation
   - 0 means 'UPDATE' operation
   
-- Bit 0 is the signature bit
+- Bit 0 is the timestamp and signature bit
   - 1 means there is a timestamp and signature at the end of the record
   - 0 means no timestamp or signature at the end of the record
+  - Signature is present only in Distributed Ledger Network Traffic and
+    Distributed Ledger Consensus Block
+  - Signature is __not__ present for SSTable (Distribute Ledger or Raft
+    Consensus), nor Raft replication log.
+    - In these cases, even if this bit is set to 1, only timestamp is present
+      with the record
   - source content of the signature include binary consensus ID, concatenated
     with Record content, including Record Magic, Key, Value, Scheme, and
     Timestamp
-  - If signature bit is 1, the content of data are in raw format,
-    and cannot be encoded with lookup scheme, or compression scheme
+  - If signature is present, the content of data are in raw format, and
+    cannot be encoded with lookup scheme, or compression scheme
   
 ### Scheme Format ###
 
@@ -412,10 +418,20 @@ A full record is encoded as following:
     Magic
                                       
 - Lead by a __magic__ byte
+
 - Followed by key length, then key content (if applicable)
+
 - Followed by value length, then value content (if applicable)
+
 - Followed by scheme length, then scheme content (if applicable)
+
 - Followed by timestamp (8 bytes) and signature (32 bytes) (if applicable)
+  - The 64 bytes signature is a sizable data, and is present in:
+    - Network traffic for Distributed Ledger Consensus
+    - Consensus block data for Distributed Ledger Consensus
+  - The 64 bytes signature is __not__ present in:
+    - SSTable for Distributed Ledger or Raft
+    - Replication log for Raft
 
 ### Data Encode Magic ###
 

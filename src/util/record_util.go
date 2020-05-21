@@ -221,11 +221,17 @@ func (r *MappedRecord) Signature() (*big.Int, *big.Int, error) {
     signature_pos   := 9 + len(key.Buf()) + len(value.Buf()) + len(scheme.Buf())
 
     if len(r.buf) < signature_pos + 64 { // 2 * 32 bytes signature
+        // signature is optional - even if timestamp and signature bit is set
         return nil, nil, nil
     } else {
         return ToBigInt(r.buf[signature_pos:signature_pos+32]), ToBigInt(r.buf[signature_pos+32:signature_pos+64]), nil
     }
 }
+
+func (r *MappedRecord) Buf() []byte {
+    return r.buf
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Constructed Record
@@ -311,8 +317,8 @@ func (d *SimpleMappedData) GetCompression() []byte {
 
 type EncodedMappedData struct {
     data_magic      byte
-    is_data_array   bool
-    is_record_list  bool
+    data_array      []IData
+    record_list     []IRecord
     size            uint16
     lookup          []byte
     compression     []byte
@@ -332,13 +338,13 @@ func NewEncodedMappedData(buf []byte) (*EncodedMappedData, error){
         break
     case 0x01:
         encode_is_set       = true
-        d.is_data_array     = true
         d.size              = uint16(buf[1])
+        d.data_array        = make([]IData, d.size)
         buf_length          += 1
     case 0x02:
         encode_is_set       = true
-        d.is_data_array     = true
         d.size              = uint16(binary.BigEndian.Uint16(buf[1:2]))
+        d.data_array        = make([]IData, d.size)
         buf_length          += 2
     case 0x03:
         return nil, fmt.Errorf("util.NewEncodedMappedData - invalid magic - data array: %b", d.data_magic)
@@ -353,16 +359,16 @@ func NewEncodedMappedData(buf []byte) (*EncodedMappedData, error){
             return nil, fmt.Errorf("util.NewEncodedMappedData - invalid magic [%b] - encode set prior to data array", d.data_magic)
         }
         encode_is_set       = true
-        d.is_record_list    = true
         d.size              = uint16(buf[1])
+        d.record_list       = make([]IRecord, d.size)
         buf_length          += 1
     case 0x02:
         if encode_is_set {
             return nil, fmt.Errorf("util.NewEncodedMappedData - invalid magic [%b] - encode set prior to data array", d.data_magic)
         }
         encode_is_set       = true
-        d.is_record_list    = true
         d.size              = uint16(binary.BigEndian.Uint16(buf[1:2]))
+        d.record_list       = make([]IRecord, d.size)
         buf_length          += 2
     case 0x03:
         return nil, fmt.Errorf("util.NewEncodedMappedData - invalid magic [%b] - record list", d.data_magic)
@@ -427,29 +433,65 @@ func (d *EncodedMappedData) DataMagic() byte {
 }
 
 func (d *EncodedMappedData) IsDataArray() bool {
-    return d.is_data_array
+    return d.data_array != nil
 }
 
 func (d *EncodedMappedData) IsRecordList() bool {
-    return d.is_record_list
+    return d.record_list != nil
 }
 
 func (d *EncodedMappedData) Size() uint16 {
     return d.size
 }
 
-func (d *EncodedMappedData) DataAt(i uint16) (IData, error) {
-    if i >= d.size {
-        return nil, fmt.Errorf("util.EncodedMappedData::DataAt - idx [%d] bigger than size [%d]", i, d.size)
+func (d *EncodedMappedData) DataAt(idx uint16) (IData, error) {
+
+    if idx >= d.size {
+        return nil, fmt.Errorf("util.EncodedMappedData::DataAt - idx [%d] bigger than size [%d]", idx, d.size)
     }
-    return nil, fmt.Errorf("util.EncodedMappedData::DataAt - TODO")
+
+    if (d.data_array[idx] != nil) {
+        return d.data_array[idx], nil
+    }
+
+    err := (error)(nil)
+    pos := 0
+    for i := uint16(0); i <= idx; i++ {
+        if d.data_array[i] == nil {
+            d.data_array[i], err = NewEncodedMappedData(d.content[pos:])
+            if err != nil {
+                return nil, err
+            }
+        }
+        pos += len(d.data_array[i].Buf())
+    }
+
+    return d.data_array[idx], nil
 }
 
-func (d *EncodedMappedData) RecordAt(i uint16) (IRecord, error) {
-    if i >= d.size {
-        return nil, fmt.Errorf("util.EncodedMappedData::RecordAt - idx [%d] bigger than size [%d]", i, d.size)
+func (d *EncodedMappedData) RecordAt(idx uint16) (IRecord, error) {
+
+    if idx >= d.size {
+        return nil, fmt.Errorf("util.EncodedMappedData::RecordAt - idx [%d] bigger than size [%d]", idx, d.size)
     }
-    return nil, fmt.Errorf("util.EncodedMappedData::RecordAt - TODO")
+
+    if (d.record_list[idx] != nil) {
+        return d.record_list[idx], nil
+    }
+
+    err := (error)(nil)
+    pos := 0
+    for i := uint16(0); i <= idx; i++ {
+        if d.record_list[i] == nil {
+            d.record_list[i], err = NewMappedRecord(d.content[pos:])
+            if err != nil {
+                return nil, err
+            }
+        }
+        pos += len(d.record_list[i].Buf())
+    }
+
+    return d.record_list[idx], nil
 }
 
 func (d *EncodedMappedData) GetLookup() []byte {
