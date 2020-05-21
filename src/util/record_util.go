@@ -586,6 +586,9 @@ func (d *EncodedMappedData) DataAt(idx uint16) (IData, error) {
     pos := 0
     for i := uint16(0); i <= idx; i++ {
         if d.data_array[i] == nil {
+            if len(d.content) < pos {
+                return nil, fmt.Errorf("EncodedMappedData:DataAt[%d] - invalid content %d - %d, %x", idx, i, len(d.content), d.content)
+            }
             d.data_array[i], err = NewEncodedMappedData(d.content[pos:])
             if err != nil {
                 return nil, err
@@ -611,6 +614,9 @@ func (d *EncodedMappedData) RecordAt(idx uint16) (IRecord, error) {
     pos := 0
     for i := uint16(0); i <= idx; i++ {
         if d.record_list[i] == nil {
+            if len(d.content) < pos {
+                return nil, fmt.Errorf("EncodedMappedData:RecordAt[%d] - invalid content %d - %d, %x", idx, i, len(d.content), d.content)
+            }
             d.record_list[i], err = NewMappedRecord(d.content[pos:])
             if err != nil {
                 return nil, err
