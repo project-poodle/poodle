@@ -32,6 +32,10 @@ package util
 import (
 	"fmt"
 	"strings"
+	"bufio"
+	"os"
+	"strconv"
+	"sync"
 	"testing"
 )
 
@@ -82,4 +86,127 @@ func BenchmarkMurmur(b *testing.B) {
 			}
 		})
 	}
+}
+
+func TestBuild_simple(t *testing.T) {
+	testTable(t, [][]byte{[]byte("foo"), []byte("foo2"), []byte("bar"), []byte("baz")}, [][]byte{[]byte("quux")})
+}
+
+func TestBuild_stress(t *testing.T) {
+	var keys, extra [][]byte
+	for i := 0; i < 20000; i++ {
+		s := strconv.Itoa(i)
+		if i < 10000 {
+			keys = append(keys, []byte(s))
+		} else {
+			extra = append(extra, []byte(s))
+		}
+	}
+	testTable(t, keys, extra)
+}
+
+func testTable(t *testing.T, keys [][]byte, extra [][]byte) {
+	table := MPHBuild(keys)
+	for i, key := range keys {
+		n, ok := table.Lookup(key)
+		if !ok {
+			t.Errorf("Lookup(%s): got !ok; want ok", key)
+			continue
+		}
+		if int(n) != i {
+			t.Errorf("Lookup(%s): got n=%d; want %d", key, n, i)
+		}
+	}
+	for _, key := range extra {
+		if _, ok := table.Lookup(key); ok {
+			t.Errorf("Lookup(%s): got ok; want !ok", key)
+		}
+	}
+}
+
+var (
+	words      [][]byte
+	wordsOnce  sync.Once
+	benchTable *MPHTable
+)
+
+func BenchmarkMPHBuild(b *testing.B) {
+	wordsOnce.Do(loadBenchTable)
+	if len(words) == 0 {
+		b.Skip("unable to load dictionary file")
+	}
+	for i := 0; i < b.N; i++ {
+		MPHBuild(words)
+	}
+}
+
+func BenchmarkMPHTable(b *testing.B) {
+	wordsOnce.Do(loadBenchTable)
+	if len(words) == 0 {
+		b.Skip("unable to load dictionary file")
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		j := i % len(words)
+		n, ok := benchTable.Lookup(words[j])
+		if !ok {
+			b.Fatal("missing key")
+		}
+		if n != uint32(j) {
+			b.Fatal("bad result index")
+		}
+	}
+}
+
+// For comparison against BenchmarkTable.
+func BenchmarkMPHTableMap(b *testing.B) {
+	wordsOnce.Do(loadBenchTable)
+	if len(words) == 0 {
+		b.Skip("unable to load dictionary file")
+	}
+	m := make(map[string]uint32)
+	for i, word := range words {
+		m[string(word)] = uint32(i)
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		j := i % len(words)
+		n, ok := m[string(words[j])]
+		if !ok {
+			b.Fatal("missing key")
+		}
+		if n != uint32(j) {
+			b.Fatal("bad result index")
+		}
+	}
+}
+
+func loadBenchTable() {
+	for _, dict := range []string{"/usr/share/dict/words", "/usr/dict/words"} {
+		var err error
+		words, err = loadDict(dict)
+		if err == nil {
+			break
+		}
+	}
+	if len(words) > 0 {
+		benchTable = MPHBuild(words)
+	}
+}
+
+func loadDict(dict string) ([][]byte, error) {
+	f, err := os.Open(dict)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	var words [][]byte
+	for scanner.Scan() {
+		words = append(words, []byte(scanner.Text()))
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return words, nil
 }
