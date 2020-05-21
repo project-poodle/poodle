@@ -42,6 +42,7 @@ type IRecord interface {
     Timestamp()         (*time.Time, error)             // 8 bytes unix timestamp
     Signature()         (*big.Int, *big.Int, error)     // 2 * 32 bytes signature
     Buf()               []byte                          // full Record buffer
+    Copy()              IRecord                         // make a deep copy of the record
 }
 
 type IData interface {
@@ -50,6 +51,7 @@ type IData interface {
     IsEncoded()         bool                    // whether Data is encoded
     Content()           []byte                  // data content
     Buf()               []byte                  // full Data buffer
+    Copy()              IData                   // make a deep copy of the data
     // encoding methods
     DataMagic()         byte                    // 1 byte Data encode magic
     IsDataArray()       bool                    // whether this is data array
@@ -77,9 +79,37 @@ type MappedRecord struct {
 
 func NewMappedRecord(buf []byte) (*MappedRecord, error) {
     if (buf == nil || len(buf)<1) {
-        return nil, fmt.Errorf("NewMappedRecord - received empty buf")
+        return nil, fmt.Errorf("NewMappedRecord - invalid empty buf")
     }
-    return &MappedRecord{buf: buf}, nil
+    r, length := &MappedRecord{buf: buf}, 1
+    if _, err := r.Key(); err != nil {
+        return nil, err
+    } else {
+        length += len(r.key.Buf())
+    }
+    if _, err := r.Value(); err != nil {
+        return nil, err
+    } else {
+        length += len(r.value.Buf())
+    }
+    if _, err := r.Scheme(); err != nil {
+        return nil, err
+    } else {
+        length += len(r.scheme.Buf())
+    }
+    if _, err := r.Timestamp(); err != nil {
+        return nil, err
+    } else if r.timestamp != nil {
+        length += 8
+    }
+    if _, _, err := r.Signature(); err != nil {
+        return nil, err
+    } else if r.signature_r != nil && r.signature_s != nil {
+        length += 64
+    }
+    // set buf length to exact length
+    r.buf = buf[:length]
+    return r, nil
 }
 
 func (r *MappedRecord) RecordMagic() byte {
@@ -91,17 +121,21 @@ func (r *MappedRecord) Key() (IData, error) {
         return r.key, nil
     }
 
+    pos     := 1
+    if len(r.buf) < pos {
+        return nil, fmt.Errorf("MappedRecord::Key - invalid buf, no key, %d, %x", len(r.buf), r.buf)
+    }
     err     := (error)(nil)
     encode  := (r.buf[0] >> 6) & 0x03
     switch encode {
     case 0x00:
-        r.key, err  = NewSimpleMappedData(encode, r.buf[1:])
+        r.key, err  = NewSimpleMappedData(encode, r.buf[pos:])
     case 0x01:
-        r.key, err  = NewSimpleMappedData(encode, r.buf[1:])
+        r.key, err  = NewSimpleMappedData(encode, r.buf[pos:])
     case 0x02:
-        r.key, err  = NewSimpleMappedData(encode, r.buf[1:])
+        r.key, err  = NewSimpleMappedData(encode, r.buf[pos:])
     default:
-        r.key, err  = NewEncodedMappedData(r.buf[1:])
+        r.key, err  = NewEncodedMappedData(r.buf[pos:])
     }
 
     return r.key, err
@@ -117,16 +151,20 @@ func (r *MappedRecord) Value() (IData, error) {
         return nil, err
     }
 
+    pos     := 1+len(key.Buf())
+    if len(r.buf) < pos {
+        return nil, fmt.Errorf("MappedRecord::Value - invalid buf, no value, %d, %x", len(r.buf), r.buf)
+    }
     encode  := (r.buf[0] >> 4) & 0x03
     switch encode {
     case 0x00:
-        r.value, err    = NewSimpleMappedData(encode, r.buf[1+len(key.Buf()):])
+        r.value, err    = NewSimpleMappedData(encode, r.buf[pos:])
     case 0x01:
-        r.value, err    = NewSimpleMappedData(encode, r.buf[1+len(key.Buf()):])
+        r.value, err    = NewSimpleMappedData(encode, r.buf[pos:])
     case 0x02:
-        r.value, err    = NewSimpleMappedData(encode, r.buf[1+len(key.Buf()):])
+        r.value, err    = NewSimpleMappedData(encode, r.buf[pos:])
     default:
-        r.value, err    = NewEncodedMappedData(r.buf[1+len(key.Buf()):])
+        r.value, err    = NewEncodedMappedData(r.buf[pos:])
     }
 
     return r.value, err
@@ -147,16 +185,20 @@ func (r *MappedRecord) Scheme() (IData, error) {
         return nil, err
     }
 
+    pos     := 1 + len(key.Buf()) + len(value.Buf())
+    if len(r.buf) < pos {
+        return nil, fmt.Errorf("MappedRecord::Scheme - invalid buf, no scheme, %d, %x", len(r.buf), r.buf)
+    }
     encode  := (r.buf[0] >> 2) & 0x03
     switch encode {
     case 0x00:
-        r.scheme, err   = NewSimpleMappedData(encode, r.buf[1+len(key.Buf())+len(value.Buf()):])
+        r.scheme, err   = NewSimpleMappedData(encode, r.buf[pos:])
     case 0x01:
-        r.scheme, err   = NewSimpleMappedData(encode, r.buf[1+len(key.Buf())+len(value.Buf()):])
+        r.scheme, err   = NewSimpleMappedData(encode, r.buf[pos:])
     case 0x02:
-        r.scheme, err   = NewSimpleMappedData(encode, r.buf[1+len(key.Buf())+len(value.Buf()):])
+        r.scheme, err   = NewSimpleMappedData(encode, r.buf[pos:])
     default:
-        r.scheme, err   = NewEncodedMappedData(r.buf[1+len(key.Buf())+len(value.Buf()):])
+        r.scheme, err   = NewEncodedMappedData(r.buf[pos:])
     }
 
     return r.scheme, err
@@ -188,9 +230,17 @@ func (r *MappedRecord) Timestamp() (*time.Time, error) {
     }
 
     // timestamp position
-    timestamp_pos   := 1 + len(key.Buf()) + len(value.Buf()) + len(scheme.Buf())
+    pos     := 1 + len(key.Buf()) + len(value.Buf()) + len(scheme.Buf())
+    if len(r.buf) < pos {
+        return nil, fmt.Errorf("MappedRecord::Timestamp - invalid buf, no timestamp, %d, %x", len(r.buf), r.buf)
+    }
 
-    return BytesToTime(r.buf[timestamp_pos:])
+    r.timestamp, err = BytesToTime(r.buf[pos:])
+    if err != nil {
+        return nil, err
+    } else {
+        return r.timestamp, nil
+    }
 }
 
 func (r *MappedRecord) Signature() (*big.Int, *big.Int, error) {
@@ -218,18 +268,34 @@ func (r *MappedRecord) Signature() (*big.Int, *big.Int, error) {
         return nil, nil, err
     }
 
-    signature_pos   := 9 + len(key.Buf()) + len(value.Buf()) + len(scheme.Buf())
+    pos     := 9 + len(key.Buf()) + len(value.Buf()) + len(scheme.Buf())
+    if len(r.buf) < pos {
+        return nil, nil, fmt.Errorf("MappedRecord::Signature - invalid buf, no signature, %d, %x", len(r.buf), r.buf)
+    }
 
-    if len(r.buf) < signature_pos + 64 { // 2 * 32 bytes signature
+    if len(r.buf) < pos + 64 { // 2 * 32 bytes signature
         // signature is optional - even if timestamp and signature bit is set
         return nil, nil, nil
     } else {
-        return ToBigInt(r.buf[signature_pos:signature_pos+32]), ToBigInt(r.buf[signature_pos+32:signature_pos+64]), nil
+        r.signature_r = ToBigInt(r.buf[pos:pos+32])
+        r.signature_s = ToBigInt(r.buf[pos+32:pos+64])
+        return r.signature_r, r.signature_s, nil
     }
 }
 
 func (r *MappedRecord) Buf() []byte {
     return r.buf
+}
+
+func (r *MappedRecord) Copy() IRecord {
+    buf := make([]byte, len(r.buf))
+    copy(buf, r.buf)
+    copy, err := NewMappedRecord(buf)
+    if err != nil {
+        // this should not happen
+        panic(fmt.Sprintf("MappedRecord:Copy - %s", err))
+    }
+    return copy
 }
 
 
@@ -254,10 +320,22 @@ func NewSimpleMappedData(encode byte, buf []byte) (*SimpleMappedData, error) {
     case 0x00:
         return &SimpleMappedData{encode: encode, length: 0, content: nil, buf: nil}, nil
     case 0x01:
+        if len(buf) < 1 {
+            return nil, fmt.Errorf("NewSimpleMappedData - invalid buf 1, no length, %d, %x", len(buf), buf)
+        }
         length := uint16(buf[0])
+        if len(buf) < 1 + int(length) {
+            return nil, fmt.Errorf("NewSimpleMappedData - invalid buf 1, missing content %d, %x", len(buf), buf)
+        }
         return &SimpleMappedData{encode: encode, length: length, content: buf[1:1+length], buf: buf[0:1+length]}, nil
     case 0x02:
+        if len(buf) < 2 {
+            return nil, fmt.Errorf("NewSimpleMappedData - invalid buf 2, no length %d, %x", len(buf), buf)
+        }
         length := uint16(binary.BigEndian.Uint16(buf[0:1]))
+        if len(buf) < 2 + int(length) {
+            return nil, fmt.Errorf("NewSimpleMappedData - invalid buf 2, missing content %d, %x", len(buf), buf)
+        }
         return &SimpleMappedData{encode: encode, length: length, content: buf[2:2+length], buf: buf[0:2+length]}, nil
     default:
         return nil, fmt.Errorf("NewSimpleMappedData - invalid encode [%b]", encode)
@@ -278,6 +356,18 @@ func (d *SimpleMappedData) Content() []byte {
 
 func (d *SimpleMappedData) Buf() []byte {
     return d.buf
+}
+
+func (d *SimpleMappedData) Copy() IData {
+    // make a deep copy of the buf
+    buf := make([]byte, len(d.buf))
+    copy(buf, d.buf)
+    copy, err := NewSimpleMappedData(d.encode, buf)
+    if err != nil {
+        // this should not happen
+        panic(fmt.Sprintf("SimpleMappedData:Copy - %s", err))
+    }
+    return copy
 }
 
 func (d *SimpleMappedData) DataMagic() byte {
@@ -327,6 +417,9 @@ type EncodedMappedData struct {
 }
 
 func NewEncodedMappedData(buf []byte) (*EncodedMappedData, error){
+    if len(buf) < 1 {
+        return nil, fmt.Errorf("NewEncodedMappedData - invalid empty buf")
+    }
     d               := &EncodedMappedData{data_magic: buf[0]}
     buf_length      := uint16(0)
     content_length  := uint16(0)
@@ -338,12 +431,18 @@ func NewEncodedMappedData(buf []byte) (*EncodedMappedData, error){
         break
     case 0x01:
         encode_is_set       = true
+        if len(buf) < 1 + int(buf_length) {
+            return nil, fmt.Errorf("NewEncodedMappedData - invalid buf 1, data array no size, %d, %x", len(buf), buf)
+        }
         d.size              = uint16(buf[1])
         d.data_array        = make([]IData, d.size)
         buf_length          += 1
     case 0x02:
         encode_is_set       = true
-        d.size              = uint16(binary.BigEndian.Uint16(buf[1:2]))
+        if len(buf) < 2 + int(buf_length) {
+            return nil, fmt.Errorf("NewEncodedMappedData - invalid buf 2, data array no size, %d, %x", len(buf), buf)
+        }
+        d.size              = binary.BigEndian.Uint16(buf[1:2])
         d.data_array        = make([]IData, d.size)
         buf_length          += 2
     case 0x03:
@@ -356,18 +455,24 @@ func NewEncodedMappedData(buf []byte) (*EncodedMappedData, error){
         break
     case 0x01:
         if encode_is_set {
-            return nil, fmt.Errorf("NewEncodedMappedData - invalid magic [%b] - encode set prior to data array", d.data_magic)
+            return nil, fmt.Errorf("NewEncodedMappedData - invalid magic [%b] - encode set prior to record list", d.data_magic)
         }
         encode_is_set       = true
+        if len(buf) < 1 + int(buf_length) {
+            return nil, fmt.Errorf("NewEncodedMappedData - invalid buf 1, record list no size, %d, %x", len(buf), buf)
+        }
         d.size              = uint16(buf[1])
         d.record_list       = make([]IRecord, d.size)
         buf_length          += 1
     case 0x02:
         if encode_is_set {
-            return nil, fmt.Errorf("NewEncodedMappedData - invalid magic [%b] - encode set prior to data array", d.data_magic)
+            return nil, fmt.Errorf("NewEncodedMappedData - invalid magic [%b] - encode set prior to record list", d.data_magic)
         }
         encode_is_set       = true
-        d.size              = uint16(binary.BigEndian.Uint16(buf[1:2]))
+        if len(buf) < 2 + int(buf_length) {
+            return nil, fmt.Errorf("NewEncodedMappedData - invalid buf 2, record list no size, %d, %x", len(buf), buf)
+        }
+        d.size              = binary.BigEndian.Uint16(buf[1:2])
         d.record_list       = make([]IRecord, d.size)
         buf_length          += 2
     case 0x03:
@@ -397,11 +502,23 @@ func NewEncodedMappedData(buf []byte) (*EncodedMappedData, error){
     case 0x00:
         break
     case 0x01:
-        content_length      = uint16(buf[buf_length])
-        buf_length          += 1 + content_length
+        if len(buf) < 1 + int(buf_length) {
+            return nil, fmt.Errorf("NewEncodedMappedData - invalid buf 1, no length, %d, %x", len(buf), buf)
+        }
+        content_length      =   uint16(buf[buf_length])
+        if len(buf) < 1 + int(buf_length) + int(content_length) {
+            return nil, fmt.Errorf("NewEncodedMappedData - invalid buf 1, missing content, %d, %x", len(buf), buf)
+        }
+        buf_length          +=  1 + content_length
     case 0x02:
-        content_length      = uint16(binary.BigEndian.Uint16(buf[buf_length:buf_length+1]))
-        buf_length          += 2 + content_length
+        if len(buf) < 2 + int(buf_length) {
+            return nil, fmt.Errorf("NewEncodedMappedData - invalid buf 2, no length, %d, %x", len(buf), buf)
+        }
+        content_length      =   binary.BigEndian.Uint16(buf[buf_length:buf_length+1])
+        if len(buf) < 2 + int(buf_length) + int(content_length) {
+            return nil, fmt.Errorf("NewEncodedMappedData - invalid buf 2, missing content, %d, %x", len(buf), buf)
+        }
+        buf_length          +=  2 + content_length
     case 0x03:
         return nil, fmt.Errorf("NewEncodedMappedData - invalid magic [%b] - length ", d.data_magic)
     }
@@ -428,6 +545,17 @@ func (d *EncodedMappedData) Buf() []byte {
     return d.buf
 }
 
+func (d *EncodedMappedData) Copy() IData {
+    // make a deep copy of the buf
+    buf := make([]byte, len(d.buf))
+    copy(buf, d.buf)
+    copy, err := NewEncodedMappedData(buf)
+    if err != nil {
+        // this should not happen
+        panic(fmt.Sprintf("EncodedMappedData:Copy - %s", err))
+    }
+    return copy
+}
 func (d *EncodedMappedData) DataMagic() byte {
     return d.data_magic
 }

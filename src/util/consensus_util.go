@@ -227,6 +227,7 @@ type ConsensusID struct {
     ServiceID           []byte
     ShardStart          []byte
     ShardEnd            []byte
+    Buf                 []byte
 }
 
 func NewConsensusID(buf []byte) (*ConsensusID, error) {
@@ -283,5 +284,20 @@ func NewConsensusID(buf []byte) (*ConsensusID, error) {
         pos += 32
     }
 
+    // set buf length to be the exact length
+    c.Buf = buf[:pos]
+
     return c, nil
+}
+
+func (c *ConsensusID) Copy() (*ConsensusID) {
+    // make a deep copy of the buf
+    buf := make([]byte, len(c.Buf))
+    copy(buf, c.Buf)
+    copy, err := NewConsensusID(buf)
+    if err != nil {
+        // this should not happen
+        panic(fmt.Sprintf("ConsensusID:Copy - %s", err))
+    }
+    return copy
 }
