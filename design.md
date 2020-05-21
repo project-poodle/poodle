@@ -293,7 +293,9 @@ A Record cannot exceed 64 KB, with following constraints:
 
 The first byte is a __magic__.
 
-               Signature
+              Timestamp
+                 and
+              Signature
                  bit
     Key    Scheme | 
     | |     | |   |
@@ -403,7 +405,7 @@ A full record is encoded as following:
        | |             | |             | |             |     |
      X X X X ... ... X X X X ... ... X X X X ... ... X X ... X X ... ... X
      |     |         |     |         |     |         |         |         |
-     |     Key Content     |         |     |         |         32 bytes signature
+     |     Key Content     |         |     |         |         64 bytes signature
      |                    Value Content    |         |
      |                                    Scheme Content
     Record

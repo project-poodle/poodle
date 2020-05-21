@@ -62,10 +62,11 @@ func BenchmarkECDSASign(b *testing.B) {
     for i:=0; i<len(block); i++ {
         block[i] = byte(i)
     }
+    hash := SumSHA256d(block)
     //b.ResetTimer()
 
     for i := 0; i < b.N; i++ {
-        ECDSASign(priv_key, block)
+        ECDSASign(priv_key, hash)
     }
 }
 
@@ -77,11 +78,12 @@ func BenchmarkECDSAVerify(b *testing.B) {
     for i:=0; i<len(block); i++ {
         block[i] = byte(i)
     }
-    r, s, _ := ECDSASign(priv_key, block)
+    hash := SumSHA256d(block)
+    r, s, _ := ECDSASign(priv_key, hash)
     //b.ResetTimer()
 
     for i := 0; i < b.N; i++ {
-        ECDSAVerify(pub_key.(*ecdsa.PublicKey), block, r, s)
+        ECDSAVerify(pub_key.(*ecdsa.PublicKey), hash, r, s)
     }
 }
 

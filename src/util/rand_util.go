@@ -16,7 +16,7 @@ func RandInt32() (int32, error) {
     }
 
     var data int32
-    err = binary.Read(bytes.NewReader(buf), binary.LittleEndian, &data)
+    err = binary.Read(bytes.NewReader(buf), binary.BigEndian, &data)
     if err != nil {
         return 0, err
     }
@@ -32,7 +32,7 @@ func RandUint32() (uint32, error) {
     }
 
     var data uint32
-    err = binary.Read(bytes.NewReader(buf), binary.LittleEndian, &data)
+    err = binary.Read(bytes.NewReader(buf), binary.BigEndian, &data)
     if err != nil {
         return 0, err
     }
@@ -48,7 +48,7 @@ func RandInt64() (int64, error) {
     }
 
     var data int64
-    err = binary.Read(bytes.NewReader(buf), binary.LittleEndian, &data)
+    err = binary.Read(bytes.NewReader(buf), binary.BigEndian, &data)
     if err != nil {
         return 0, err
     }
@@ -64,7 +64,7 @@ func RandUint64() (uint64, error) {
     }
 
     var data uint64
-    err = binary.Read(bytes.NewReader(buf), binary.LittleEndian, &data)
+    err = binary.Read(bytes.NewReader(buf), binary.BigEndian, &data)
     if err != nil {
         return 0, err
     }

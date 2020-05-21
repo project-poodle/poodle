@@ -14,15 +14,19 @@ import (
 )
 
 // 32 byte array
-func SumSHA256(data []byte) ([32]byte) {
+func SumSHA256(data []byte) ([]byte) {
     sum := sha256.Sum256(data)
-    return sum
+    return sum[:]
+}
+
+func SumSHA256d(data []byte) ([]byte) {
+    return SumSHA256(SumSHA256(data))
 }
 
 // 16 byte array
-func SumMD5(data []byte) ([16]byte) {
+func SumMD5(data []byte) ([]byte) {
     sum := md5.Sum(data)
-    return sum
+    return sum[:]
 }
 
 func ToBigInt(data []byte) *big.Int {
