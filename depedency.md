@@ -1,1 +1,2 @@
 - github.com/edsrzf/mmap-go
+- github.com/howeyc/gopass
