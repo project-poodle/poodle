@@ -19,8 +19,8 @@ func setupSnappyData() ([][]byte, [][]byte) {
     var data_size = 0
     var compressed_size = 0
 
-    data        := make([][]byte, 64 * 1024)
-    compressed  := make([][]byte, 64 * 1024)
+    data        := make([][]byte, 4 * 1024)
+    compressed  := make([][]byte, 4 * 1024)
     for i:=0; i<len(data); i++ {
         data[i] = make([]byte, 4 * 1024)
         for j:=0; j<len(data[i]); {

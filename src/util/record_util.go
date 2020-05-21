@@ -8,30 +8,6 @@ import (
 )
 
 ////////////////////////////////////////////////////////////////////////////////
-// utilities
-
-func Ternary(statement bool, a, b interface{}) interface{} {
-    if statement {
-        return a
-    }
-    return b
-}
-
-func Int64ToTime(nano int64) *time.Time {
-    t := time.Unix(0, nano)
-    return &t
-}
-
-func BytesToTime(buf []byte) (*time.Time, error) {
-    if len(buf) < 8 {
-        return nil, fmt.Errorf("BytesToTime - buf length less than 8 bytes [%x]", buf)
-    }
-    nano := binary.BigEndian.Uint64(buf[:8])
-    return Int64ToTime(int64(nano)), nil
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
 // Interfaces
 
 type IRecord interface {
