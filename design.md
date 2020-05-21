@@ -1,17 +1,18 @@
 # Identity #
 
-Poodle clusters and nodes are identified by [ECDSA](https://golang.org/pkg/crypto/ecdsa/) crypto keys.
+Poodle objects (e.g. Clusters, Nodes, Services, etc.) are identified by
+[ECDSA](https://golang.org/pkg/crypto/ecdsa/) crypto keys.
 
-- Each Poodle cluster is identified by a cluster specific public / private
+- Each Poodle Cluster is identified by a cluster specific public / private
   ECDSA key.
-- Each Poodle node is identified by a node specific public / private
+- Each Poodle Node is identified by a node specific public / private
   ECDSA key.
 
-A Poodle node is added to a Poodle cluster by a message containing the
+A Poodle Node is added to a Poodle Cluster by a message containing the
 __cluster:node__ scheme, the Poodle node public key, a 'UPDATE'
 operation, and a timestamp, signed by the Poodle cluster private key.
 
-A Poodle node is removed from a Poodle cluster by a message containing the
+A Poodle Node is removed from a Poodle Cluster by a message containing the
 __cluster:node__ scheme, the Poodle node public key, a 'CLEAR'
 operation, and a timestamp, signed by the Poodle cluster private key.
 
