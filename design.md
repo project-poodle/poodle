@@ -704,12 +704,12 @@ A Consensus Block is encoded as:
   - 01 means SET
     - this sets value of the specified key of specific Consensus ID, Domain,
       Table, and Attribute Group. Both UPDATE and CLEAR Records are considered SET
-  - 10 means KEYS
+  - 10 means GROUPS
     - this retrieves a list of Attribute Groups under the specified Key of
       specific Consensus ID, Domain and Table
-  - 11 means VALUES
-    - this retrieves a list of Records (key/value/attribute-group) under the
-      specified Key of specific Consensus ID, Domain and Table
+  - 11 means KEYS
+    - this retrieves a list of Keys with the specified Key as prefix, of specific
+      Consensus ID, Domain and Table
       
 - Bits 3 is test bit
   - Test bit enables atomic operation for handling of locked operation
@@ -840,14 +840,15 @@ A SSTable consists of:
     - for raft consensus, time is represented as Term + milliseconds
       elapsed + Record count in the same millisecond
   - followed by file start key
+  - followed by crc32 of the header
 
 - followed by Record Offset lookup:
   - the hash scheme for Record lookup
-  - followed by the Record offset table
+  - followed by the Record offset and length table
+  - followed by crc32 of the offset lookup
 
 - followed by a list of Records
-
-- followed by crc32
+  - each record followed by crc32 of the Records
 
 ### Record Offset Lookup ###
 

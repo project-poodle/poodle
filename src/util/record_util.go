@@ -24,7 +24,7 @@ func Int64ToTime(nano int64) *time.Time {
 
 func BytesToTime(buf []byte) (*time.Time, error) {
     if len(buf) < 8 {
-        return nil, fmt.Errorf("util.BytesToTime - buf length less than 8 bytes [%x]", buf)
+        return nil, fmt.Errorf("BytesToTime - buf length less than 8 bytes [%x]", buf)
     }
     nano := binary.BigEndian.Uint64(buf[:8])
     return Int64ToTime(int64(nano)), nil
@@ -77,7 +77,7 @@ type MappedRecord struct {
 
 func NewMappedRecord(buf []byte) (*MappedRecord, error) {
     if (buf == nil || len(buf)<1) {
-        return nil, fmt.Errorf("util.NewMappedRecord - received empty buf")
+        return nil, fmt.Errorf("NewMappedRecord - received empty buf")
     }
     return &MappedRecord{buf: buf}, nil
 }
@@ -297,11 +297,11 @@ func (d *SimpleMappedData) Size() uint16 {
 }
 
 func (d *SimpleMappedData) DataAt(i uint16) (IData, error) {
-    return nil, fmt.Errorf("util.SimpleMappedData::DataAt - no array element")
+    return nil, fmt.Errorf("SimpleMappedData::DataAt - no array element")
 }
 
 func (d *SimpleMappedData) RecordAt(i uint16) (IRecord, error) {
-    return nil, fmt.Errorf("util.SimpleMappedData::RecordAt - no composite element")
+    return nil, fmt.Errorf("SimpleMappedData::RecordAt - no composite element")
 }
 
 func (d *SimpleMappedData) GetLookup() []byte {
@@ -347,7 +347,7 @@ func NewEncodedMappedData(buf []byte) (*EncodedMappedData, error){
         d.data_array        = make([]IData, d.size)
         buf_length          += 2
     case 0x03:
-        return nil, fmt.Errorf("util.NewEncodedMappedData - invalid magic - data array: %b", d.data_magic)
+        return nil, fmt.Errorf("NewEncodedMappedData - invalid magic - data array: %b", d.data_magic)
     }
     // process record list
     record_list     := (d.data_magic >> 4) & 0x03
@@ -356,7 +356,7 @@ func NewEncodedMappedData(buf []byte) (*EncodedMappedData, error){
         break
     case 0x01:
         if encode_is_set {
-            return nil, fmt.Errorf("util.NewEncodedMappedData - invalid magic [%b] - encode set prior to data array", d.data_magic)
+            return nil, fmt.Errorf("NewEncodedMappedData - invalid magic [%b] - encode set prior to data array", d.data_magic)
         }
         encode_is_set       = true
         d.size              = uint16(buf[1])
@@ -364,14 +364,14 @@ func NewEncodedMappedData(buf []byte) (*EncodedMappedData, error){
         buf_length          += 1
     case 0x02:
         if encode_is_set {
-            return nil, fmt.Errorf("util.NewEncodedMappedData - invalid magic [%b] - encode set prior to data array", d.data_magic)
+            return nil, fmt.Errorf("NewEncodedMappedData - invalid magic [%b] - encode set prior to data array", d.data_magic)
         }
         encode_is_set       = true
         d.size              = uint16(binary.BigEndian.Uint16(buf[1:2]))
         d.record_list       = make([]IRecord, d.size)
         buf_length          += 2
     case 0x03:
-        return nil, fmt.Errorf("util.NewEncodedMappedData - invalid magic [%b] - record list", d.data_magic)
+        return nil, fmt.Errorf("NewEncodedMappedData - invalid magic [%b] - record list", d.data_magic)
     }
     // process lookup
     lookup_bit      := (d.data_magic >> 3) & 0x01
@@ -380,7 +380,7 @@ func NewEncodedMappedData(buf []byte) (*EncodedMappedData, error){
         d.lookup            = nil
     case 0x01:
         // buf_length      += 2
-        return nil, fmt.Errorf("util.NewEncodedMappedData - invalid magic [%b] - lookup not supported", d.data_magic)
+        return nil, fmt.Errorf("NewEncodedMappedData - invalid magic [%b] - lookup not supported", d.data_magic)
     }
     // process compression
     compression_bit := (d.data_magic >> 2) & 0x01
@@ -389,7 +389,7 @@ func NewEncodedMappedData(buf []byte) (*EncodedMappedData, error){
         d.compression       = nil
     case 0x01:
         // buf_length      += 2
-        return nil, fmt.Errorf("util.NewEncodedMappedData - invalid magic [%b] - compression not supported", d.data_magic)
+        return nil, fmt.Errorf("NewEncodedMappedData - invalid magic [%b] - compression not supported", d.data_magic)
     }
     // process length
     length_bit      := d.data_magic & 0x03
@@ -403,7 +403,7 @@ func NewEncodedMappedData(buf []byte) (*EncodedMappedData, error){
         content_length      = uint16(binary.BigEndian.Uint16(buf[buf_length:buf_length+1]))
         buf_length          += 2 + content_length
     case 0x03:
-        return nil, fmt.Errorf("util.NewEncodedMappedData - invalid magic [%b] - length ", d.data_magic)
+        return nil, fmt.Errorf("NewEncodedMappedData - invalid magic [%b] - length ", d.data_magic)
     }
 
     d.content   = buf[buf_length-content_length:buf_length]
@@ -447,7 +447,7 @@ func (d *EncodedMappedData) Size() uint16 {
 func (d *EncodedMappedData) DataAt(idx uint16) (IData, error) {
 
     if idx >= d.size {
-        return nil, fmt.Errorf("util.EncodedMappedData::DataAt - idx [%d] bigger than size [%d]", idx, d.size)
+        return nil, fmt.Errorf("EncodedMappedData::DataAt - idx [%d] bigger than size [%d]", idx, d.size)
     }
 
     if (d.data_array[idx] != nil) {
@@ -472,7 +472,7 @@ func (d *EncodedMappedData) DataAt(idx uint16) (IData, error) {
 func (d *EncodedMappedData) RecordAt(idx uint16) (IRecord, error) {
 
     if idx >= d.size {
-        return nil, fmt.Errorf("util.EncodedMappedData::RecordAt - idx [%d] bigger than size [%d]", idx, d.size)
+        return nil, fmt.Errorf("EncodedMappedData::RecordAt - idx [%d] bigger than size [%d]", idx, d.size)
     }
 
     if (d.record_list[idx] != nil) {
