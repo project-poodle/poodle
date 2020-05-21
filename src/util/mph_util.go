@@ -55,7 +55,7 @@ func MPHBuild(keys [][]byte) *MPHTable {
 		level1        = make([]uint32, nextPow2(len(keys)))
 		level1Mask    = len(level1) - 1
 		sparseBuckets = make([][]int, len(level0))
-		zeroSeed      = murmurSeed(0)
+		zeroSeed      = MurmurSeed(0)
 	)
 	for i, s := range keys {
 		n := int(zeroSeed.hash(s)) & level0Mask
@@ -72,7 +72,7 @@ func MPHBuild(keys [][]byte) *MPHTable {
 	occ := make([]bool, len(level1))
 	var tmpOcc []int
 	for _, bucket := range buckets {
-		var seed murmurSeed
+		var seed MurmurSeed
 	trySeed:
 		tmpOcc = tmpOcc[:0]
 		for _, i := range bucket.vals {
@@ -110,9 +110,9 @@ func nextPow2(n int) int {
 
 // Lookup searches for s in t and returns its index and whether it was found.
 func (t *MPHTable) Lookup(s []byte) (n uint32, ok bool) {
-	i0 := int(murmurSeed(0).hash(s)) & t.level0Mask
+	i0 := int(MurmurSeed(0).hash(s)) & t.level0Mask
 	seed := t.level0[i0]
-	i1 := int(murmurSeed(seed).hash(s)) & t.level1Mask
+	i1 := int(MurmurSeed(seed).hash(s)) & t.level1Mask
 	n = t.level1[i1]
 	return n, TestEq(s, t.keys[int(n)])
 }
@@ -133,7 +133,7 @@ func (s bySize) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 // our specific use case. See https://en.wikipedia.org/wiki/MurmurHash.
 
 // A murmurSeed is the initial state of a Murmur3 hash.
-type murmurSeed uint32
+type MurmurSeed uint32
 
 const (
 	c1      = 0xcc9e2d51
@@ -147,7 +147,7 @@ const (
 )
 
 // hash computes the 32-bit Murmur3 hash of s using ms as the seed.
-func (ms murmurSeed) hash(b []byte) uint32 {
+func (ms MurmurSeed) hash(b []byte) uint32 {
 	h := uint32(ms)
 	l := len(b)
 	numBlocks := l / 4

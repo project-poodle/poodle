@@ -41,7 +41,7 @@ import (
 
 var murmurTestCases = []struct {
 	input []byte
-	seed  murmurSeed
+	seed  MurmurSeed
 	want  uint32
 }{
 	{[]byte(""), 0, 0},
@@ -79,7 +79,7 @@ func BenchmarkMurmur(b *testing.B) {
 		b.Run(fmt.Sprint(size), func(b *testing.B) {
 			s := []byte(strings.Repeat("a", size))
 			b.SetBytes(int64(size))
-			var seed murmurSeed
+			var seed MurmurSeed
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				seed.hash(s)
