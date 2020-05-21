@@ -39,34 +39,46 @@ import (
 	"testing"
 )
 
+type TestKey struct {
+    key     []byte
+}
+
+func NewTestKey(s string) (*TestKey) {
+    return &TestKey{key: []byte(s)}
+}
+
+func (t *TestKey) Key() []byte {
+    return t.key
+}
+
 var murmurTestCases = []struct {
-	input []byte
+	input IKey
 	seed  MurmurSeed
 	want  uint32
 }{
-	{[]byte(""), 0, 0},
-	{[]byte(""), 1, 0x514e28b7},
-	{[]byte(""), 0xffffffff, 0x81f16f39},
-	{[]byte("\xff\xff\xff\xff"), 0, 0x76293b50},
-	{[]byte("!Ce\x87"), 0, 0xf55b516b},
-	{[]byte("!Ce\x87"), 0x5082edee, 0x2362f9de},
-	{[]byte("!Ce"), 0, 0x7e4a8634},
-	{[]byte("!C"), 0, 0xa0f7b07a},
-	{[]byte("!"), 0, 0x72661cf4},
-	{[]byte("\x00\x00\x00\x00"), 0, 0x2362f9de},
-	{[]byte("\x00\x00\x00"), 0, 0x85f0b427},
-	{[]byte("\x00\x00"), 0, 0x30f4c306},
-	{[]byte("Hello, world!"), 0x9747b28c, 0x24884CBA},
-	{[]byte("ππππππππ"), 0x9747b28c, 0xD58063C1},
-	{[]byte("abc"), 0, 0xb3dd93fa},
-	{[]byte("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"), 0, 0xee925b90},
-	{[]byte("The quick brown fox jumps over the lazy dog"), 0x9747b28c, 0x2fa826cd},
-	{[]byte(strings.Repeat("a", 256)), 0x9747b28c, 0x37405bdc},
+	{NewTestKey(""), 0, 0},
+	{NewTestKey(""), 1, 0x514e28b7},
+	{NewTestKey(""), 0xffffffff, 0x81f16f39},
+	{NewTestKey("\xff\xff\xff\xff"), 0, 0x76293b50},
+	{NewTestKey("!Ce\x87"), 0, 0xf55b516b},
+	{NewTestKey("!Ce\x87"), 0x5082edee, 0x2362f9de},
+	{NewTestKey("!Ce"), 0, 0x7e4a8634},
+	{NewTestKey("!C"), 0, 0xa0f7b07a},
+	{NewTestKey("!"), 0, 0x72661cf4},
+	{NewTestKey("\x00\x00\x00\x00"), 0, 0x2362f9de},
+	{NewTestKey("\x00\x00\x00"), 0, 0x85f0b427},
+	{NewTestKey("\x00\x00"), 0, 0x30f4c306},
+	{NewTestKey("Hello, world!"), 0x9747b28c, 0x24884CBA},
+	{NewTestKey("ππππππππ"), 0x9747b28c, 0xD58063C1},
+	{NewTestKey("abc"), 0, 0xb3dd93fa},
+	{NewTestKey("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"), 0, 0xee925b90},
+	{NewTestKey("The quick brown fox jumps over the lazy dog"), 0x9747b28c, 0x2fa826cd},
+	{NewTestKey(strings.Repeat("a", 256)), 0x9747b28c, 0x37405bdc},
 }
 
 func TestMurmur(t *testing.T) {
 	for _, tt := range murmurTestCases {
-		got := tt.seed.hash(tt.input)
+		got := tt.seed.hash(tt.input.Key())
 		if got != tt.want {
 			t.Errorf("hash(%q, seed=0x%x): got 0x%x; want %x",
 				tt.input, tt.seed, got, tt.want)
@@ -89,23 +101,23 @@ func BenchmarkMurmur(b *testing.B) {
 }
 
 func TestBuild_simple(t *testing.T) {
-	testTable(t, [][]byte{[]byte("foo"), []byte("foo2"), []byte("bar"), []byte("baz")}, [][]byte{[]byte("quux")})
+	testTable(t, []IKey{NewTestKey("foo"), NewTestKey("foo2"), NewTestKey("bar"), NewTestKey("baz")}, []IKey{NewTestKey("quux")})
 }
 
 func TestBuild_stress(t *testing.T) {
-	var keys, extra [][]byte
+	var keys, extra []IKey
 	for i := 0; i < 20000; i++ {
 		s := strconv.Itoa(i)
 		if i < 10000 {
-			keys = append(keys, []byte(s))
+			keys = append(keys, NewTestKey(s))
 		} else {
-			extra = append(extra, []byte(s))
+			extra = append(extra, NewTestKey(s))
 		}
 	}
 	testTable(t, keys, extra)
 }
 
-func testTable(t *testing.T, keys [][]byte, extra [][]byte) {
+func testTable(t *testing.T, keys []IKey, extra []IKey) {
 	table := MPHBuild(keys, 99)
 	for i, key := range keys {
 		n, ok := table.Lookup(key)
@@ -125,7 +137,7 @@ func testTable(t *testing.T, keys [][]byte, extra [][]byte) {
 }
 
 var (
-	words      [][]byte
+	words      []IKey
 	wordsOnce  sync.Once
 	benchTable *MPHTable
 )
@@ -166,12 +178,12 @@ func BenchmarkMPHTableMap(b *testing.B) {
 	}
 	m := make(map[string]uint32)
 	for i, word := range words {
-		m[string(word)] = uint32(i)
+		m[string(word.Key())] = uint32(i)
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		j := i % len(words)
-		n, ok := m[string(words[j])]
+		n, ok := m[string(words[j].Key())]
 		if !ok {
 			b.Fatal("missing key")
 		}
@@ -194,16 +206,16 @@ func loadBenchTable() {
 	}
 }
 
-func loadDict(dict string) ([][]byte, error) {
+func loadDict(dict string) ([]IKey, error) {
 	f, err := os.Open(dict)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
 	scanner := bufio.NewScanner(f)
-	var words [][]byte
+	var words []IKey
 	for scanner.Scan() {
-		words = append(words, []byte(scanner.Text()))
+		words = append(words, NewTestKey(scanner.Text()))
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, err

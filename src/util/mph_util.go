@@ -40,6 +40,13 @@ import (
     "unsafe"
 )
 
+////////////////////////////////////////////////////////////////////////////////
+// Interfaces
+
+type IKey interface {
+    Key()           []byte
+}
+
 // A Table is an immutable hash table that provides constant-time lookups of key
 // indices using a minimal perfect hash.
 type MPHTable struct {
@@ -53,7 +60,7 @@ type MPHTable struct {
 
 // Build builds a Table from keys using the "Hash, displace, and compress"
 // algorithm described in http://cmph.sourceforge.net/papers/esa09.pdf.
-func MPHBuild(keys [][]byte, verify_seed uint32) *MPHTable {
+func MPHBuild(keys []IKey, verify_seed uint32) *MPHTable {
     var (
         level0        = make([]uint32, nextPow2(len(keys)/4))
         level0Mask    = len(level0) - 1
@@ -63,7 +70,7 @@ func MPHBuild(keys [][]byte, verify_seed uint32) *MPHTable {
         zeroSeed      = MurmurSeed(0)
     )
     for i, s := range keys {
-        n := int(zeroSeed.hash(s)) & level0Mask
+        n := int(zeroSeed.hash(s.Key())) & level0Mask
         sparseBuckets[n] = append(sparseBuckets[n], i)
     }
     var buckets []indexBucket
@@ -81,7 +88,7 @@ func MPHBuild(keys [][]byte, verify_seed uint32) *MPHTable {
     trySeed:
         tmpOcc = tmpOcc[:0]
         for _, i := range bucket.vals {
-            n := int(seed.hash(keys[i])) & level1Mask
+            n := int(seed.hash(keys[i].Key())) & level1Mask
             if occ[n] {
                 for _, n := range tmpOcc {
                     occ[n] = false
@@ -98,7 +105,7 @@ func MPHBuild(keys [][]byte, verify_seed uint32) *MPHTable {
 
     verify_hash := make([]uint32, len(keys))
     for i:=0; i<len(keys); i++ {
-        verify_hash[i] = (MurmurSeed)(verify_seed).hash(keys[i])
+        verify_hash[i] = (MurmurSeed)(verify_seed).hash(keys[i].Key())
     }
 
     return &MPHTable{
@@ -120,12 +127,12 @@ func nextPow2(n int) int {
 }
 
 // Lookup searches for s in t and returns its index and whether it was found.
-func (t *MPHTable) Lookup(s []byte) (n uint32, ok bool) {
-    i0 := int(MurmurSeed(0).hash(s)) & t.level0Mask
+func (t *MPHTable) Lookup(s IKey) (n uint32, ok bool) {
+    i0 := int(MurmurSeed(0).hash(s.Key())) & t.level0Mask
     seed := t.level0[i0]
-    i1 := int(MurmurSeed(seed).hash(s)) & t.level1Mask
+    i1 := int(MurmurSeed(seed).hash(s.Key())) & t.level1Mask
     n = t.level1[i1]
-    verify_hash := (MurmurSeed)(t.verify_seed).hash(s)
+    verify_hash := (MurmurSeed)(t.verify_seed).hash(s.Key())
     return n, verify_hash == t.verify_hash[int(n)]
 }
 
