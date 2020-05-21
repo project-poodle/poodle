@@ -8,6 +8,8 @@ Project Poodle is next generation storage service:
 
 - Supports dynamic data movements and migrations without down time
 
-- Dynamically finds and uses available system resources
+- Dynamically finds and uses available system resources [future]
+
+- Supports cross data center operation, such as Federation, Replication, and Migration [future]
 
 Refer to [design document](./design.md) for details.
