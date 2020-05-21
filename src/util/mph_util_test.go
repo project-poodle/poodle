@@ -106,7 +106,7 @@ func TestBuild_stress(t *testing.T) {
 }
 
 func testTable(t *testing.T, keys [][]byte, extra [][]byte) {
-	table := MPHBuild(keys)
+	table := MPHBuild(keys, 99)
 	for i, key := range keys {
 		n, ok := table.Lookup(key)
 		if !ok {
@@ -136,7 +136,7 @@ func BenchmarkMPHBuild(b *testing.B) {
 		b.Skip("unable to load dictionary file")
 	}
 	for i := 0; i < b.N; i++ {
-		MPHBuild(words)
+		MPHBuild(words, uint32(i))
 	}
 }
 
@@ -190,7 +190,7 @@ func loadBenchTable() {
 		}
 	}
 	if len(words) > 0 {
-		benchTable = MPHBuild(words)
+		benchTable = MPHBuild(words, 0)
 	}
 }
 
