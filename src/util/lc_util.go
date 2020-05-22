@@ -239,7 +239,7 @@ func lc_load_key_data(filepath string) ([]byte, error) {
     binary.BigEndian.PutUint32(compute_crc, crc32.ChecksumIEEE(data))
 
     content_crc := output[n-4:n]
-    if !TestEq(compute_crc, content_crc) {
+    if !EqByteArray(compute_crc, content_crc) {
         return nil, fmt.Errorf("[%s] computed CRC does not match content CRC", filepath)
     }
 

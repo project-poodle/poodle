@@ -40,7 +40,67 @@ const (
 ////////////////////////////////////////////////////////////////////////////////
 // utilities
 
-func TestEq(a, b []byte) bool {
+func EqByteArray(a, b []byte) bool {
+
+    // If one is nil, the other must also be nil.
+    if (a == nil) != (b == nil) {
+        return false;
+    }
+
+    if len(a) != len(b) {
+        return false
+    }
+
+    for i := range a {
+        if a[i] != b[i] {
+            return false
+        }
+    }
+
+    return true
+}
+
+func EqUint16Array(a, b []uint16) bool {
+
+    // If one is nil, the other must also be nil.
+    if (a == nil) != (b == nil) {
+        return false;
+    }
+
+    if len(a) != len(b) {
+        return false
+    }
+
+    for i := range a {
+        if a[i] != b[i] {
+            return false
+        }
+    }
+
+    return true
+}
+
+func EqUint32Array(a, b []uint32) bool {
+
+    // If one is nil, the other must also be nil.
+    if (a == nil) != (b == nil) {
+        return false;
+    }
+
+    if len(a) != len(b) {
+        return false
+    }
+
+    for i := range a {
+        if a[i] != b[i] {
+            return false
+        }
+    }
+
+    return true
+}
+
+func EqUint64Array(a, b []uint64) bool {
 
     // If one is nil, the other must also be nil.
     if (a == nil) != (b == nil) {

@@ -15,11 +15,8 @@ import (
 )
 
 func TestRandInt32(t *testing.T) {
-    d, err := RandInt32()
 
-    if err != nil {
-        t.Fatal("RandInt32 : ", err)
-    }
+    d := RandInt32()
 
     fmt.Printf("RandInt32 : %x\n", d)
 }

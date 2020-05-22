@@ -5,6 +5,11 @@ import (
     "encoding/binary"
 )
 
+const (
+    CONSENSUS_TIME_LEDGER   = 0x01
+    CONSENSUS_TIME_RAFT     = 0x02
+)
+
 ////////////////////////////////////////////////////////////////////////////////
 // Interfaces
 
@@ -19,6 +24,38 @@ type IConsensusTime interface {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// Factory
+
+func NewConsensusTime(buf []byte) (IConsensusTime, error) {
+    if len(buf) < 1 {
+        return nil, fmt.Errorf("NewConsensusTime - no magic")
+    }
+
+    switch buf[0] {
+
+    case CONSENSUS_TIME_LEDGER:
+
+        if len(buf) < 1 + 4 {
+            return nil, fmt.Errorf("NewConsensusTime - missing ledger time - %x", buf)
+        }
+        return NewLedgerTime(binary.BigEndian.Uint32(buf[1:])), nil
+
+    case CONSENSUS_TIME_RAFT:
+
+        if len(buf) < 1 + 12 {
+            return nil, fmt.Errorf("NewConsensusTime - missing raft time - %x", buf)
+        }
+        return NewRaftTime(binary.BigEndian.Uint32(buf[1:]),
+                            binary.BigEndian.Uint32(buf[5:]),
+                            binary.BigEndian.Uint32(buf[9:])), nil
+
+    default:
+
+        return nil, fmt.Errorf("NewConsensusTime - unsupported magic - %x", buf[0])
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // LedgerTime
 
 type LedgerTime struct {
@@ -30,8 +67,9 @@ func NewLedgerTime(t uint32) *LedgerTime {
 }
 
 func (t *LedgerTime) Buf() []byte {
-    buf := make([]byte, 4)
-    binary.BigEndian.PutUint32(buf, t.epoch)
+    buf     := make([]byte, 1 + 4)
+    buf[0]  = CONSENSUS_TIME_LEDGER
+    binary.BigEndian.PutUint32(buf[1:], t.epoch)
     return buf
 }
 
@@ -92,8 +130,13 @@ type RaftTime struct {
     count               uint32
 }
 
+func NewRaftTime(term, millis, count uint32) *RaftTime {
+    return &RaftTime{term: term, millis: millis, count: count}
+}
+
 func (t *RaftTime) Buf() []byte {
-    buf := make([]byte, 12)
+    buf     := make([]byte, 1 + 12)
+    buf[0]  = CONSENSUS_TIME_RAFT
     binary.BigEndian.PutUint32(buf, t.term)
     binary.BigEndian.PutUint32(buf[4:], t.millis)
     binary.BigEndian.PutUint32(buf[8:], t.count)
@@ -227,7 +270,7 @@ type ConsensusID struct {
     ServiceID           []byte
     ShardStart          []byte
     ShardEnd            []byte
-    Buf                 []byte
+    buf                 []byte
 }
 
 func NewConsensusID(buf []byte) (*ConsensusID, error) {
@@ -285,15 +328,19 @@ func NewConsensusID(buf []byte) (*ConsensusID, error) {
     }
 
     // set buf length to be the exact length
-    c.Buf = buf[:pos]
+    c.buf = buf[:pos]
 
     return c, nil
 }
 
+func (c *ConsensusID) Buf() ([]byte) {
+    return c.buf
+}
+
 func (c *ConsensusID) Copy() (*ConsensusID) {
     // make a deep copy of the buf
-    buf := make([]byte, len(c.Buf))
-    copy(buf, c.Buf)
+    buf := make([]byte, len(c.buf))
+    copy(buf, c.buf)
     copy, err := NewConsensusID(buf)
     if err != nil {
         // this should not happen
