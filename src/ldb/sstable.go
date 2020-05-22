@@ -21,7 +21,7 @@ const (
 type ISSTable interface {
     // SSTable Level Attributes
     Version()                           uint32                          // Version
-    ConsensusID()                       *util.ConsensusID               // Consensus ID
+    ConsensusID()                       util.IConsensusID               // Consensus ID
     Domain()                            []byte                          // Domain Name
     Table()                             []byte                          // Table Name
     StartTime()                         util.IConsensusTime             // Start Time
@@ -46,7 +46,7 @@ type SSTableV1 struct {
     // basic attributes
     filepath            string
     version             uint32
-    consensus_id        *util.ConsensusID
+    consensus_id        util.IConsensusID
     domain              util.IData
     table               util.IData
     start_time          util.IConsensusTime
@@ -104,7 +104,7 @@ func NewSSTableV1(filepath string) (t *SSTableV1, err error) {
     pos += 4
 
     // parse consensus_id
-    t.consensus_id, err = util.NewConsensusID(mmap_data[pos:])
+    t.consensus_id, err = util.NewMappedConsensusID(mmap_data[pos:])
     if err != nil {
         return
     }
@@ -247,7 +247,7 @@ func (t *SSTableV1) Version() uint32 {
     return 1
 }
 
-func (t *SSTableV1) ConsensusID() *util.ConsensusID {
+func (t *SSTableV1) ConsensusID() util.IConsensusID {
     return t.consensus_id
 }
 

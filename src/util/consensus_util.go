@@ -23,6 +23,12 @@ type IConsensusTime interface {
     LE(ict IConsensusTime)  (bool, error)
 }
 
+type IConsensusID interface {
+    ConsensusMagic()        byte
+    Buf()                   []byte
+    Copy()                  IConsensusID
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Factory
 
@@ -262,18 +268,18 @@ func (t *RaftTime) LE(ict IConsensusTime) (bool, error) {
 ////////////////////////////////////////////////////////////////////////////////
 // ConsensusID
 
-type ConsensusID struct {
-    ConsensusMagic      byte
-    UniverseID          []byte
-    ClusterID           []byte
-    FederationID        []byte
-    ServiceID           []byte
-    ShardStart          []byte
-    ShardEnd            []byte
+type MappedConsensusID struct {
+    consensus_magic     byte
+    universe_id         []byte
+    cluster_id          []byte
+    federation_id       []byte
+    service_id          []byte
+    shard_start         []byte
+    shard_end           []byte
     buf                 []byte
 }
 
-func NewConsensusID(buf []byte) (*ConsensusID, error) {
+func NewMappedConsensusID(buf []byte) (*MappedConsensusID, error) {
     if buf == nil || len(buf) == 0 || buf[0] == 0x00 {
         return nil, fmt.Errorf("NewConsensusID - invalid magic [%b]", buf[0])
     }
@@ -282,14 +288,14 @@ func NewConsensusID(buf []byte) (*ConsensusID, error) {
         return nil, fmt.Errorf("NewConsensusID - invalid magic [%b] - reserved bits set", buf[0])
     }
 
-    c := &ConsensusID{ConsensusMagic: buf[0]}
+    c := &MappedConsensusID{consensus_magic: buf[0]}
 
     pos := 1
     if (buf[0] >> 7) & 0x01 != 0 {
         if len(buf) < pos + 32 {
             return nil, fmt.Errorf("NewConsensusID - insufficient length [%x]", buf)
         }
-        c.UniverseID  = buf[pos:pos+32]
+        c.universe_id   = buf[pos:pos+32]
         pos += 32
     }
 
@@ -297,7 +303,7 @@ func NewConsensusID(buf []byte) (*ConsensusID, error) {
         if len(buf) < pos + 32 {
             return nil, fmt.Errorf("NewConsensusID - insufficient length [%x]", buf)
         }
-        c.ClusterID  = buf[pos:pos+32]
+        c.cluster_id    = buf[pos:pos+32]
         pos += 32
     }
 
@@ -305,7 +311,7 @@ func NewConsensusID(buf []byte) (*ConsensusID, error) {
         if len(buf) < pos + 32 {
             return nil, fmt.Errorf("NewConsensusID - insufficient length [%x]", buf)
         }
-        c.FederationID  = buf[pos:pos+32]
+        c.federation_id = buf[pos:pos+32]
         pos += 32
     }
 
@@ -313,7 +319,7 @@ func NewConsensusID(buf []byte) (*ConsensusID, error) {
         if len(buf) < pos + 32 {
             return nil, fmt.Errorf("NewConsensusID - insufficient length [%x]", buf)
         }
-        c.ServiceID  = buf[pos:pos+32]
+        c.service_id    = buf[pos:pos+32]
         pos += 32
     }
 
@@ -321,9 +327,9 @@ func NewConsensusID(buf []byte) (*ConsensusID, error) {
         if len(buf) < pos + 64 {
             return nil, fmt.Errorf("NewConsensusID - insufficient length [%x]", buf)
         }
-        c.ShardStart  = buf[pos:pos+32]
+        c.shard_start   = buf[pos:pos+32]
         pos += 32
-        c.ShardEnd  = buf[pos:pos+32]
+        c.shard_end     = buf[pos:pos+32]
         pos += 32
     }
 
@@ -333,15 +339,19 @@ func NewConsensusID(buf []byte) (*ConsensusID, error) {
     return c, nil
 }
 
-func (c *ConsensusID) Buf() ([]byte) {
+func (c *MappedConsensusID) ConsensusMagic() byte {
+    return c.buf[0]
+}
+
+func (c *MappedConsensusID) Buf() ([]byte) {
     return c.buf
 }
 
-func (c *ConsensusID) Copy() (*ConsensusID) {
+func (c *MappedConsensusID) Copy() (IConsensusID) {
     // make a deep copy of the buf
     buf := make([]byte, len(c.buf))
     copy(buf, c.buf)
-    copy, err := NewConsensusID(buf)
+    copy, err := NewMappedConsensusID(buf)
     if err != nil {
         // this should not happen
         panic(fmt.Sprintf("ConsensusID:Copy - %s", err))

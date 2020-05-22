@@ -279,6 +279,12 @@ func (r *MappedRecord) Copy() IRecord {
 // Constructed Record
 
 type ConstructedRecord struct {
+    key         IData
+    value       IData
+    scheme      IData
+    timestamp   *time.Time
+    signature_r *big.Int
+    signature_s *big.Int
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -616,5 +622,14 @@ func (d *EncodedMappedData) GetCompression() []byte {
 ////////////////////////////////////////////////////////////////////////////////
 // Constructed Data
 
-type ConstructedData struct {
+type ConstructedDataArray struct {
+    data_array          []IData
+}
+
+type ConstructedRecordList struct {
+    record_list         []IData
+}
+
+type ConstructedPrimitive struct {
+    data                []byte
 }
