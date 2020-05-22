@@ -10,6 +10,11 @@ import (
     "../util"
 )
 
+const (
+    SSTABLE_MAX_RECORDS     = uint32(1024 * 1024)
+    SSTABLE_MAX_LENGTH      = uint32(1 * 1024 * 1024 * 1024)
+)
+
 ////////////////////////////////////////////////////////////////////////////////
 // Interface
 
@@ -161,7 +166,7 @@ func NewSSTableV1(filepath string) (t *SSTableV1, err error) {
         return
     }
     t.count = binary.BigEndian.Uint32(mmap_data[pos:pos+4])
-    if t.count > 65536 {
+    if t.count > SSTABLE_MAX_RECORDS {
         err = fmt.Errorf("NewSSTableV1 - unsupported count - %d", t.count)
         return
     }
@@ -198,19 +203,19 @@ func NewSSTableV1(filepath string) (t *SSTableV1, err error) {
         return
     }
     record_offset_size := binary.BigEndian.Uint32(mmap_data[pos:pos+4])
-    if t.record_offset_size > 65536 {
-        err = fmt.Errorf("NewSSTableV1 - unsupported record offset size - %d", t.record_offset_size)
+    if record_offset_size > SSTABLE_MAX_RECORDS {
+        err = fmt.Errorf("NewSSTableV1 - unsupported record offset size - %d", record_offset_size)
         return
     }
     pos += 4
 
     // parse each record offset data
-    if len(mmap_data) < pos + 4 * record_offset_size {
+    if len(mmap_data) < pos + 4 * int(record_offset_size) {
         err = fmt.Errorf("NewSSTableV1 - no record offset data")
     }
-    t.record_offset = make([]byte, int(record_offset_size))
+    t.record_offset = make([]uint32, int(record_offset_size))
     for i:=0; i<int(record_offset_size); i++ {
-        t.record_offset[i] = binary.BigEndian.Uint32(mmap[pos:pos+4])
+        t.record_offset[i] = binary.BigEndian.Uint32(mmap_data[pos:pos+4])
         pos += 4
     }
 
@@ -230,7 +235,7 @@ func NewSSTableV1(filepath string) (t *SSTableV1, err error) {
     ////////////////////////////////////////
     // start of record
 
-    t.record_start_pos = pos
+    t.record_start_pos = uint32(pos)
 
     ////////////////////////////////////////
     // return parsed SSTableV1

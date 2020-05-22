@@ -778,11 +778,11 @@ A few properties of SSTable file:
   - SSTables can be removed once merged and not longer needed
   - SSTables content are never changed
 
-- Each SSTable have can have no more than 64k Records
-  - This enables generation of 2 bytes Perfect Hash key
+- Each SSTable is limited to no more than 1048576 (1M) Records
 
-- Each SSTable can be no more than 4GB size
-  - Each Record is less than 64 KB
+- Each SSTable is limited to maximum 1 GB size
+
+- Each Record is limited to less than 64 KB
 
 ### Record Scheme and SSTable ###
 
