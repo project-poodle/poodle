@@ -162,7 +162,7 @@ func TestSerializeKey(t *testing.T) {
 
     // serialize, then deserialize
     buf := table.Buf()
-    loaded_table, err := NewMPHTable(buf)
+    loaded_table, _, err := NewMPHTable(buf)
     if err != nil {
         t.Errorf("Parse MPHTable failed %s, %x", err, buf)
     }
@@ -227,7 +227,7 @@ func TestSerializeHash(t *testing.T) {
 
     // serialize, then deserialize
     buf := table.Buf()
-    loaded_table, err := NewMPHTable(buf)
+    loaded_table, _, err := NewMPHTable(buf)
     if err != nil {
         t.Errorf("Parse MPHTable failed %s", err)
     }

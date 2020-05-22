@@ -62,14 +62,14 @@ type MPHTable struct {
 }
 
 // parse MPHTable from []byte (deserialize)
-func NewMPHTable(buf []byte) (*MPHTable, error) {
+func NewMPHTable(buf []byte) (*MPHTable, int, error) {
 
     if len(buf) < 1 {
-        return nil, fmt.Errorf("NewMPHTable - no magic")
+        return nil, 0, fmt.Errorf("NewMPHTable - no magic")
     }
 
     if buf[0] != 0 && buf[0] != 1 {
-        return nil, fmt.Errorf("NewMPHTable - unrecognized magic %d", buf[0])
+        return nil, 0, fmt.Errorf("NewMPHTable - unrecognized magic %d", buf[0])
     }
 
     // initialize
@@ -79,14 +79,14 @@ func NewMPHTable(buf []byte) (*MPHTable, error) {
     ////////////////////////////////////////
     // level 0 size
     if len(buf) < pos + 4 {
-        return nil, fmt.Errorf("NewMPHTable - missing level 0 length %d", len(buf))
+        return nil, pos, fmt.Errorf("NewMPHTable - missing level 0 length %d", len(buf))
     }
     level0_len := binary.BigEndian.Uint32(buf[pos:])
     pos += 4
 
     // parse each level 0 data
     if len(buf) < pos + 4 * int(level0_len) {
-        return nil, fmt.Errorf("NewMPHTable - missing level 0 data %d", level0_len)
+        return nil, pos, fmt.Errorf("NewMPHTable - missing level 0 data %d", level0_len)
     }
     t.level0 = make([]uint32, level0_len)
     for i:=0; i<int(level0_len); i++ {
@@ -96,7 +96,7 @@ func NewMPHTable(buf []byte) (*MPHTable, error) {
 
     // parse level 0 mask
     if len(buf) < pos + 4 {
-        return nil, fmt.Errorf("NewMPHTable - missing level 0 mask %d", len(buf))
+        return nil, pos, fmt.Errorf("NewMPHTable - missing level 0 mask %d", len(buf))
     }
     t.level0Mask = int(binary.BigEndian.Uint32(buf[pos:]))
     pos += 4
@@ -104,14 +104,14 @@ func NewMPHTable(buf []byte) (*MPHTable, error) {
     ////////////////////////////////////////
     // level 1 size
     if len(buf) < pos + 4 {
-        return nil, fmt.Errorf("NewMPHTable - missing level 1 length %d", len(buf))
+        return nil, pos, fmt.Errorf("NewMPHTable - missing level 1 length %d", len(buf))
     }
     level1_len := binary.BigEndian.Uint32(buf[pos:])
     pos += 4
 
     // parse each level 0 data
     if len(buf) < pos + 4 * int(level1_len) {
-        return nil, fmt.Errorf("NewMPHTable - missing level 1 data %d", level1_len)
+        return nil, pos, fmt.Errorf("NewMPHTable - missing level 1 data %d", level1_len)
     }
     t.level1 = make([]uint32, level1_len)
     for i:=0; i<int(level1_len); i++ {
@@ -121,7 +121,7 @@ func NewMPHTable(buf []byte) (*MPHTable, error) {
 
     // parse level 0 mask
     if len(buf) < pos + 4 {
-        return nil, fmt.Errorf("NewMPHTable - missing level 1 mask %d", len(buf))
+        return nil, pos, fmt.Errorf("NewMPHTable - missing level 1 mask %d", len(buf))
     }
     t.level1Mask = int(binary.BigEndian.Uint32(buf[pos:]))
     pos += 4
@@ -135,7 +135,7 @@ func NewMPHTable(buf []byte) (*MPHTable, error) {
 
         // verify key array size
         if len(buf) < pos + 4 {
-            return nil, fmt.Errorf("NewMPHTable - missing verify key size %d", len(buf))
+            return nil, pos, fmt.Errorf("NewMPHTable - missing verify key size %d", len(buf))
         }
         verify_key_size := binary.BigEndian.Uint32(buf[pos:])
         pos += 4
@@ -147,14 +147,14 @@ func NewMPHTable(buf []byte) (*MPHTable, error) {
 
             // verify key length
             if len(buf) < pos + 4 {
-                return nil, fmt.Errorf("NewMPHTable - missing verify key length [%d] %d", i, len(buf))
+                return nil, pos, fmt.Errorf("NewMPHTable - missing verify key length [%d] %d", i, len(buf))
             }
             verify_key_len := binary.BigEndian.Uint32(buf[pos:])
             pos += 4
 
             // verify key data content
             if len(buf) < pos + int(verify_key_len) {
-                return nil, fmt.Errorf("NewMPHTable - missing verify key data [%d] %d", i, len(buf))
+                return nil, pos, fmt.Errorf("NewMPHTable - missing verify key data [%d] %d", i, len(buf))
             }
             t.verify_key[i] = buf[pos:pos+int(verify_key_len)]
             pos += int(verify_key_len)
@@ -167,21 +167,21 @@ func NewMPHTable(buf []byte) (*MPHTable, error) {
 
         // verify hash seed
         if len(buf) < pos + 4 {
-            return nil, fmt.Errorf("NewMPHTable - missing verify seed %d", len(buf))
+            return nil, pos, fmt.Errorf("NewMPHTable - missing verify seed %d", len(buf))
         }
         t.verify_seed = binary.BigEndian.Uint32(buf[pos:])
         pos += 4
 
         // verify hash array size
         if len(buf) < pos + 4 {
-            return nil, fmt.Errorf("NewMPHTable - missing verify hash length %d", len(buf))
+            return nil, pos, fmt.Errorf("NewMPHTable - missing verify hash length %d", len(buf))
         }
         verify_hash_len := binary.BigEndian.Uint32(buf[pos:])
         pos += 4
 
         // verify hash array data
         if len(buf) < pos + 4 * int(verify_hash_len) {
-            return nil, fmt.Errorf("NewMPHTable - missing verify hash data %d", verify_hash_len)
+            return nil, pos, fmt.Errorf("NewMPHTable - missing verify hash data %d", verify_hash_len)
         }
         t.verify_hash = make([]uint32, verify_hash_len)
 
@@ -192,7 +192,7 @@ func NewMPHTable(buf []byte) (*MPHTable, error) {
         }
     }
 
-    return t, nil
+    return t, pos, nil
 }
 
 // serialize to []byte
