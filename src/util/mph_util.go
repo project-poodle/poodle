@@ -292,7 +292,7 @@ func (t *MPHTable) Print() {
 
 // Build builds a Table from keys using the "Hash, displace, and compress"
 // algorithm described in http://cmph.sourceforge.net/papers/esa09.pdf.
-func MPHBuild(keys []IKey, verify_seed uint32, verify_by_key bool) *MPHTable {
+func MPHBuild(keys []IKey, verify_by_key bool) *MPHTable {
     var (
         level0        = make([]uint32, nextPow2(len(keys)/4))
         level0Mask    = len(level0) - 1
@@ -301,6 +301,7 @@ func MPHBuild(keys []IKey, verify_seed uint32, verify_by_key bool) *MPHTable {
         sparseBuckets = make([][]int, len(level0))
         zeroSeed      = MurmurSeed(0)
         keyArray      = make([][]byte, len(keys))
+        verify_seed   = uint32(RandUint64Range(2^16, 2^32-1))
     )
     for i, s := range keys {
         keyArray[i] = s.Key()

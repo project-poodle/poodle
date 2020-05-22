@@ -128,8 +128,7 @@ func TestBuild_stress(t *testing.T) {
 }
 
 func testTable(t *testing.T, keys []IKey, extra []IKey) {
-    rand_seed := RandUint32()
-	table := MPHBuild(keys, rand_seed, true)
+	table := MPHBuild(keys, true)
 	for i, key := range keys {
 		n, ok := table.Lookup(key)
 		if !ok {
@@ -149,7 +148,6 @@ func testTable(t *testing.T, keys []IKey, extra []IKey) {
 
 func TestSerializeKey(t *testing.T) {
 	var keys []IKey
-	rand_seed   := RandUint32()
 	rand_start  := RandUint32() % 1000000
 	rand_range  := RandUint32() % 50000 + 10000
 	for i := int(rand_start); i < int(rand_start + rand_range); i++ {
@@ -158,7 +156,7 @@ func TestSerializeKey(t *testing.T) {
 	}
 
 	// build table
-    table := MPHBuild(keys, rand_seed, true)
+    table := MPHBuild(keys, true)
 
     // serialize, then deserialize
     buf := table.Buf()
@@ -214,7 +212,6 @@ func TestSerializeKey(t *testing.T) {
 
 func TestSerializeHash(t *testing.T) {
 	var keys []IKey
-	rand_seed   := RandUint32()
 	rand_start  := RandUint32() % 1000000
 	rand_range  := RandUint32() % 50000 + 10000
 	for i := int(rand_start); i < int(rand_start + rand_range); i++ {
@@ -223,7 +220,7 @@ func TestSerializeHash(t *testing.T) {
 	}
 
 	// build table
-    table := MPHBuild(keys, rand_seed, false)
+    table := MPHBuild(keys, false)
 
     // serialize, then deserialize
     buf := table.Buf()
@@ -277,7 +274,7 @@ func BenchmarkMPHBuild(b *testing.B) {
 		b.Skip("unable to load dictionary file")
 	}
 	for i := 0; i < b.N; i++ {
-		MPHBuild(words, uint32(i), false)
+		MPHBuild(words, false)
 	}
 }
 
@@ -331,7 +328,7 @@ func loadBenchTable() {
 		}
 	}
 	if len(words) > 0 {
-		benchTable = MPHBuild(words, 0, false)
+		benchTable = MPHBuild(words, false)
 	}
 }
 
