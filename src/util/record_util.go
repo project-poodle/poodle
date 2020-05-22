@@ -11,32 +11,32 @@ import (
 // Interfaces
 
 type IRecord interface {
-    RecordMagic()       byte                            // 1 byte magic
-    Key()               (IData, error)                  // key content
-    Value()             (IData, error)                  // value content
-    Scheme()            (IData, error)                  // scheme content
-    Timestamp()         (*time.Time, error)             // 8 bytes unix timestamp
-    Signature()         (*big.Int, *big.Int, error)     // 2 * 32 bytes signature
-    Buf()               []byte                          // full Record buffer
-    Copy()              IRecord                         // make a deep copy of the record
+    RecordMagic()               byte                            // 1 byte magic
+    Key()                       (IData, error)                  // key content
+    Value()                     (IData, error)                  // value content
+    Scheme()                    (IData, error)                  // scheme content
+    Timestamp()                 (*time.Time, error)             // 8 bytes unix timestamp
+    Signature()                 (*big.Int, *big.Int, error)     // 2 * 32 bytes signature
+    Buf()                       []byte                          // full Record buffer
+    Copy()                      IRecord                         // make a deep copy of the record
 }
 
 type IData interface {
     // basic methods
-    IsNil()             bool                    // whether Data is nil
-    IsEncoded()         bool                    // whether Data is encoded
-    Content()           []byte                  // data content
-    Buf()               []byte                  // full Data buffer
-    Copy()              IData                   // make a deep copy of the data
+    IsNil()                     bool                            // whether Data is nil
+    IsEncoded()                 bool                            // whether Data is encoded
+    Content()                   []byte                          // data content
+    Buf()                       []byte                          // full Data buffer
+    Copy()                      IData                           // make a deep copy of the data
     // encoding methods
-    DataMagic()         byte                    // 1 byte Data encode magic
-    IsDataArray()       bool                    // whether this is data array
-    IsRecordList()      bool                    // whether this is record list
-    Size()              uint16                  // size of the data array or record list
-    DataAt(i uint16)    (IData, error)          // get i-th Data element - for Array only
-    RecordAt(i uint16)  (IRecord, error)        // get i-th Record element - for Composite only
-    GetLookup()         []byte                  // get Lookup scheme (2 bytes)
-    GetCompression()    []byte                  // get compression scheme (2 bytes)
+    DataMagic()                 byte                            // 1 byte Data encode magic
+    IsDataArray()               bool                            // whether this is data array
+    IsRecordList()              bool                            // whether this is record list
+    Size()                      uint16                          // size of the data array or record list
+    DataAt(i uint16)            (IData, error)                  // get i-th Data element - for Array only
+    RecordAt(i uint16)          (IRecord, error)                // get i-th Record element - for Composite only
+    LookupScheme()              []byte                          // get Lookup scheme (2 bytes)
+    CompressionScheme()         []byte                          // get compression scheme (2 bytes)
 }
 
 
@@ -44,13 +44,13 @@ type IData interface {
 // Mapped Record
 
 type MappedRecord struct {
-    buf             []byte
-    key             IData           // key
-    value           IData           // value
-    scheme          IData           // scheme
-    timestamp       *time.Time      // timestamp
-    signature_r     *big.Int        // signature r
-    signature_s     *big.Int        // signature s
+    buf                         []byte
+    key                         IData           // key
+    value                       IData           // value
+    scheme                      IData           // scheme
+    timestamp                   *time.Time      // timestamp
+    signature_r                 *big.Int        // signature r
+    signature_s                 *big.Int        // signature s
 }
 
 func NewMappedRecord(buf []byte) (*MappedRecord, error) {
@@ -376,11 +376,11 @@ func (d *SimpleMappedData) RecordAt(i uint16) (IRecord, error) {
     return nil, fmt.Errorf("SimpleMappedData::RecordAt - no composite element")
 }
 
-func (d *SimpleMappedData) GetLookup() []byte {
+func (d *SimpleMappedData) LookupScheme() []byte {
     return nil
 }
 
-func (d *SimpleMappedData) GetCompression() []byte {
+func (d *SimpleMappedData) CompressionScheme() []byte {
     return nil
 }
 
@@ -610,26 +610,466 @@ func (d *EncodedMappedData) RecordAt(idx uint16) (IRecord, error) {
     return d.record_list[idx], nil
 }
 
-func (d *EncodedMappedData) GetLookup() []byte {
+func (d *EncodedMappedData) LookupScheme() []byte {
     return d.lookup
 }
 
-func (d *EncodedMappedData) GetCompression() []byte {
+func (d *EncodedMappedData) CompressionScheme() []byte {
     return d.compression
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// Constructed Data
+// Constructed Data Array
 
 type ConstructedDataArray struct {
     data_array          []IData
 }
 
-type ConstructedRecordList struct {
-    record_list         []IData
+func NewConstructedDataArray() *ConstructedDataArray {
+    return &ConstructedDataArray{}
 }
+
+func (d *ConstructedDataArray) IsNil() bool {
+    return d.data_array == nil
+}
+
+func (d *ConstructedDataArray) IsEncoded() bool {
+    return true
+}
+
+func (d *ConstructedDataArray) Content() []byte {
+
+    if d.data_array == nil {
+        return nil
+    }
+
+    buf := []byte{}
+    for i:=0; i<len(d.data_array); i++ {
+        buf = append(buf, d.data_array[i].Buf()...)
+    }
+
+    return buf
+}
+
+func (d *ConstructedDataArray) Buf() []byte {
+
+    if d.data_array == nil {
+        return nil
+    }
+
+    buf         := []byte{0x00}
+
+    // encode length bits
+    content_buf := d.Content()
+    content_len := len(content_buf)
+    length_bits := byte(0)
+    length_buf  := []byte{}
+    if content_len == 0 {
+        length_bits = 0x00
+    } else if content_len < 256 {
+        length_bits = 0x01
+        length_buf = []byte{uint8(content_len)}
+    } else if content_len < 65536 {
+        length_bits = 0x02
+        length_buf = []byte{uint8(content_len>>8), uint8(content_len)}          // BigEndian encoding
+    } else {
+        panic(fmt.Sprintf("ConstructedDataArray::Buf - content length too big %d", content_len))
+    }
+
+    size := len(d.data_array)
+    if size == 0 {
+        buf[0]  = ('\x01' << 7) | length_bits
+        return buf
+    } else if size < 256 {
+        buf[0]  = (0x01 << 7) | (0x01 << 4) | length_bits
+        buf     = append(buf, uint8(size))
+        buf = append(buf, length_buf...)
+        buf = append(buf, content_buf...)
+    } else if size < 65536 {
+        buf[0] = (0x01 << 7) | (0x02 << 4) | length_bits
+        buf = append(buf, uint8(size >> 8), uint8(size))     // BigEndian encoding
+        buf = append(buf, length_buf...)
+        buf = append(buf, content_buf...)
+    } else {
+        // this should not happen
+        panic(fmt.Sprintf("ConstructedDataArray::Buf - unexpected size %d", size))
+    }
+
+    return buf
+}
+
+func (d *ConstructedDataArray) Copy() IData {
+
+    c := NewConstructedDataArray()
+    if d.data_array == nil {
+        return c
+    }
+
+    // make a deep copy of the buf
+    c.data_array = make([]IData, len(d.data_array))
+    for i:=0; i<len(d.data_array); i++ {
+        c.data_array[i] = d.data_array[i].Copy()
+    }
+
+    return c
+}
+
+func (d *ConstructedDataArray) DataMagic() byte {
+
+    if d.data_array == nil {
+        return 0x00
+    }
+
+    // encode length bits
+    content_buf := d.Content()
+    content_len := len(content_buf)
+    length_bits := byte(0)
+    if content_len == 0 {
+        length_bits = 0x00
+    } else if content_len < 256 {
+        length_bits = 0x01
+    } else if content_len < 65536 {
+        length_bits = 0x02
+    } else {
+        panic(fmt.Sprintf("ConstructedDataArray::DataMagic - content length too big %d", content_len))
+    }
+
+    size := len(d.data_array)
+    if size == 0 {
+        return 0x01 << 7 | length_bits
+    } else if size < 256 {
+        return (0x01 << 7) | (0x01 << 4) | length_bits
+    } else if size < 65536 {
+        return (0x01 << 7) | (0x02 << 4) | length_bits
+    } else {
+        // this should not happen
+        panic(fmt.Sprintf("ConstructedDataArray::DataMagic - unexpected size %d", size))
+    }
+}
+
+func (d *ConstructedDataArray) IsDataArray() bool {
+    return true
+}
+
+func (d *ConstructedDataArray) IsRecordList() bool {
+    return false
+}
+
+func (d *ConstructedDataArray) Size() uint16 {
+    return uint16(len(d.data_array))
+}
+
+func (d *ConstructedDataArray) DataAt(idx uint16) (IData, error) {
+
+    if idx >= uint16(len(d.data_array)) {
+        return nil, fmt.Errorf("ConstructedDataArray::DataAt - idx [%d] bigger than size [%d]", idx, len(d.data_array))
+    }
+
+    return d.data_array[idx], nil
+}
+
+func (d *ConstructedDataArray) RecordAt(idx uint16) (IRecord, error) {
+
+    return nil, fmt.Errorf("ConstructedDataArray::RecordAt - not allowed for data array")
+}
+
+func (d *ConstructedDataArray) LookupScheme() []byte {
+    return nil
+}
+
+func (d *ConstructedDataArray) CompressionScheme() []byte {
+    return nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Constructed Record List
+
+type ConstructedRecordList struct {
+    record_list         []IRecord
+}
+
+func NewConstructedRecordList() *ConstructedRecordList {
+    return &ConstructedRecordList{}
+}
+
+func (d *ConstructedRecordList) IsNil() bool {
+    return d.record_list == nil
+}
+
+func (d *ConstructedRecordList) IsEncoded() bool {
+    return true
+}
+
+func (d *ConstructedRecordList) Content() []byte {
+
+    if d.record_list == nil {
+        return nil
+    }
+
+    buf := []byte{}
+    for i:=0; i<len(d.record_list); i++ {
+        buf = append(buf, d.record_list[i].Buf()...)
+    }
+
+    return buf
+}
+
+func (d *ConstructedRecordList) Buf() []byte {
+
+    if d.record_list == nil {
+        return nil
+    }
+
+    buf         := []byte{0x00}
+
+    // encode length bits
+    content_buf := d.Content()
+    content_len := len(content_buf)
+    length_bits := byte(0)
+    length_buf  := []byte{}
+    if content_len == 0 {
+        length_bits = 0x00
+    } else if content_len < 256 {
+        length_bits = 0x01
+        length_buf = []byte{uint8(content_len)}
+    } else if content_len < 65536 {
+        length_bits = 0x02
+        length_buf = []byte{uint8(content_len>>8), uint8(content_len)}          // BigEndian encoding
+    } else {
+        panic(fmt.Sprintf("ConstructedRecordList::Buf - content length too big %d", content_len))
+    }
+
+    size := len(d.record_list)
+    if size == 0 {
+        buf[0]  = ('\x01' << 7) | length_bits
+        return buf
+    } else if size < 256 {
+        buf[0]  = (0x01 << 7) | (0x01 << 4) | length_bits
+        buf     = append(buf, uint8(size))
+        buf = append(buf, length_buf...)
+        buf = append(buf, content_buf...)
+    } else if size < 65536 {
+        buf[0] = (0x01 << 7) | (0x02 << 4) | length_bits
+        buf = append(buf, uint8(size >> 8), uint8(size))     // BigEndian encoding
+        buf = append(buf, length_buf...)
+        buf = append(buf, content_buf...)
+    } else {
+        // this should not happen
+        panic(fmt.Sprintf("ConstructedRecordList::Buf - unexpected size %d", size))
+    }
+
+    return buf
+}
+
+func (d *ConstructedRecordList) Copy() IData {
+
+    c := NewConstructedRecordList()
+    if d.record_list == nil {
+        return c
+    }
+
+    // make a deep copy of the buf
+    c.record_list = make([]IRecord, len(d.record_list))
+    for i:=0; i<len(d.record_list); i++ {
+        c.record_list[i] = d.record_list[i].Copy()
+    }
+
+    return c
+}
+
+func (d *ConstructedRecordList) DataMagic() byte {
+
+    if d.record_list == nil {
+        return 0x00
+    }
+
+    // encode length bits
+    content_buf := d.Content()
+    content_len := len(content_buf)
+    length_bits := byte(0)
+    if content_len == 0 {
+        length_bits = 0x00
+    } else if content_len < 256 {
+        length_bits = 0x01
+    } else if content_len < 65536 {
+        length_bits = 0x02
+    } else {
+        panic(fmt.Sprintf("ConstructedRecordList::DataMagic - content length too big %d", content_len))
+    }
+
+    size := len(d.record_list)
+    if size == 0 {
+        return 0x01 << 7 | length_bits
+    } else if size < 256 {
+        return (0x01 << 7) | (0x01 << 4) | length_bits
+    } else if size < 65536 {
+        return (0x01 << 7) | (0x02 << 4) | length_bits
+    } else {
+        // this should not happen
+        panic(fmt.Sprintf("ConstructedRecordList::DataMagic - unexpected size %d", size))
+    }
+}
+
+func (d *ConstructedRecordList) IsDataArray() bool {
+    return false
+}
+
+func (d *ConstructedRecordList) IsRecordList() bool {
+    return true
+}
+
+func (d *ConstructedRecordList) Size() uint16 {
+    return uint16(len(d.record_list))
+}
+
+func (d *ConstructedRecordList) DataAt(idx uint16) (IData, error) {
+
+    return nil, fmt.Errorf("ConstructedRecordList::DataAt - not allowed for record list")
+}
+
+func (d *ConstructedRecordList) RecordAt(idx uint16) (IRecord, error) {
+
+    if idx >= uint16(len(d.record_list)) {
+        return nil, fmt.Errorf("ConstructedRecordList::RecordAt - idx [%d] bigger than size [%d]", idx, len(d.record_list))
+    }
+
+    return d.record_list[idx], nil
+}
+
+func (d *ConstructedRecordList) LookupScheme() []byte {
+    return nil
+}
+
+func (d *ConstructedRecordList) CompressionScheme() []byte {
+    return nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Constructed Primitive
 
 type ConstructedPrimitive struct {
     data                []byte
+}
+
+func NewConstructedPrimitive() *ConstructedPrimitive {
+    return &ConstructedPrimitive{}
+}
+
+func (d *ConstructedPrimitive) IsNil() bool {
+    return d.data == nil
+}
+
+func (d *ConstructedPrimitive) IsEncoded() bool {
+    return false
+}
+
+func (d *ConstructedPrimitive) Content() []byte {
+
+    if d.data == nil {
+        return nil
+    }
+
+    return d.data
+}
+
+func (d *ConstructedPrimitive) Buf() []byte {
+
+    if d.data == nil {
+        return nil
+    }
+
+    buf         := []byte{}
+
+    // encode length bits
+    content_buf := d.Content()
+    content_len := len(content_buf)
+    // length_bits := byte(0)
+    length_buf  := []byte{}
+    if content_len == 0 {
+        // length_bits = 0x00
+        return buf
+    } else if content_len < 256 {
+        // length_bits = 0x01
+        length_buf = []byte{uint8(content_len)}
+        buf = append(buf, length_buf...)
+        buf = append(buf, content_buf...)
+    } else if content_len < 65536 {
+        // length_bits = 0x02
+        length_buf = []byte{uint8(content_len>>8), uint8(content_len)}          // BigEndian encoding
+        buf = append(buf, length_buf...)
+        buf = append(buf, content_buf...)
+    } else {
+        panic(fmt.Sprintf("ConstructedRecordList::Buf - content length too big %d", content_len))
+    }
+
+    return buf
+}
+
+func (d *ConstructedPrimitive) Copy() IData {
+
+    c := NewConstructedPrimitive()
+    if d.data == nil {
+        return c
+    }
+
+    // make a deep copy of the buf
+    c.data = make([]byte, len(d.data))
+    copy(c.data, d.data)
+
+    return c
+}
+
+func (d *ConstructedPrimitive) DataMagic() byte {
+
+    if d.data == nil {
+        return 0x00
+    }
+
+    // encode length bits
+    content_buf := d.Content()
+    content_len := len(content_buf)
+    length_bits := byte(0)
+    if content_len == 0 {
+        length_bits = 0x00
+    } else if content_len < 256 {
+        length_bits = 0x01
+    } else if content_len < 65536 {
+        length_bits = 0x02
+    } else {
+        panic(fmt.Sprintf("ConstructedRecordList::DataMagic - content length too big %d", content_len))
+    }
+
+    return length_bits
+}
+
+func (d *ConstructedPrimitive) IsDataArray() bool {
+    return false
+}
+
+func (d *ConstructedPrimitive) IsRecordList() bool {
+    return false
+}
+
+func (d *ConstructedPrimitive) Size() uint16 {
+    return uint16(0)
+}
+
+func (d *ConstructedPrimitive) DataAt(idx uint16) (IData, error) {
+
+    return nil, fmt.Errorf("ConstructedPrimitive::DataAt - not allowed for primitive data")
+}
+
+func (d *ConstructedPrimitive) RecordAt(idx uint16) (IRecord, error) {
+
+
+    return nil, fmt.Errorf("ConstructedPrimitive::RecordAt - not allowed for primitive data")
+}
+
+func (d *ConstructedPrimitive) LookupScheme() []byte {
+    return nil
+}
+
+func (d *ConstructedPrimitive) CompressionScheme() []byte {
+    return nil
 }
