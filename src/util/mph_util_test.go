@@ -51,6 +51,14 @@ func (t *TestKey) Key() []byte {
     return t.key
 }
 
+func (t *TestKey) Equal(k IKey) bool {
+    if tmp, ok := k.(*TestKey); ok {
+        return TestEq(t.key, tmp.key)
+    } else {
+        return false
+    }
+}
+
 var murmurTestCases = []struct {
 	input IKey
 	seed  MurmurSeed
@@ -118,7 +126,7 @@ func TestBuild_stress(t *testing.T) {
 }
 
 func testTable(t *testing.T, keys []IKey, extra []IKey) {
-	table := MPHBuild(keys, 99)
+	table := MPHBuild(keys, 99, true)
 	for i, key := range keys {
 		n, ok := table.Lookup(key)
 		if !ok {
@@ -148,7 +156,7 @@ func BenchmarkMPHBuild(b *testing.B) {
 		b.Skip("unable to load dictionary file")
 	}
 	for i := 0; i < b.N; i++ {
-		MPHBuild(words, uint32(i))
+		MPHBuild(words, uint32(i), false)
 	}
 }
 
@@ -202,7 +210,7 @@ func loadBenchTable() {
 		}
 	}
 	if len(words) > 0 {
-		benchTable = MPHBuild(words, 0)
+		benchTable = MPHBuild(words, 0, false)
 	}
 }
 

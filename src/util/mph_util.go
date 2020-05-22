@@ -44,23 +44,25 @@ import (
 // Interfaces
 
 type IKey interface {
-    Key()           []byte
+    Key()               []byte
+    Equal(k IKey)       bool
 }
 
 // A Table is an immutable hash table that provides constant-time lookups of key
 // indices using a minimal perfect hash.
 type MPHTable struct {
-    level0          []uint32    // power of 2 size
-    level0Mask      int         // len(Level0) - 1
-    level1          []uint32    // power of 2 size >= len(keys)
-    level1Mask      int         // len(Level1) - 1
-    verify_seed     uint32      // murmur seed for verify hash
-    verify_hash     []uint32    // instead of verify with exact key, we verify with hash
+    level0              []uint32    // power of 2 size
+    level0Mask          int         // len(Level0) - 1
+    level1              []uint32    // power of 2 size >= len(keys)
+    level1Mask          int         // len(Level1) - 1
+    verify_key          []IKey      // verify key - if not nil, verify lookup by exact key
+    verify_seed         uint32      // if verify key is nil, this is murmur seed for verify hash
+    verify_hash         []uint32    // if verify key is nil, this is verify lookup by hash (bloom filter)
 }
 
 // Build builds a Table from keys using the "Hash, displace, and compress"
 // algorithm described in http://cmph.sourceforge.net/papers/esa09.pdf.
-func MPHBuild(keys []IKey, verify_seed uint32) *MPHTable {
+func MPHBuild(keys []IKey, verify_seed uint32, verify_by_key bool) *MPHTable {
     var (
         level0        = make([]uint32, nextPow2(len(keys)/4))
         level0Mask    = len(level0) - 1
@@ -103,18 +105,30 @@ func MPHBuild(keys []IKey, verify_seed uint32) *MPHTable {
         level0[int(bucket.n)] = uint32(seed)
     }
 
-    verify_hash := make([]uint32, len(keys))
-    for i:=0; i<len(keys); i++ {
-        verify_hash[i] = (MurmurSeed)(verify_seed).hash(keys[i].Key())
-    }
+    if verify_by_key {
+        // verify by exact key
+        return &MPHTable{
+            level0:         level0,
+            level0Mask:     level0Mask,
+            level1:         level1,
+            level1Mask:     level1Mask,
+            verify_key:     keys,
+        }
+    } else {
+        // verify by hash (bloom filter)
+        verify_hash := make([]uint32, len(keys))
+        for i:=0; i<len(keys); i++ {
+            verify_hash[i] = (MurmurSeed)(verify_seed).hash(keys[i].Key())
+        }
 
-    return &MPHTable{
-        level0:         level0,
-        level0Mask:     level0Mask,
-        level1:         level1,
-        level1Mask:     level1Mask,
-        verify_seed:    verify_seed,
-        verify_hash:    verify_hash,
+        return &MPHTable{
+            level0:         level0,
+            level0Mask:     level0Mask,
+            level1:         level1,
+            level1Mask:     level1Mask,
+            verify_seed:    verify_seed,
+            verify_hash:    verify_hash,
+        }
     }
 }
 
@@ -132,8 +146,12 @@ func (t *MPHTable) Lookup(s IKey) (n uint32, ok bool) {
     seed := t.level0[i0]
     i1 := int(MurmurSeed(seed).hash(s.Key())) & t.level1Mask
     n = t.level1[i1]
-    verify_hash := (MurmurSeed)(t.verify_seed).hash(s.Key())
-    return n, verify_hash == t.verify_hash[int(n)]
+    if t.verify_key != nil {
+        return n, s.Equal(t.verify_key[int(n)])
+    } else {
+        verify_hash := (MurmurSeed)(t.verify_seed).hash(s.Key())
+        return n, verify_hash == t.verify_hash[int(n)]
+    }
 }
 
 type indexBucket struct {
