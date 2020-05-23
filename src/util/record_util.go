@@ -446,6 +446,7 @@ func (r *ConstructedRecord) Decode() error {
 
 ////////////////////////////////////////
 // deep copy
+
 func (r *ConstructedRecord) Copy() IRecord {
 
     result := &ConstructedRecord{}
@@ -499,4 +500,56 @@ func (r *ConstructedRecord) CopyConstruct() (IRecord, error) {
     result.signature_s  = r.signature_s
 
     return result, nil
+}
+
+////////////////////////////////////////
+// updater
+
+func (r *ConstructedRecord) SetKey(key IData) (*ConstructedRecord) {
+    r.key       = key
+    r.encoded   = false
+    return r
+}
+
+func (r *ConstructedRecord) SetKeyData(key []byte) (*ConstructedRecord) {
+    r.key       = NewConstructedPrimitive(key)
+    r.encoded   = false
+    return r
+}
+
+func (r *ConstructedRecord) SetValue(value IData) (*ConstructedRecord) {
+    r.value     = value
+    r.encoded   = false
+    return r
+}
+
+func (r *ConstructedRecord) SetValueData(value []byte) (*ConstructedRecord) {
+    r.value     = NewConstructedPrimitive(value)
+    r.encoded   = false
+    return r
+}
+
+func (r *ConstructedRecord) SetScheme(scheme IData) (*ConstructedRecord) {
+    r.scheme    = scheme
+    r.encoded   = false
+    return r
+}
+
+func (r *ConstructedRecord) SetSchemeData(scheme []byte) (*ConstructedRecord) {
+    r.scheme    = NewConstructedPrimitive(scheme)
+    r.encoded   = false
+    return r
+}
+
+func (r *ConstructedRecord) SetTimestamp(t *time.Time) (*ConstructedRecord) {
+    r.timestamp = t
+    r.encoded   = false
+    return r
+}
+
+func (r *ConstructedRecord) SetSignature(s_r, s_s *big.Int) (*ConstructedRecord) {
+    r.signature_r   = s_r
+    r.signature_s   = s_s
+    r.encoded       = false
+    return r
 }

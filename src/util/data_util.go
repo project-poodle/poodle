@@ -1017,9 +1017,24 @@ func (d *ConstructedDataArray) CopyConstruct() (IData, error) {
     return c, nil
 }
 
-func (d *ConstructedDataArray) Append(data IData) {
+////////////////////////////////////////
+// updater
+
+func (d *ConstructedDataArray) Append(data IData) (*ConstructedDataArray) {
     d.data_array    = append(d.data_array, data)
     d.encoded       = false
+    return d
+}
+
+func (d *ConstructedDataArray) DeleteAt(idx uint16) (*ConstructedDataArray) {
+
+    if idx >= uint16(len(d.data_array)) {
+        panic(fmt.Sprintf("ConstructedDataArray::DataAt - idx [%d] bigger than size [%d]", idx, len(d.data_array)))
+    }
+
+    d.data_array    = append(d.data_array[:idx], d.data_array[idx+1:]...)
+    d.encoded       = false
+    return d
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1225,7 +1240,23 @@ func (d *ConstructedRecordList) CopyConstruct() (IData, error) {
     return c, nil
 }
 
-func (d *ConstructedRecordList) Append(record IRecord) {
+////////////////////////////////////////
+// updater
+
+func (d *ConstructedRecordList) Append(record IRecord) (*ConstructedRecordList) {
     d.record_list   = append(d.record_list, record)
     d.encoded       = false
+    return d
 }
+
+func (d *ConstructedRecordList) DeleteAt(idx uint16) (*ConstructedRecordList) {
+
+    if idx >= uint16(len(d.record_list)) {
+        panic(fmt.Sprintf("ConstructedDataArray::DeleteAt - idx [%d] bigger than size [%d]", idx, len(d.record_list)))
+    }
+
+    d.record_list   = append(d.record_list[:idx], d.record_list[idx+1:]...)
+    d.encoded       = false
+    return d
+}
+
