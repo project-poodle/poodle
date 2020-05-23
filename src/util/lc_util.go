@@ -18,7 +18,6 @@ import (
     "crypto/rand"
     "crypto/cipher"
     "crypto/ecdsa"
-    //"github.com/boltdb/bolt"
     "github.com/howeyc/gopass"
 )
 

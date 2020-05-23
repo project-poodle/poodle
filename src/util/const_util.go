@@ -42,6 +42,13 @@ const (
 ////////////////////////////////////////////////////////////////////////////////
 // utilities
 
+func Ternary(statement bool, a, b interface{}) interface{} {
+    if statement {
+        return a
+    }
+    return b
+}
+
 func EqByteArray(a, b []byte) bool {
 
     // If one is nil, the other must also be nil.
@@ -120,13 +127,6 @@ func EqUint64Array(a, b []uint64) bool {
     }
 
     return true
-}
-
-func Ternary(statement bool, a, b interface{}) interface{} {
-    if statement {
-        return a
-    }
-    return b
 }
 
 func Int64ToTime(nano int64) *time.Time {
