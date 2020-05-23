@@ -19,6 +19,7 @@ var dataTestCases = []struct {
 	{NewConstructedPrimitive([]byte("abc")), false, []byte{0x01, 0x03, 'a', 'b', 'c'}, byte(0xff)},
 	{NewConstructedDataArray().Append(NewConstructedPrimitive([]byte("abc"))), false, []byte{0x01<<6 | 0x01, 0x01, 0x05, 0x01, 0x03, 'a', 'b', 'c'}, byte(0xff)},
 	{NewConstructedRecordList().Append(NewConstructedRecord().SetKeyData([]byte("abc"))), false, []byte{0x01<<4 | 0x01, 0x01, 0x05, 0x01<<6, 0x03, 'a', 'b', 'c'}, byte(0xff)},
+	{NewConstructedRecordList().Append(NewConstructedRecord().SetKeyData([]byte("ab")).SetValueData([]byte("cd")).SetSchemeData([]byte("ef"))), false, []byte{0x01<<4 | 0x01, 0x01, 0x0a, (0x01<<6)|(0x01<<4)|(0x01<<2), 0x02, 'a', 'b', 0x02, 'c', 'd', 0x02, 'e', 'f'}, byte(0xff)},
 }
 
 

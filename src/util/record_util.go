@@ -412,7 +412,7 @@ func (r *ConstructedRecord) Encode() ([]byte, error) {
             return nil, err
         }
 
-        buf[0]  |= (magic & 0x03) << 4
+        buf[0]  |= (magic & 0x03) << 2
         buf     = append(buf, content_buf...)
     }
 
