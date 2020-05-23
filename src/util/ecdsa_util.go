@@ -1,16 +1,14 @@
 package util
 
 import (
-    "bytes"
+    "fmt"
+    "math/big"
     "crypto/ecdsa"
     "crypto/elliptic"
     "crypto/rand"
     "crypto/sha256"
     "crypto/md5"
     "crypto/aes"
-    "math/big"
-    "fmt"
-    "encoding/binary"
 )
 
 // 32 byte array
@@ -27,69 +25,6 @@ func SumSHA256d(data []byte) ([]byte) {
 func SumMD5(data []byte) ([]byte) {
     sum := md5.Sum(data)
     return sum[:]
-}
-
-func ToBigInt(data []byte) *big.Int {
-    result := new(big.Int)
-    result.SetBytes(data)
-    return result
-}
-
-func ToByteArray32(d *big.Int) []byte {
-    input := d.Bytes()
-    if len(input) == 32 {
-        return input
-    } else if len(input) > 32 {
-        return input[len(input)-32:]
-    } else {
-        buf := make([]byte, 32-len(input))
-        return append(buf, input[:]...)
-    }
-}
-
-func Int64ToByteArray(input int64) []byte {
-    result := make([]byte, 8)
-    binary.BigEndian.PutUint64(result, uint64(input))
-    return result
-}
-
-func ByteArrayToInt64(buf []byte) int64 {
-    var data uint64
-    err := binary.Read(bytes.NewReader(buf), binary.BigEndian, &data)
-    if err != nil {
-        return 0
-    }
-    return int64(data)
-}
-
-func Int32ToByteArray(input int32) []byte {
-    result := make([]byte, 4)
-    binary.BigEndian.PutUint32(result, uint32(input))
-    return result
-}
-
-func ByteArrayToInt32(buf []byte) int32 {
-    var data uint32
-    err := binary.Read(bytes.NewReader(buf), binary.BigEndian, &data)
-    if err != nil {
-        return 0
-    }
-    return int32(data)
-}
-
-func Uint32ToByteArray(input uint32) []byte {
-    result := make([]byte, 4)
-    binary.BigEndian.PutUint32(result, uint32(input))
-    return result
-}
-
-func ByteArrayToUint32(buf []byte) uint32 {
-    var data uint32
-    err := binary.Read(bytes.NewReader(buf), binary.BigEndian, &data)
-    if err != nil {
-        return 0
-    }
-    return data
 }
 
 func AESPad(input []byte) []byte {
