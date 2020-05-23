@@ -1,24 +1,23 @@
 package util
 
 import (
-    //"fmt"
-    "time"
-    "testing"
+	//"fmt"
+	"testing"
+	"time"
 )
 
 func setupTimestampData() {
 }
 
 func TestSetupTimestamp(t *testing.T) {
-    setupTimestampData()
+	setupTimestampData()
 }
 
 func BenchmarkUnixNano(b *testing.B) {
-    setupTimestampData()
+	setupTimestampData()
 
-    b.ResetTimer()
-    for i := 0; i < b.N; i++ {
-        time.Now().UnixNano()
-    }
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		time.Now().UnixNano()
+	}
 }
-

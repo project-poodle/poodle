@@ -1,15 +1,11 @@
 package util
 
-import (
-	//"fmt"
-	//"testing"
-)
+//"fmt"
+//"testing"
 
 var recordTestCases = []struct {
-}{
-}
+}{}
 
-func NewTestRecord(s string) (IRecord) {
-    return nil
+func NewTestRecord(s string) IRecord {
+	return nil
 }
-
