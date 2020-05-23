@@ -1,10 +1,10 @@
 package util
 
 import (
-    "fmt"
-    "time"
-    "math/big"
-    //"encoding/binary"
+	"fmt"
+	"math/big"
+	"time"
+	//"encoding/binary"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -12,51 +12,54 @@ import (
 
 type IRecord interface {
 
-    ////////////////////////////////////////
-    // accessor to elements
-    Key()                       IData                           // key content
-    Value()                     IData                           // value content
-    Scheme()                    IData                           // scheme content
-    Timestamp()                 *time.Time                      // 8 bytes unix nano timestamp
-    Signature()                 (*big.Int, *big.Int)            // optional 2 * 32 bytes signature
+	////////////////////////////////////////
+	// accessor to elements
+	Key() IData                      // key content
+	Value() IData                    // value content
+	Scheme() IData                   // scheme content
+	Timestamp() *time.Time           // 8 bytes unix nano timestamp
+	Signature() (*big.Int, *big.Int) // optional 2 * 32 bytes signature
 
-    ////////////////////////////////////////
-    // encoding, decoding, and buf
-    RecordMagic()               byte                            // 1 byte Record Magic          - return 0xff if not encoded
-    Buf()                       []byte                          // full Record buffer           - return nil if not encoded
-    IsEncoded()                 bool                            // whether Record is encoded    - always return true for Mapped Record
-                                                                //                                  - return true for Constructed Record if encoded buf cache exists
-                                                                //                                  - return false for Constructed Record if no encoded buf cache
-    Encode()                    ([]byte, error)                 // encode Record                - for Constructed Record only, return error for Mapped Record
-                                                                //                                  - if successful, encoded buf is kept as part of Record object
-    IsDecoded()                 bool                            // whether Record is decoded    - always return true for Constructed Record
-                                                                //                                  - return true for Mapped Record if record elements are decoded
-                                                                //                                  - return false for Mapped Record if record elements are not decoded
-    Decode()                    error                           // decode Record                - for Mapped Record only, return error for Constructed Record
-                                                                //                                  - if successful, individual key, value, scheme, timestamp, and signature pointers are decoded as part of Record object
+	////////////////////////////////////////
+	// encoding, decoding, and buf
+	RecordMagic() byte // 1 byte Record Magic          - return 0xff if not encoded
+	Buf() []byte       // full Record buffer           - return nil if not encoded
+	// whether Record is encoded    - always return true for Mapped Record
+	//                                  - return true for Constructed Record if encoded buf cache exists
+	//                                  - return false for Constructed Record if no encoded buf cache
+	IsEncoded() bool
+	// encode Record                - for Constructed Record only, return error for Mapped Record
+	//                                  - if successful, encoded buf is kept as part of Record object
+	Encode() ([]byte, error)
+	// whether Record is decoded    - always return true for Constructed Record
+	//                                  - return true for Mapped Record if record elements are decoded
+	//                                  - return false for Mapped Record if record elements are not decoded
+	IsDecoded() bool
+	// decode Record                - for Mapped Record only, return error for Constructed Record
+	//                                  - if successful, individual key, value, scheme, timestamp, and signature pointers are decoded as part of Record object
+	Decode() error
 
-    ////////////////////////////////////////
-    // deep copy
-    Copy()                      IRecord                         // make a deep copy of the record with same composition
-    CopyConstruct()             (IRecord, error)                // copy from source record to constructed record recursively
+	////////////////////////////////////////
+	// deep copy
+	Copy() IRecord                   // make a deep copy of the record with same composition
+	CopyConstruct() (IRecord, error) // copy from source record to constructed record recursively
 }
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // Mapped Record
 ////////////////////////////////////////////////////////////////////////////////
 
 type MappedRecord struct {
-    // buf
-    decoded                     bool            // whether this is decoded
-    buf                         []byte          // original buf if not decoded, exact buf size if already decoded
-    // elements
-    key                         IData           // key
-    value                       IData           // value
-    scheme                      IData           // scheme
-    timestamp                   *time.Time      // timestamp
-    signature_r                 *big.Int        // signature r
-    signature_s                 *big.Int        // signature s
+	// buf
+	decoded bool   // whether this is decoded
+	buf     []byte // original buf if not decoded, exact buf size if already decoded
+	// elements
+	key         IData      // key
+	value       IData      // value
+	scheme      IData      // scheme
+	timestamp   *time.Time // timestamp
+	signature_r *big.Int   // signature r
+	signature_s *big.Int   // signature s
 }
 
 ////////////////////////////////////////
@@ -64,73 +67,73 @@ type MappedRecord struct {
 
 func NewMappedRecord(buf []byte) (*MappedRecord, error) {
 
-    if (buf == nil || len(buf)<1) {
-        return nil, fmt.Errorf("NewMappedRecord - empty buf")
-    }
+	if buf == nil || len(buf) < 1 {
+		return nil, fmt.Errorf("NewMappedRecord - empty buf")
+	}
 
-    // initialize record
-    r   := &MappedRecord{decoded: false, buf: buf}
+	// initialize record
+	r := &MappedRecord{decoded: false, buf: buf}
 
-    // decode
-    err := r.Decode()
-    if err != nil {
-        return nil, err
-    }
+	// decode
+	err := r.Decode()
+	if err != nil {
+		return nil, err
+	}
 
-    return r, nil
+	return r, nil
 }
 
 ////////////////////////////////////////
 // accessor to elements
 
-func (r *MappedRecord) Key() (IData) {
+func (r *MappedRecord) Key() IData {
 
-    if !r.decoded {
-        // this should not happend
-        panic(fmt.Sprintf("MappedRecord::Key - not decoded"))
-    }
+	if !r.decoded {
+		// this should not happend
+		panic(fmt.Sprintf("MappedRecord::Key - not decoded"))
+	}
 
-    return r.key
+	return r.key
 }
 
-func (r *MappedRecord) Value() (IData) {
+func (r *MappedRecord) Value() IData {
 
-    if !r.decoded {
-        // this should not happend
-        panic(fmt.Sprintf("MappedRecord::Value - not decoded"))
-    }
+	if !r.decoded {
+		// this should not happend
+		panic(fmt.Sprintf("MappedRecord::Value - not decoded"))
+	}
 
-    return r.value
+	return r.value
 }
 
-func (r *MappedRecord) Scheme() (IData) {
+func (r *MappedRecord) Scheme() IData {
 
-    if !r.decoded {
-        // this should not happend
-        panic(fmt.Sprintf("MappedRecord::Scheme - not decoded"))
-    }
+	if !r.decoded {
+		// this should not happend
+		panic(fmt.Sprintf("MappedRecord::Scheme - not decoded"))
+	}
 
-    return r.scheme
+	return r.scheme
 }
 
-func (r *MappedRecord) Timestamp() (*time.Time) {
+func (r *MappedRecord) Timestamp() *time.Time {
 
-    if !r.decoded {
-        // this should not happend
-        panic(fmt.Sprintf("MappedRecord::Timestamp - not decoded"))
-    }
+	if !r.decoded {
+		// this should not happend
+		panic(fmt.Sprintf("MappedRecord::Timestamp - not decoded"))
+	}
 
-    return r.timestamp
+	return r.timestamp
 }
 
 func (r *MappedRecord) Signature() (*big.Int, *big.Int) {
 
-    if !r.decoded {
-        // this should not happend
-        panic(fmt.Sprintf("MappedRecord::Signature - not decoded"))
-    }
+	if !r.decoded {
+		// this should not happend
+		panic(fmt.Sprintf("MappedRecord::Signature - not decoded"))
+	}
 
-    return r.signature_r, r.signature_s
+	return r.signature_r, r.signature_s
 }
 
 ////////////////////////////////////////
@@ -138,217 +141,216 @@ func (r *MappedRecord) Signature() (*big.Int, *big.Int) {
 
 func (r *MappedRecord) RecordMagic() byte {
 
-    if !r.decoded {
-        return 0xff
-    } else {
-        return r.buf[0]
-    }
+	if !r.decoded {
+		return 0xff
+	} else {
+		return r.buf[0]
+	}
 }
 
 func (r *MappedRecord) Buf() []byte {
-    return r.buf
+	return r.buf
 }
 
 func (r *MappedRecord) IsEncoded() bool {
-    return true
+	return true
 }
 
 func (r *MappedRecord) Encode() ([]byte, error) {
-    return nil, fmt.Errorf("MappedRecord::Encode - cannot encode MappedRecord")
+	return nil, fmt.Errorf("MappedRecord::Encode - cannot encode MappedRecord")
 }
 
 func (r *MappedRecord) IsDecoded() bool {
-    return r.decoded
+	return r.decoded
 }
 
 func (r *MappedRecord) Decode() (err error) {
 
-    pos := 1
+	pos := 1
 
-    // key
-    encode  := (r.buf[0] >> 6) & 0x03
-    switch encode {
-    case 0x00:
-        r.key, err  = NewSimpleMappedData(encode, r.buf[pos:])
-    case 0x01:
-        r.key, err  = NewSimpleMappedData(encode, r.buf[pos:])
-    case 0x02:
-        r.key, err  = NewSimpleMappedData(encode, r.buf[pos:])
-    default:
-        r.key, err  = NewStandardMappedData(r.buf[pos:])
-    }
-    if err != nil {
-        return err
-    } else {
-        pos += len(r.key.Buf())
-    }
+	// key
+	encode := (r.buf[0] >> 6) & 0x03
+	switch encode {
+	case 0x00:
+		r.key, err = NewSimpleMappedData(encode, r.buf[pos:])
+	case 0x01:
+		r.key, err = NewSimpleMappedData(encode, r.buf[pos:])
+	case 0x02:
+		r.key, err = NewSimpleMappedData(encode, r.buf[pos:])
+	default:
+		r.key, err = NewStandardMappedData(r.buf[pos:])
+	}
+	if err != nil {
+		return err
+	} else {
+		pos += len(r.key.Buf())
+	}
 
-    // value
-    if len(r.buf) < pos {
-        return fmt.Errorf("MappedRecord::Decode - invalid buf, no value, %d, %x", len(r.buf), r.buf)
-    }
-    encode  = (r.buf[0] >> 4) & 0x03
-    switch encode {
-    case 0x00:
-        r.value, err    = NewSimpleMappedData(encode, r.buf[pos:])
-    case 0x01:
-        r.value, err    = NewSimpleMappedData(encode, r.buf[pos:])
-    case 0x02:
-        r.value, err    = NewSimpleMappedData(encode, r.buf[pos:])
-    default:
-        r.value, err    = NewStandardMappedData(r.buf[pos:])
-    }
-    if err != nil {
-        return err
-    } else {
-        pos += len(r.value.Buf())
-    }
+	// value
+	if len(r.buf) < pos {
+		return fmt.Errorf("MappedRecord::Decode - invalid buf, no value, %d, %x", len(r.buf), r.buf)
+	}
+	encode = (r.buf[0] >> 4) & 0x03
+	switch encode {
+	case 0x00:
+		r.value, err = NewSimpleMappedData(encode, r.buf[pos:])
+	case 0x01:
+		r.value, err = NewSimpleMappedData(encode, r.buf[pos:])
+	case 0x02:
+		r.value, err = NewSimpleMappedData(encode, r.buf[pos:])
+	default:
+		r.value, err = NewStandardMappedData(r.buf[pos:])
+	}
+	if err != nil {
+		return err
+	} else {
+		pos += len(r.value.Buf())
+	}
 
-    // scheme
-    if len(r.buf) < pos {
-        return fmt.Errorf("MappedRecord::Decode - invalid buf, no scheme, %d, %x", len(r.buf), r.buf)
-    }
-    encode  = (r.buf[0] >> 2) & 0x03
-    switch encode {
-    case 0x00:
-        r.scheme, err   = NewSimpleMappedData(encode, r.buf[pos:])
-    case 0x01:
-        r.scheme, err   = NewSimpleMappedData(encode, r.buf[pos:])
-    case 0x02:
-        r.scheme, err   = NewSimpleMappedData(encode, r.buf[pos:])
-    default:
-        r.scheme, err   = NewStandardMappedData(r.buf[pos:])
-    }
-    if err != nil {
-        return err
-    } else {
-        pos += len(r.scheme.Buf())
-    }
+	// scheme
+	if len(r.buf) < pos {
+		return fmt.Errorf("MappedRecord::Decode - invalid buf, no scheme, %d, %x", len(r.buf), r.buf)
+	}
+	encode = (r.buf[0] >> 2) & 0x03
+	switch encode {
+	case 0x00:
+		r.scheme, err = NewSimpleMappedData(encode, r.buf[pos:])
+	case 0x01:
+		r.scheme, err = NewSimpleMappedData(encode, r.buf[pos:])
+	case 0x02:
+		r.scheme, err = NewSimpleMappedData(encode, r.buf[pos:])
+	default:
+		r.scheme, err = NewStandardMappedData(r.buf[pos:])
+	}
+	if err != nil {
+		return err
+	} else {
+		pos += len(r.scheme.Buf())
+	}
 
-    // timestamp and signature bit
-    encode  = r.buf[0] & 0x01
-    if encode == 0x01 {
+	// timestamp and signature bit
+	encode = r.buf[0] & 0x01
+	if encode == 0x01 {
 
-        // timestamp
-        if len(r.buf) < pos {
-            return fmt.Errorf("MappedRecord::Decode - invalid buf, no timestamp, %d, %x", len(r.buf), r.buf)
-        }
-        r.timestamp, err = BytesToTime(r.buf[pos:])
-        if err != nil {
-            return err
-        } else {
-            pos += 8
-        }
+		// timestamp
+		if len(r.buf) < pos {
+			return fmt.Errorf("MappedRecord::Decode - invalid buf, no timestamp, %d, %x", len(r.buf), r.buf)
+		}
+		r.timestamp, err = BytesToTime(r.buf[pos:])
+		if err != nil {
+			return err
+		} else {
+			pos += 8
+		}
 
-        // signature (optional)
-        if len(r.buf) < pos {
-            return fmt.Errorf("MappedRecord::Decode - invalid buf, no signature, %d, %x", len(r.buf), r.buf)
-        } else if len(r.buf) < pos + 64 { // 2 * 32 bytes signature
-            // signature is optional - even if timestamp and signature bit is set
-            // return err
-            r.signature_r = nil
-            r.signature_s = nil
-        } else {
-            r.signature_r = ByteArrayToBigInt(r.buf[pos:pos+32])
-            r.signature_s = ByteArrayToBigInt(r.buf[pos+32:pos+64])
-            pos += 64
-        }
-    }
+		// signature (optional)
+		if len(r.buf) < pos {
+			return fmt.Errorf("MappedRecord::Decode - invalid buf, no signature, %d, %x", len(r.buf), r.buf)
+		} else if len(r.buf) < pos+64 { // 2 * 32 bytes signature
+			// signature is optional - even if timestamp and signature bit is set
+			// return err
+			r.signature_r = nil
+			r.signature_s = nil
+		} else {
+			r.signature_r = ByteArrayToBigInt(r.buf[pos : pos+32])
+			r.signature_s = ByteArrayToBigInt(r.buf[pos+32 : pos+64])
+			pos += 64
+		}
+	}
 
-    // set buf length to exact length and return record
-    r.buf       = r.buf[:pos]
+	// set buf length to exact length and return record
+	r.buf = r.buf[:pos]
 
-    r.decoded   = true
+	r.decoded = true
 
-    return nil
+	return nil
 }
 
 ////////////////////////////////////////
 // deep copy
 
 func (r *MappedRecord) Copy() IRecord {
-    buf := make([]byte, len(r.buf))
-    copy(buf, r.buf)
-    copy, err := NewMappedRecord(buf)
-    if err != nil {
-        // this should not happen
-        panic(fmt.Sprintf("MappedRecord:Copy - %s", err))
-    }
-    return copy
+	buf := make([]byte, len(r.buf))
+	copy(buf, r.buf)
+	copy, err := NewMappedRecord(buf)
+	if err != nil {
+		// this should not happen
+		panic(fmt.Sprintf("MappedRecord:Copy - %s", err))
+	}
+	return copy
 }
 
 func (r *MappedRecord) CopyConstruct() (IRecord, error) {
 
-    result      := NewRecord()
-    err         := (error)(nil)
+	result := NewRecord()
+	var err error
 
-    result.key, err     = r.Key().CopyConstruct()
-    if err != nil {
-        return nil, err
-    }
+	result.key, err = r.Key().CopyConstruct()
+	if err != nil {
+		return nil, err
+	}
 
-    result.value, err   = r.Value().CopyConstruct()
-    if err != nil {
-        return nil, err
-    }
+	result.value, err = r.Value().CopyConstruct()
+	if err != nil {
+		return nil, err
+	}
 
-    result.scheme, err   = r.Scheme().CopyConstruct()
-    if err != nil {
-        return nil, err
-    }
+	result.scheme, err = r.Scheme().CopyConstruct()
+	if err != nil {
+		return nil, err
+	}
 
-    result.timestamp    = r.Timestamp()                     // timestamp is immutable
-    result.signature_r, result.signature_s  = r.Signature() // signature is immutable
+	result.timestamp = r.Timestamp()                       // timestamp is immutable
+	result.signature_r, result.signature_s = r.Signature() // signature is immutable
 
-    return result, nil
+	return result, nil
 }
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // Constructed Record
 ////////////////////////////////////////////////////////////////////////////////
 
 type Record struct {
-    // buf
-    encoded     bool
-    buf         []byte
-    // elements
-    key         IData
-    value       IData
-    scheme      IData
-    timestamp   *time.Time
-    signature_r *big.Int
-    signature_s *big.Int
+	// buf
+	encoded bool
+	buf     []byte
+	// elements
+	key         IData
+	value       IData
+	scheme      IData
+	timestamp   *time.Time
+	signature_r *big.Int
+	signature_s *big.Int
 }
 
 ////////////////////////////////////////
 // constructor
 
-func NewRecord() (*Record) {
-    return &Record{encoded: false}
+func NewRecord() *Record {
+	return &Record{encoded: false}
 }
 
 ////////////////////////////////////////
 // accessor to elements
 
 func (r *Record) Key() IData {
-    return r.key
+	return r.key
 }
 
 func (r *Record) Value() IData {
-    return r.value
+	return r.value
 }
 
 func (r *Record) Scheme() IData {
-    return r.scheme
+	return r.scheme
 }
 
 func (r *Record) Timestamp() *time.Time {
-    return r.timestamp
+	return r.timestamp
 }
 
 func (r *Record) Signature() (*big.Int, *big.Int) {
-    return r.signature_r, r.signature_s
+	return r.signature_r, r.signature_s
 }
 
 ////////////////////////////////////////
@@ -356,92 +358,92 @@ func (r *Record) Signature() (*big.Int, *big.Int) {
 
 func (r *Record) RecordMagic() byte {
 
-    if !r.encoded {
-        panic(fmt.Sprintf("Record::DataMagic - not encoded"))
-    }
+	if !r.encoded {
+		panic(fmt.Sprintf("Record::DataMagic - not encoded"))
+	}
 
-    return r.buf[0]
+	return r.buf[0]
 }
 
 func (r *Record) Buf() []byte {
 
-    if !r.encoded {
-        panic(fmt.Sprintf("Record::Buf - not encoded"))
-    }
+	if !r.encoded {
+		panic(fmt.Sprintf("Record::Buf - not encoded"))
+	}
 
-    return r.buf
+	return r.buf
 }
 
 func (r *Record) IsEncoded() bool {
-    return r.encoded
+	return r.encoded
 }
 
 func (r *Record) Encode() ([]byte, error) {
 
-    buf := []byte{0x00}
+	buf := []byte{0x00}
 
-    // encode key
-    if r.key != nil && !r.key.IsNil() {
+	// encode key
+	if r.key != nil && !r.key.IsNil() {
 
-        content_buf, magic, err := r.key.Encode(true)
-        if err != nil {
-            return nil, err
-        }
+		content_buf, magic, err := r.key.Encode(true)
+		if err != nil {
+			return nil, err
+		}
 
-        buf[0]  |= (magic & 0x03) << 6
-        buf     = append(buf, content_buf...)
-    }
+		buf[0] |= (magic & 0x03) << 6
+		buf = append(buf, content_buf...)
+	}
 
-    // encode value
-    if r.value != nil && !r.value.IsNil() {
+	// encode value
+	if r.value != nil && !r.value.IsNil() {
 
-        content_buf, magic, err := r.value.Encode(true)
-        if err != nil {
-            return nil, err
-        }
+		content_buf, magic, err := r.value.Encode(true)
+		if err != nil {
+			return nil, err
+		}
 
-        buf[0]  |= (magic & 0x03) << 4
-        buf     = append(buf, content_buf...)
-    }
+		buf[0] |= (magic & 0x03) << 4
+		buf = append(buf, content_buf...)
+	}
 
-    // encode scheme
-    if r.scheme != nil && !r.scheme.IsNil() {
+	// encode scheme
+	if r.scheme != nil && !r.scheme.IsNil() {
 
-        content_buf, magic, err := r.scheme.Encode(true)
-        if err != nil {
-            return nil, err
-        }
+		content_buf, magic, err := r.scheme.Encode(true)
+		if err != nil {
+			return nil, err
+		}
 
-        buf[0]  |= (magic & 0x03) << 2
-        buf     = append(buf, content_buf...)
-    }
+		buf[0] |= (magic & 0x03) << 2
+		buf = append(buf, content_buf...)
+	}
 
-    // encode timestamp
-    if r.timestamp != nil {
+	// encode timestamp
+	if r.timestamp != nil {
 
-        buf[0]  |= 0x01
-        buf     = append(buf, TimeToBytes(r.timestamp)...)
+		buf[0] |= 0x01
+		buf = append(buf, TimeToBytes(r.timestamp)...)
 
-        // encode signature
-        if r.signature_r != nil && r.signature_s != nil {
-            buf     = append(buf, BigIntToByteArray(r.signature_r)...)
-            buf     = append(buf, BigIntToByteArray(r.signature_s)...)
-        }
-    }
+		// encode signature
+		if r.signature_r != nil && r.signature_s != nil {
+			buf = append(buf, BigIntToByteArray(r.signature_r)...)
+			buf = append(buf, BigIntToByteArray(r.signature_s)...)
+		}
+	}
 
-    // record encoded buf
-    r.buf       = buf
-    r.encoded   = true
+	// record encoded buf
+	r.buf = buf
+	r.encoded = true
 
-    return r.buf, nil
+	return r.buf, nil
 }
 
 func (r *Record) IsDecoded() bool {
-    return true
+	return true
 }
 
 func (r *Record) Decode() error {
-    return fmt.Errorf("Record::Decode - decode not supported")
+	return fmt.Errorf("Record::Decode - decode not supported")
 }
 
 ////////////////////////////////////////
@@ -449,107 +451,107 @@ func (r *Record) Decode() error {
 
 func (r *Record) Copy() IRecord {
 
-    result := &Record{}
-    if r.key != nil {
-        result.key = r.key.Copy()
-    }
+	result := &Record{}
+	if r.key != nil {
+		result.key = r.key.Copy()
+	}
 
-    if r.value != nil {
-        result.value = r.value.Copy()
-    }
+	if r.value != nil {
+		result.value = r.value.Copy()
+	}
 
-    if r.scheme != nil {
-        result.scheme = r.scheme.Copy()
-    }
+	if r.scheme != nil {
+		result.scheme = r.scheme.Copy()
+	}
 
-    result.timestamp    = r.timestamp
-    result.signature_r  = r.signature_r
-    result.signature_s  = r.signature_s
+	result.timestamp = r.timestamp
+	result.signature_r = r.signature_r
+	result.signature_s = r.signature_s
 
-    return result
+	return result
 }
 
 func (r *Record) CopyConstruct() (IRecord, error) {
 
-    err     := (error)(nil)
+	var err error
 
-    result := &Record{}
-    if r.key != nil {
-        result.key, err     = r.key.CopyConstruct()
-        if err != nil {
-            return nil, err
-        }
-    }
+	result := &Record{}
+	if r.key != nil {
+		result.key, err = r.key.CopyConstruct()
+		if err != nil {
+			return nil, err
+		}
+	}
 
-    if r.value != nil {
-        result.value, err   = r.value.CopyConstruct()
-        if err != nil {
-            return nil, err
-        }
-    }
+	if r.value != nil {
+		result.value, err = r.value.CopyConstruct()
+		if err != nil {
+			return nil, err
+		}
+	}
 
-    if r.scheme != nil {
-        result.scheme, err  = r.scheme.CopyConstruct()
-        if err != nil {
-            return nil, err
-        }
-    }
+	if r.scheme != nil {
+		result.scheme, err = r.scheme.CopyConstruct()
+		if err != nil {
+			return nil, err
+		}
+	}
 
-    result.timestamp    = r.timestamp
-    result.signature_r  = r.signature_r
-    result.signature_s  = r.signature_s
+	result.timestamp = r.timestamp
+	result.signature_r = r.signature_r
+	result.signature_s = r.signature_s
 
-    return result, nil
+	return result, nil
 }
 
 ////////////////////////////////////////
 // updater
 
-func (r *Record) SetKey(key IData) (*Record) {
-    r.key       = key
-    r.encoded   = false
-    return r
+func (r *Record) SetKey(key IData) *Record {
+	r.key = key
+	r.encoded = false
+	return r
 }
 
-func (r *Record) SetK(key []byte) (*Record) {
-    r.key       = NewPrimitive(key)
-    r.encoded   = false
-    return r
+func (r *Record) SetK(key []byte) *Record {
+	r.key = NewPrimitive(key)
+	r.encoded = false
+	return r
 }
 
-func (r *Record) SetValue(value IData) (*Record) {
-    r.value     = value
-    r.encoded   = false
-    return r
+func (r *Record) SetValue(value IData) *Record {
+	r.value = value
+	r.encoded = false
+	return r
 }
 
-func (r *Record) SetV(value []byte) (*Record) {
-    r.value     = NewPrimitive(value)
-    r.encoded   = false
-    return r
+func (r *Record) SetV(value []byte) *Record {
+	r.value = NewPrimitive(value)
+	r.encoded = false
+	return r
 }
 
-func (r *Record) SetScheme(scheme IData) (*Record) {
-    r.scheme    = scheme
-    r.encoded   = false
-    return r
+func (r *Record) SetScheme(scheme IData) *Record {
+	r.scheme = scheme
+	r.encoded = false
+	return r
 }
 
-func (r *Record) SetS(scheme []byte) (*Record) {
-    r.scheme    = NewPrimitive(scheme)
-    r.encoded   = false
-    return r
+func (r *Record) SetS(scheme []byte) *Record {
+	r.scheme = NewPrimitive(scheme)
+	r.encoded = false
+	return r
 }
 
-func (r *Record) SetTimestamp(t *time.Time) (*Record) {
-    r.timestamp = t
-    r.encoded   = false
-    return r
+func (r *Record) SetTimestamp(t *time.Time) *Record {
+	r.timestamp = t
+	r.encoded = false
+	return r
 }
 
-func (r *Record) SetSignature(s_r, s_s *big.Int) (*Record) {
-    r.signature_r   = s_r
-    r.signature_s   = s_s
-    r.encoded       = false
-    return r
+func (r *Record) SetSignature(sR, sS *big.Int) *Record {
+	r.signature_r = sR
+	r.signature_s = sS
+	r.encoded = false
+	return r
 }

@@ -1,71 +1,72 @@
 package util
 
 import (
-    "fmt"
-    //"os"
-    "testing"
-    "crypto/rand"
-    "github.com/golang/snappy"
+	"fmt"
+	//"os"
+	"crypto/rand"
+	"testing"
+
+	"github.com/golang/snappy"
 )
 
-var setup_snappy_data [][]byte = nil
-var setup_snappy_compressed [][]byte = nil
+var setupSnappyData [][]byte
+var setupSnappyCompressed [][]byte
 
-func setupSnappyData() ([][]byte, [][]byte) {
-    if setup_snappy_data != nil && setup_snappy_compressed != nil {
-        return setup_snappy_data, setup_snappy_compressed
-    }
+func SetupSnappyData() ([][]byte, [][]byte) {
+	if setupSnappyData != nil && setupSnappyCompressed != nil {
+		return setupSnappyData, setupSnappyCompressed
+	}
 
-    var data_size = 0
-    var compressed_size = 0
+	var dataSize = 0
+	var compressedSize = 0
 
-    data        := make([][]byte, 4 * 1024)
-    compressed  := make([][]byte, 4 * 1024)
-    for i:=0; i<len(data); i++ {
-        data[i] = make([]byte, 4 * 1024)
-        for j:=0; j<len(data[i]); {
-            if n, err := rand.Read(data[i]); err != nil {
-                fmt.Printf("%s\n", err)
-            } else {
-                j += n
-            }
-        }
-        compressed[i]   = snappy.Encode(nil, data[i])
+	data := make([][]byte, 4*1024)
+	compressed := make([][]byte, 4*1024)
+	for i := 0; i < len(data); i++ {
+		data[i] = make([]byte, 4*1024)
+		for j := 0; j < len(data[i]); {
+			if n, err := rand.Read(data[i]); err != nil {
+				fmt.Printf("%s\n", err)
+			} else {
+				j += n
+			}
+		}
+		compressed[i] = snappy.Encode(nil, data[i])
 
-        data_size       += len(data[i])
-        compressed_size += len(compressed[i])
-    }
+		dataSize += len(data[i])
+		compressedSize += len(compressed[i])
+	}
 
-    //fmt.Printf("\nData Size : %d\n", len(data))
-    fmt.Printf("\nData Size : %d , Compressed Size : %d\n", data_size, compressed_size)
-    setup_snappy_data = data
-    setup_snappy_compressed = compressed
-    return data, compressed
+	//fmt.Printf("\nData Size : %d\n", len(data))
+	fmt.Printf("\nData Size : %d , Compressed Size : %d\n", dataSize, compressedSize)
+	setupSnappyData = data
+	setupSnappyCompressed = compressed
+	return data, compressed
 }
 
 func TestSetupSnappy(t *testing.T) {
-    setupSnappyData()
+	SetupSnappyData()
 }
 
 func BenchmarkCompress(b *testing.B) {
-    data, _ := setupSnappyData()
+	data, _ := SetupSnappyData()
 
-    b.ResetTimer()
-    for i := 0; i < b.N; i++ {
-        //fmt.Printf("%x\n", data[i%len(data)])
-        snappy.Encode(nil, data[i % len(data)])
-    }
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		//fmt.Printf("%x\n", data[i%len(data)])
+		snappy.Encode(nil, data[i%len(data)])
+	}
 }
 
 func BenchmarkDecompress(b *testing.B) {
-    _, compressed := setupSnappyData()
+	_, compressed := SetupSnappyData()
 
-    b.ResetTimer()
-    for i := 0; i < b.N; i++ {
-        //fmt.Printf("%x\n", compressed[i%len(compressed)])
-        _, err := snappy.Decode(nil, compressed[i % len(compressed)])
-        if (err != nil) {
-            fmt.Printf("%s : %x\n", err, compressed[i%len(compressed)])
-        }
-    }
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		//fmt.Printf("%x\n", compressed[i%len(compressed)])
+		_, err := snappy.Decode(nil, compressed[i%len(compressed)])
+		if err != nil {
+			fmt.Printf("%s : %x\n", err, compressed[i%len(compressed)])
+		}
+	}
 }

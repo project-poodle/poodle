@@ -30,33 +30,25 @@
 package util
 
 import (
-	"fmt"
-	"strings"
 	"bufio"
+	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 )
 
 type TestKey struct {
-    key     []byte
+	key []byte
 }
 
-func NewTestKey(s string) (*TestKey) {
-    return &TestKey{key: []byte(s)}
+func NewTestKey(s string) *TestKey {
+	return &TestKey{key: []byte(s)}
 }
 
 func (t *TestKey) Key() []byte {
-    return t.key
-}
-
-func (t *TestKey) Equal(k IKey) bool {
-    if tmp, ok := k.(*TestKey); ok {
-        return EqByteArray(t.key, tmp.key)
-    } else {
-        return false
-    }
+	return t.key
 }
 
 var murmurTestCases = []struct {
@@ -114,11 +106,11 @@ func TestBuild_simple(t *testing.T) {
 
 func TestBuild_stress(t *testing.T) {
 	var keys, extra []IKey
-	rand_start  := RandUint32() % 1000000
-	rand_range  := RandUint32() % 50000 + 10000
-	for i := int(rand_start); i < int(rand_start + rand_range); i++ {
+	rand_start := RandUint32() % 1000000
+	rand_range := RandUint32()%50000 + 10000
+	for i := int(rand_start); i < int(rand_start+rand_range); i++ {
 		s := strconv.Itoa(i)
-		if i < int(rand_start) + int(rand_range) / 2 {
+		if i < int(rand_start)+int(rand_range)/2 {
 			keys = append(keys, NewTestKey(s))
 		} else {
 			extra = append(extra, NewTestKey(s))
@@ -146,120 +138,136 @@ func testTable(t *testing.T, keys []IKey, extra []IKey) {
 	}
 }
 
+func (t *MPHTable) Print() {
+	fmt.Printf("MPHTable\n")
+	fmt.Printf("    %v\n", t.level0)
+	fmt.Printf("    %d\n", t.level0Mask)
+	fmt.Printf("    %v\n", t.level1)
+	fmt.Printf("    %d\n", t.level1Mask)
+	if t.verify_key != nil {
+		for i := 0; i < len(t.verify_key); i++ {
+			fmt.Printf("        %#v\n", t.verify_key[i])
+		}
+	} else {
+		fmt.Printf("        %d\n", t.verify_seed)
+		fmt.Printf("        %#v\n", t.verify_hash)
+	}
+}
+
 func TestSerializeKey(t *testing.T) {
 	var keys []IKey
-	rand_start  := RandUint32() % 1000000
-	rand_range  := RandUint32() % 50000 + 10000
-	for i := int(rand_start); i < int(rand_start + rand_range); i++ {
+	rand_start := RandUint32() % 1000000
+	rand_range := RandUint32()%50000 + 10000
+	for i := int(rand_start); i < int(rand_start+rand_range); i++ {
 		s := strconv.Itoa(i)
-        keys = append(keys, NewTestKey(s))
+		keys = append(keys, NewTestKey(s))
 	}
 
 	// build table
-    table := MPHBuild(keys, true)
+	table := MPHBuild(keys, true)
 
-    // serialize, then deserialize
-    buf := table.Buf()
-    loaded_table, _, err := NewMPHTable(buf)
-    if err != nil {
-        t.Errorf("Parse MPHTable failed %s, %x", err, buf)
-    }
+	// serialize, then deserialize
+	buf := table.Buf()
+	loaded_table, _, err := NewMPHTable(buf)
+	if err != nil {
+		t.Errorf("Parse MPHTable failed %s, %x", err, buf)
+	}
 
-    // test level 0
-    if !EqUint32Array(table.level0, loaded_table.level0) {
-        t.Errorf("Level 0 data mismatch")
-    }
-    if table.level0Mask != loaded_table.level0Mask {
-        t.Errorf("Level 0 mask mismatch")
-    }
+	// test level 0
+	if !EqUint32Array(table.level0, loaded_table.level0) {
+		t.Errorf("Level 0 data mismatch")
+	}
+	if table.level0Mask != loaded_table.level0Mask {
+		t.Errorf("Level 0 mask mismatch")
+	}
 
-    // test level 1
-    if !EqUint32Array(table.level1, loaded_table.level1) {
-        //table.Print()
-        //loaded_table.Print()
-        t.Errorf("Level 1 data mismatch")
-    }
-    if table.level1Mask != loaded_table.level1Mask {
-        t.Errorf("Level 1 mask mismatch")
-    }
+	// test level 1
+	if !EqUint32Array(table.level1, loaded_table.level1) {
+		//table.Print()
+		//loaded_table.Print()
+		t.Errorf("Level 1 data mismatch")
+	}
+	if table.level1Mask != loaded_table.level1Mask {
+		t.Errorf("Level 1 mask mismatch")
+	}
 
-    // check verify key are not null
-    if table.verify_key == nil {
-        t.Errorf("Unexpected nil verify key in orig table")
-    }
-    if loaded_table.verify_key == nil {
-        t.Errorf("Unexpected nil verify key in loaded table")
-    }
+	// check verify key are not null
+	if table.verify_key == nil {
+		t.Errorf("Unexpected nil verify key in orig table")
+	}
+	if loaded_table.verify_key == nil {
+		t.Errorf("Unexpected nil verify key in loaded table")
+	}
 
-    // test keys
-    if len(table.verify_key) != len(loaded_table.verify_key) {
-        t.Errorf("Verify Key length mismatch")
-    }
-    for i:=0; i<len(table.verify_key); i++ {
-        if !EqByteArray(table.verify_key[i], loaded_table.verify_key[i]) {
-            t.Errorf("Verify Key [%d] mismatch", i)
-        }
-    }
+	// test keys
+	if len(table.verify_key) != len(loaded_table.verify_key) {
+		t.Errorf("Verify Key length mismatch")
+	}
+	for i := 0; i < len(table.verify_key); i++ {
+		if !EqByteArray(table.verify_key[i], loaded_table.verify_key[i]) {
+			t.Errorf("Verify Key [%d] mismatch", i)
+		}
+	}
 
-    // check verify hash are null
-    if table.verify_hash != nil {
-        t.Errorf("Unexpected not nil verify hash in orig table")
-    }
-    if loaded_table.verify_hash != nil {
-        t.Errorf("Unexpected not nil verify hash in loaded table")
-    }
+	// check verify hash are null
+	if table.verify_hash != nil {
+		t.Errorf("Unexpected not nil verify hash in orig table")
+	}
+	if loaded_table.verify_hash != nil {
+		t.Errorf("Unexpected not nil verify hash in loaded table")
+	}
 }
 
 func TestSerializeHash(t *testing.T) {
 	var keys []IKey
-	rand_start  := RandUint32() % 1000000
-	rand_range  := RandUint32() % 50000 + 10000
-	for i := int(rand_start); i < int(rand_start + rand_range); i++ {
+	rand_start := RandUint32() % 1000000
+	rand_range := RandUint32()%50000 + 10000
+	for i := int(rand_start); i < int(rand_start+rand_range); i++ {
 		s := strconv.Itoa(i)
-        keys = append(keys, NewTestKey(s))
+		keys = append(keys, NewTestKey(s))
 	}
 
 	// build table
-    table := MPHBuild(keys, false)
+	table := MPHBuild(keys, false)
 
-    // serialize, then deserialize
-    buf := table.Buf()
-    loaded_table, _, err := NewMPHTable(buf)
-    if err != nil {
-        t.Errorf("Parse MPHTable failed %s", err)
-    }
+	// serialize, then deserialize
+	buf := table.Buf()
+	loaded_table, _, err := NewMPHTable(buf)
+	if err != nil {
+		t.Errorf("Parse MPHTable failed %s", err)
+	}
 
-    // test level 0
-    if !EqUint32Array(table.level0, loaded_table.level0) {
-        t.Errorf("Level 0 data mismatch")
-    }
-    if table.level0Mask != loaded_table.level0Mask {
-        t.Errorf("Level 0 mask mismatch")
-    }
+	// test level 0
+	if !EqUint32Array(table.level0, loaded_table.level0) {
+		t.Errorf("Level 0 data mismatch")
+	}
+	if table.level0Mask != loaded_table.level0Mask {
+		t.Errorf("Level 0 mask mismatch")
+	}
 
-    // test level 1
-    if !EqUint32Array(table.level1, loaded_table.level1) {
-        t.Errorf("Level 1 data mismatch")
-    }
-    if table.level1Mask != loaded_table.level1Mask {
-        t.Errorf("Level 1 mask mismatch")
-    }
+	// test level 1
+	if !EqUint32Array(table.level1, loaded_table.level1) {
+		t.Errorf("Level 1 data mismatch")
+	}
+	if table.level1Mask != loaded_table.level1Mask {
+		t.Errorf("Level 1 mask mismatch")
+	}
 
-    // check verify key are null
-    if table.verify_key != nil {
-        t.Errorf("Unexpected not nil verify key in orig table")
-    }
-    if loaded_table.verify_key != nil {
-        t.Errorf("Unexpected not nil verify key in loaded table")
-    }
+	// check verify key are null
+	if table.verify_key != nil {
+		t.Errorf("Unexpected not nil verify key in orig table")
+	}
+	if loaded_table.verify_key != nil {
+		t.Errorf("Unexpected not nil verify key in loaded table")
+	}
 
-    // test verify hash
-    if table.verify_seed != loaded_table.verify_seed {
-        t.Errorf("Verify Seed mismatch")
-    }
-    if !EqUint32Array(table.verify_hash, loaded_table.verify_hash) {
-        t.Errorf("Verify Hash mismatch")
-    }
+	// test verify hash
+	if table.verify_seed != loaded_table.verify_seed {
+		t.Errorf("Verify Seed mismatch")
+	}
+	if !EqUint32Array(table.verify_hash, loaded_table.verify_hash) {
+		t.Errorf("Verify Hash mismatch")
+	}
 }
 
 var (
