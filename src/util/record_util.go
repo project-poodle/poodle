@@ -279,7 +279,7 @@ func (r *MappedRecord) Copy() IRecord {
 
 func (r *MappedRecord) CopyConstruct() (IRecord, error) {
 
-    result      := NewConstructedRecord()
+    result      := NewRecord()
     err         := (error)(nil)
 
     result.key, err     = r.Key().CopyConstruct()
@@ -308,7 +308,7 @@ func (r *MappedRecord) CopyConstruct() (IRecord, error) {
 // Constructed Record
 ////////////////////////////////////////////////////////////////////////////////
 
-type ConstructedRecord struct {
+type Record struct {
     // buf
     encoded     bool
     buf         []byte
@@ -324,59 +324,59 @@ type ConstructedRecord struct {
 ////////////////////////////////////////
 // constructor
 
-func NewConstructedRecord() (*ConstructedRecord) {
-    return &ConstructedRecord{encoded: false}
+func NewRecord() (*Record) {
+    return &Record{encoded: false}
 }
 
 ////////////////////////////////////////
 // accessor to elements
 
-func (r *ConstructedRecord) Key() IData {
+func (r *Record) Key() IData {
     return r.key
 }
 
-func (r *ConstructedRecord) Value() IData {
+func (r *Record) Value() IData {
     return r.value
 }
 
-func (r *ConstructedRecord) Scheme() IData {
+func (r *Record) Scheme() IData {
     return r.scheme
 }
 
-func (r *ConstructedRecord) Timestamp() *time.Time {
+func (r *Record) Timestamp() *time.Time {
     return r.timestamp
 }
 
-func (r *ConstructedRecord) Signature() (*big.Int, *big.Int) {
+func (r *Record) Signature() (*big.Int, *big.Int) {
     return r.signature_r, r.signature_s
 }
 
 ////////////////////////////////////////
 // encoding, decoding, and buf
 
-func (r *ConstructedRecord) RecordMagic() byte {
+func (r *Record) RecordMagic() byte {
 
     if !r.encoded {
-        panic(fmt.Sprintf("ConstructedRecord::DataMagic - not encoded"))
+        panic(fmt.Sprintf("Record::DataMagic - not encoded"))
     }
 
     return r.buf[0]
 }
 
-func (r *ConstructedRecord) Buf() []byte {
+func (r *Record) Buf() []byte {
 
     if !r.encoded {
-        panic(fmt.Sprintf("ConstructedRecord::Buf - not encoded"))
+        panic(fmt.Sprintf("Record::Buf - not encoded"))
     }
 
     return r.buf
 }
 
-func (r *ConstructedRecord) IsEncoded() bool {
+func (r *Record) IsEncoded() bool {
     return r.encoded
 }
 
-func (r *ConstructedRecord) Encode() ([]byte, error) {
+func (r *Record) Encode() ([]byte, error) {
 
     buf := []byte{0x00}
 
@@ -436,20 +436,20 @@ func (r *ConstructedRecord) Encode() ([]byte, error) {
     return r.buf, nil
 }
 
-func (r *ConstructedRecord) IsDecoded() bool {
+func (r *Record) IsDecoded() bool {
     return true
 }
 
-func (r *ConstructedRecord) Decode() error {
-    return fmt.Errorf("ConstructedRecord::Decode - decode not supported")
+func (r *Record) Decode() error {
+    return fmt.Errorf("Record::Decode - decode not supported")
 }
 
 ////////////////////////////////////////
 // deep copy
 
-func (r *ConstructedRecord) Copy() IRecord {
+func (r *Record) Copy() IRecord {
 
-    result := &ConstructedRecord{}
+    result := &Record{}
     if r.key != nil {
         result.key = r.key.Copy()
     }
@@ -469,11 +469,11 @@ func (r *ConstructedRecord) Copy() IRecord {
     return result
 }
 
-func (r *ConstructedRecord) CopyConstruct() (IRecord, error) {
+func (r *Record) CopyConstruct() (IRecord, error) {
 
     err     := (error)(nil)
 
-    result := &ConstructedRecord{}
+    result := &Record{}
     if r.key != nil {
         result.key, err     = r.key.CopyConstruct()
         if err != nil {
@@ -505,49 +505,49 @@ func (r *ConstructedRecord) CopyConstruct() (IRecord, error) {
 ////////////////////////////////////////
 // updater
 
-func (r *ConstructedRecord) SetKey(key IData) (*ConstructedRecord) {
+func (r *Record) SetKey(key IData) (*Record) {
     r.key       = key
     r.encoded   = false
     return r
 }
 
-func (r *ConstructedRecord) SetKeyData(key []byte) (*ConstructedRecord) {
-    r.key       = NewConstructedPrimitive(key)
+func (r *Record) SetK(key []byte) (*Record) {
+    r.key       = NewPrimitive(key)
     r.encoded   = false
     return r
 }
 
-func (r *ConstructedRecord) SetValue(value IData) (*ConstructedRecord) {
+func (r *Record) SetValue(value IData) (*Record) {
     r.value     = value
     r.encoded   = false
     return r
 }
 
-func (r *ConstructedRecord) SetValueData(value []byte) (*ConstructedRecord) {
-    r.value     = NewConstructedPrimitive(value)
+func (r *Record) SetV(value []byte) (*Record) {
+    r.value     = NewPrimitive(value)
     r.encoded   = false
     return r
 }
 
-func (r *ConstructedRecord) SetScheme(scheme IData) (*ConstructedRecord) {
+func (r *Record) SetScheme(scheme IData) (*Record) {
     r.scheme    = scheme
     r.encoded   = false
     return r
 }
 
-func (r *ConstructedRecord) SetSchemeData(scheme []byte) (*ConstructedRecord) {
-    r.scheme    = NewConstructedPrimitive(scheme)
+func (r *Record) SetS(scheme []byte) (*Record) {
+    r.scheme    = NewPrimitive(scheme)
     r.encoded   = false
     return r
 }
 
-func (r *ConstructedRecord) SetTimestamp(t *time.Time) (*ConstructedRecord) {
+func (r *Record) SetTimestamp(t *time.Time) (*Record) {
     r.timestamp = t
     r.encoded   = false
     return r
 }
 
-func (r *ConstructedRecord) SetSignature(s_r, s_s *big.Int) (*ConstructedRecord) {
+func (r *Record) SetSignature(s_r, s_s *big.Int) (*Record) {
     r.signature_r   = s_r
     r.signature_s   = s_s
     r.encoded       = false

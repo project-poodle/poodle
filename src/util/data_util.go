@@ -222,7 +222,7 @@ func (d *SimpleMappedData) CopyConstruct() (IData, error) {
     // make a deep copy of the buf
     buf := make([]byte, len(d.content))
     copy(buf, d.content)
-    result := NewConstructedPrimitive(buf)
+    result := NewPrimitive(buf)
     return result, nil
 }
 
@@ -567,13 +567,13 @@ func (d *StandardMappedData) CopyConstruct() (IData, error) {
         buf := make([]byte, len(d.Data()))
         copy(buf, d.Data())
 
-        result := NewConstructedPrimitive(buf)
+        result := NewPrimitive(buf)
 
         return result, nil
 
     } else if d.IsDataArray() {
 
-        result := NewConstructedDataArray()
+        result := NewDataArray()
 
         for i:=uint16(0); i<d.Size(); i++ {
 
@@ -594,7 +594,7 @@ func (d *StandardMappedData) CopyConstruct() (IData, error) {
 
     } else if d.IsRecordList() {
 
-        result := NewConstructedRecordList()
+        result := NewRecordList()
 
         for i:=uint16(0); i<d.Size(); i++ {
 
@@ -621,10 +621,10 @@ func (d *StandardMappedData) CopyConstruct() (IData, error) {
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// ConstructedPrimitive
+// Primitive
 ////////////////////////////////////////////////////////////////////////////////
 
-type ConstructedPrimitive struct {
+type Primitive struct {
     // buf
     encoded             bool
     magic               byte
@@ -636,53 +636,53 @@ type ConstructedPrimitive struct {
 ////////////////////////////////////////
 // constructor
 
-func NewConstructedPrimitive(data []byte) *ConstructedPrimitive {
-    return &ConstructedPrimitive{encoded: false, data: data}
+func NewPrimitive(data []byte) *Primitive {
+    return &Primitive{encoded: false, data: data}
 }
 
 ////////////////////////////////////////
 // accessor to elements
 
-func (d *ConstructedPrimitive) IsNil() bool {
+func (d *Primitive) IsNil() bool {
     return d.data == nil || len(d.data) == 0
 }
 
-func (d *ConstructedPrimitive) IsPrimitive() bool {
+func (d *Primitive) IsPrimitive() bool {
     return true
 }
 
-func (d *ConstructedPrimitive) IsDataArray() bool {
+func (d *Primitive) IsDataArray() bool {
     return false
 }
 
-func (d *ConstructedPrimitive) IsRecordList() bool {
+func (d *Primitive) IsRecordList() bool {
     return false
 }
 
-func (d *ConstructedPrimitive) Size() uint16 {
+func (d *Primitive) Size() uint16 {
     return uint16(0)
 }
 
-func (d *ConstructedPrimitive) DataAt(idx uint16) (IData, error) {
+func (d *Primitive) DataAt(idx uint16) (IData, error) {
 
-    return nil, fmt.Errorf("ConstructedPrimitive::DataAt - not allowed for primitive data")
+    return nil, fmt.Errorf("Primitive::DataAt - not allowed for primitive data")
 }
 
-func (d *ConstructedPrimitive) RecordAt(idx uint16) (IRecord, error) {
+func (d *Primitive) RecordAt(idx uint16) (IRecord, error) {
 
 
-    return nil, fmt.Errorf("ConstructedPrimitive::RecordAt - not allowed for primitive data")
+    return nil, fmt.Errorf("Primitive::RecordAt - not allowed for primitive data")
 }
 
-func (d *ConstructedPrimitive) LookupEncoder() ILookupEncoder {
+func (d *Primitive) LookupEncoder() ILookupEncoder {
     return nil
 }
 
-func (d *ConstructedPrimitive) CompressEncoder() ICompressEncoder {
+func (d *Primitive) CompressEncoder() ICompressEncoder {
     return nil
 }
 
-func (d *ConstructedPrimitive) Data() []byte {
+func (d *Primitive) Data() []byte {
 
     return d.data
 }
@@ -690,29 +690,29 @@ func (d *ConstructedPrimitive) Data() []byte {
 ////////////////////////////////////////
 // encoding, decoding, and buf
 
-func (d *ConstructedPrimitive) DataMagic() byte {
+func (d *Primitive) DataMagic() byte {
 
     if !d.encoded {
-        panic(fmt.Sprintf("ConstructedPrimitive::DataMagic - not encoded"))
+        panic(fmt.Sprintf("Primitive::DataMagic - not encoded"))
     }
 
     return d.magic
 }
 
-func (d *ConstructedPrimitive) Buf() []byte {
+func (d *Primitive) Buf() []byte {
 
     if !d.encoded {
-        panic(fmt.Sprintf("ConstructedPrimitive::DataMagic - not encoded"))
+        panic(fmt.Sprintf("Primitive::DataMagic - not encoded"))
     }
 
     return d.buf
 }
 
-func (d *ConstructedPrimitive) IsEncoded() bool {
+func (d *Primitive) IsEncoded() bool {
     return d.encoded
 }
 
-func (d *ConstructedPrimitive) Encode(parent bool) ([]byte, byte, error) {
+func (d *Primitive) Encode(parent bool) ([]byte, byte, error) {
 
     if d.data == nil {
         return nil, 0x00, nil
@@ -777,27 +777,27 @@ func (d *ConstructedPrimitive) Encode(parent bool) ([]byte, byte, error) {
 
     } else {
 
-        return nil, 0xff, fmt.Errorf("ConstructedPrimitive::Encode - content length too big %d", content_len)
+        return nil, 0xff, fmt.Errorf("Primitive::Encode - content length too big %d", content_len)
     }
 
     return d.buf, d.magic, nil
 }
 
-func (d *ConstructedPrimitive) IsDecoded() bool {
+func (d *Primitive) IsDecoded() bool {
     return true
 }
 
-func (d *ConstructedPrimitive) Decode(parent byte) error {
-    return fmt.Errorf("ConstructedPrimitive::Decode - decode not supported")
+func (d *Primitive) Decode(parent byte) error {
+    return fmt.Errorf("Primitive::Decode - decode not supported")
 }
 
 
 ////////////////////////////////////////
 // deep copy
 
-func (d *ConstructedPrimitive) Copy() IData {
+func (d *Primitive) Copy() IData {
 
-    c := NewConstructedPrimitive(d.data)
+    c := NewPrimitive(d.data)
     if d.data == nil {
         return c
     }
@@ -809,16 +809,16 @@ func (d *ConstructedPrimitive) Copy() IData {
     return c
 }
 
-func (d *ConstructedPrimitive) CopyConstruct() (IData, error) {
+func (d *Primitive) CopyConstruct() (IData, error) {
 
     return d.Copy(), nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// ConstructedDataArray
+// DataArray
 ////////////////////////////////////////////////////////////////////////////////
 
-type ConstructedDataArray struct {
+type DataArray struct {
     // buf
     encoded             bool
     buf                 []byte
@@ -829,85 +829,85 @@ type ConstructedDataArray struct {
 ////////////////////////////////////////
 // constructor
 
-func NewConstructedDataArray() *ConstructedDataArray {
-    return &ConstructedDataArray{encoded: false, data_array: []IData{}}
+func NewDataArray() *DataArray {
+    return &DataArray{encoded: false, data_array: []IData{}}
 }
 
 ////////////////////////////////////////
 // accessor to elements
 
-func (d *ConstructedDataArray) IsNil() bool {
+func (d *DataArray) IsNil() bool {
     return d.data_array == nil || len(d.data_array) == 0
 }
 
-func (d *ConstructedDataArray) IsPrimitive() bool {
+func (d *DataArray) IsPrimitive() bool {
     return d.IsNil() || false
 }
 
-func (d *ConstructedDataArray) IsDataArray() bool {
+func (d *DataArray) IsDataArray() bool {
     return true
 }
 
-func (d *ConstructedDataArray) IsRecordList() bool {
+func (d *DataArray) IsRecordList() bool {
     return false
 }
 
-func (d *ConstructedDataArray) Size() uint16 {
+func (d *DataArray) Size() uint16 {
     return uint16(len(d.data_array))
 }
 
-func (d *ConstructedDataArray) DataAt(idx uint16) (IData, error) {
+func (d *DataArray) DataAt(idx uint16) (IData, error) {
 
     if idx >= uint16(len(d.data_array)) {
-        return nil, fmt.Errorf("ConstructedDataArray::DataAt - idx [%d] bigger than size [%d]", idx, len(d.data_array))
+        return nil, fmt.Errorf("DataArray::DataAt - idx [%d] bigger than size [%d]", idx, len(d.data_array))
     }
 
     return d.data_array[idx], nil
 }
 
-func (d *ConstructedDataArray) RecordAt(idx uint16) (IRecord, error) {
+func (d *DataArray) RecordAt(idx uint16) (IRecord, error) {
 
-    return nil, fmt.Errorf("ConstructedDataArray::RecordAt - not allowed for data array")
+    return nil, fmt.Errorf("DataArray::RecordAt - not allowed for data array")
 }
 
-func (d *ConstructedDataArray) LookupEncoder() ILookupEncoder {
+func (d *DataArray) LookupEncoder() ILookupEncoder {
     return nil
 }
 
-func (d *ConstructedDataArray) CompressEncoder() ICompressEncoder {
+func (d *DataArray) CompressEncoder() ICompressEncoder {
     return nil
 }
 
-func (d *ConstructedDataArray) Data() []byte {
+func (d *DataArray) Data() []byte {
     return nil
 }
 
 ////////////////////////////////////////
 // encoding, decoding, and buf
 
-func (d *ConstructedDataArray) DataMagic() byte {
+func (d *DataArray) DataMagic() byte {
 
     if !d.encoded {
-        panic(fmt.Sprintf("ConstructedDataArray::DataMagic - not encoded"))
+        panic(fmt.Sprintf("DataArray::DataMagic - not encoded"))
     }
 
     return d.buf[0]
 }
 
-func (d *ConstructedDataArray) Buf() []byte {
+func (d *DataArray) Buf() []byte {
 
     if !d.encoded {
-        panic(fmt.Sprintf("ConstructedDataArray::Buf - not encoded"))
+        panic(fmt.Sprintf("DataArray::Buf - not encoded"))
     }
 
     return d.buf
 }
 
-func (d *ConstructedDataArray) IsEncoded() bool {
+func (d *DataArray) IsEncoded() bool {
     return d.encoded
 }
 
-func (d *ConstructedDataArray) Encode(parent bool) ([]byte, byte, error) {
+func (d *DataArray) Encode(parent bool) ([]byte, byte, error) {
 
     if d.data_array == nil {
         return nil, 0x00, nil
@@ -926,7 +926,7 @@ func (d *ConstructedDataArray) Encode(parent bool) ([]byte, byte, error) {
         buf[0]  |= 0x02 << 6
         buf = append(buf, uint8(size >> 8), uint8(size))     // BigEndian encoding
     } else {
-        return nil, 0xff, fmt.Errorf("ConstructedDataArray::Encode - unexpected size %d", size)
+        return nil, 0xff, fmt.Errorf("DataArray::Encode - unexpected size %d", size)
     }
 
     // encode content
@@ -964,25 +964,25 @@ func (d *ConstructedDataArray) Encode(parent bool) ([]byte, byte, error) {
 
     } else {
 
-        return nil, 0xff, fmt.Errorf("ConstructedDataArray::Encode - content length too big %d", content_len)
+        return nil, 0xff, fmt.Errorf("DataArray::Encode - content length too big %d", content_len)
 
     }
 }
 
-func (d *ConstructedDataArray) IsDecoded() bool {
+func (d *DataArray) IsDecoded() bool {
     return true
 }
 
-func (d *ConstructedDataArray) Decode(parent byte) error {
-    return fmt.Errorf("ConstructedDataArray::Decode - decode not supported")
+func (d *DataArray) Decode(parent byte) error {
+    return fmt.Errorf("DataArray::Decode - decode not supported")
 }
 
 ////////////////////////////////////////
 // deep copy
 
-func (d *ConstructedDataArray) Copy() IData {
+func (d *DataArray) Copy() IData {
 
-    c := NewConstructedDataArray()
+    c := NewDataArray()
     if d.data_array == nil {
         return c
     }
@@ -996,9 +996,9 @@ func (d *ConstructedDataArray) Copy() IData {
     return c
 }
 
-func (d *ConstructedDataArray) CopyConstruct() (IData, error) {
+func (d *DataArray) CopyConstruct() (IData, error) {
 
-    c := NewConstructedDataArray()
+    c := NewDataArray()
     if d.data_array == nil {
         return c, nil
     }
@@ -1020,16 +1020,16 @@ func (d *ConstructedDataArray) CopyConstruct() (IData, error) {
 ////////////////////////////////////////
 // updater
 
-func (d *ConstructedDataArray) Append(data IData) (*ConstructedDataArray) {
+func (d *DataArray) Append(data IData) (*DataArray) {
     d.data_array    = append(d.data_array, data)
     d.encoded       = false
     return d
 }
 
-func (d *ConstructedDataArray) DeleteAt(idx uint16) (*ConstructedDataArray) {
+func (d *DataArray) DeleteAt(idx uint16) (*DataArray) {
 
     if idx >= uint16(len(d.data_array)) {
-        panic(fmt.Sprintf("ConstructedDataArray::DataAt - idx [%d] bigger than size [%d]", idx, len(d.data_array)))
+        panic(fmt.Sprintf("DataArray::DataAt - idx [%d] bigger than size [%d]", idx, len(d.data_array)))
     }
 
     d.data_array    = append(d.data_array[:idx], d.data_array[idx+1:]...)
@@ -1040,7 +1040,7 @@ func (d *ConstructedDataArray) DeleteAt(idx uint16) (*ConstructedDataArray) {
 ////////////////////////////////////////////////////////////////////////////////
 // Constructed Record List
 
-type ConstructedRecordList struct {
+type RecordList struct {
     // buf
     encoded             bool
     buf                 []byte
@@ -1051,85 +1051,85 @@ type ConstructedRecordList struct {
 ////////////////////////////////////////
 // constructor
 
-func NewConstructedRecordList() *ConstructedRecordList {
-    return &ConstructedRecordList{encoded: false, record_list: []IRecord{}}
+func NewRecordList() *RecordList {
+    return &RecordList{encoded: false, record_list: []IRecord{}}
 }
 
 ////////////////////////////////////////
 // accessor to elements
 
-func (d *ConstructedRecordList) IsNil() bool {
+func (d *RecordList) IsNil() bool {
     return d.record_list == nil || len(d.record_list) == 0
 }
 
-func (d *ConstructedRecordList) IsPrimitive() bool {
+func (d *RecordList) IsPrimitive() bool {
     return d.IsNil() || false
 }
 
-func (d *ConstructedRecordList) IsDataArray() bool {
+func (d *RecordList) IsDataArray() bool {
     return false
 }
 
-func (d *ConstructedRecordList) IsRecordList() bool {
+func (d *RecordList) IsRecordList() bool {
     return true
 }
 
-func (d *ConstructedRecordList) Size() uint16 {
+func (d *RecordList) Size() uint16 {
     return uint16(len(d.record_list))
 }
 
-func (d *ConstructedRecordList) DataAt(idx uint16) (IData, error) {
+func (d *RecordList) DataAt(idx uint16) (IData, error) {
 
-    return nil, fmt.Errorf("ConstructedRecordList::DataAt - not allowed for record list")
+    return nil, fmt.Errorf("RecordList::DataAt - not allowed for record list")
 }
 
-func (d *ConstructedRecordList) RecordAt(idx uint16) (IRecord, error) {
+func (d *RecordList) RecordAt(idx uint16) (IRecord, error) {
 
     if idx >= uint16(len(d.record_list)) {
-        return nil, fmt.Errorf("ConstructedRecordList::RecordAt - idx [%d] bigger than size [%d]", idx, len(d.record_list))
+        return nil, fmt.Errorf("RecordList::RecordAt - idx [%d] bigger than size [%d]", idx, len(d.record_list))
     }
 
     return d.record_list[idx], nil
 }
 
-func (d *ConstructedRecordList) LookupEncoder() ILookupEncoder {
+func (d *RecordList) LookupEncoder() ILookupEncoder {
     return nil
 }
 
-func (d *ConstructedRecordList) CompressEncoder() ICompressEncoder {
+func (d *RecordList) CompressEncoder() ICompressEncoder {
     return nil
 }
 
-func (d *ConstructedRecordList) Data() []byte {
+func (d *RecordList) Data() []byte {
     return nil
 }
 
 ////////////////////////////////////////
 // encoding, decoding, and buf
 
-func (d *ConstructedRecordList) DataMagic() byte {
+func (d *RecordList) DataMagic() byte {
 
     if !d.encoded {
-        panic(fmt.Sprintf("ConstructedRecordList::DataMagic - not encoded"))
+        panic(fmt.Sprintf("RecordList::DataMagic - not encoded"))
     }
 
     return d.buf[0]
 }
 
-func (d *ConstructedRecordList) Buf() []byte {
+func (d *RecordList) Buf() []byte {
 
     if !d.encoded {
-        panic(fmt.Sprintf("ConstructedRecordList::DataMagic - not encoded"))
+        panic(fmt.Sprintf("RecordList::DataMagic - not encoded"))
     }
 
     return d.buf
 }
 
-func (d *ConstructedRecordList) IsEncoded() bool {
+func (d *RecordList) IsEncoded() bool {
     return d.encoded
 }
 
-func (d *ConstructedRecordList) Encode(parent bool) ([]byte, byte, error) {
+func (d *RecordList) Encode(parent bool) ([]byte, byte, error) {
 
     if d.record_list == nil {
         return nil, 0x00, nil
@@ -1148,7 +1148,7 @@ func (d *ConstructedRecordList) Encode(parent bool) ([]byte, byte, error) {
         buf[0]  |= 0x02 << 4
         buf = append(buf, uint8(size >> 8), uint8(size))     // BigEndian encoding
     } else {
-        return nil, 0xff, fmt.Errorf("ConstructedDataArray::Encode - unexpected size %d", size)
+        return nil, 0xff, fmt.Errorf("DataArray::Encode - unexpected size %d", size)
     }
 
     // encode content
@@ -1187,25 +1187,25 @@ func (d *ConstructedRecordList) Encode(parent bool) ([]byte, byte, error) {
 
     } else {
 
-        return nil, 0xff, fmt.Errorf("ConstructedRecordList::Encode - content length too big %d", content_len)
+        return nil, 0xff, fmt.Errorf("RecordList::Encode - content length too big %d", content_len)
 
     }
 }
 
-func (d *ConstructedRecordList) IsDecoded() bool {
+func (d *RecordList) IsDecoded() bool {
     return true
 }
 
-func (d *ConstructedRecordList) Decode(parent byte) (error) {
-    return fmt.Errorf("ConstructedRecordList::Decode - decode not supported")
+func (d *RecordList) Decode(parent byte) (error) {
+    return fmt.Errorf("RecordList::Decode - decode not supported")
 }
 
 ////////////////////////////////////////
 // deep copy
 
-func (d *ConstructedRecordList) Copy() IData {
+func (d *RecordList) Copy() IData {
 
-    c := NewConstructedRecordList()
+    c := NewRecordList()
     if d.record_list == nil {
         return c
     }
@@ -1219,9 +1219,9 @@ func (d *ConstructedRecordList) Copy() IData {
     return c
 }
 
-func (d *ConstructedRecordList) CopyConstruct() (IData, error) {
+func (d *RecordList) CopyConstruct() (IData, error) {
 
-    c := NewConstructedRecordList()
+    c := NewRecordList()
     if d.record_list == nil {
         return c, nil
     }
@@ -1243,16 +1243,16 @@ func (d *ConstructedRecordList) CopyConstruct() (IData, error) {
 ////////////////////////////////////////
 // updater
 
-func (d *ConstructedRecordList) Append(record IRecord) (*ConstructedRecordList) {
+func (d *RecordList) Append(record IRecord) (*RecordList) {
     d.record_list   = append(d.record_list, record)
     d.encoded       = false
     return d
 }
 
-func (d *ConstructedRecordList) DeleteAt(idx uint16) (*ConstructedRecordList) {
+func (d *RecordList) DeleteAt(idx uint16) (*RecordList) {
 
     if idx >= uint16(len(d.record_list)) {
-        panic(fmt.Sprintf("ConstructedDataArray::DeleteAt - idx [%d] bigger than size [%d]", idx, len(d.record_list)))
+        panic(fmt.Sprintf("DataArray::DeleteAt - idx [%d] bigger than size [%d]", idx, len(d.record_list)))
     }
 
     d.record_list   = append(d.record_list[:idx], d.record_list[idx+1:]...)
