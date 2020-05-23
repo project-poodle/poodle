@@ -144,13 +144,13 @@ func (t *MPHTable) Print() {
 	fmt.Printf("    %d\n", t.level0Mask)
 	fmt.Printf("    %v\n", t.level1)
 	fmt.Printf("    %d\n", t.level1Mask)
-	if t.verify_key != nil {
-		for i := 0; i < len(t.verify_key); i++ {
-			fmt.Printf("        %#v\n", t.verify_key[i])
+	if t.verifyKey != nil {
+		for i := 0; i < len(t.verifyKey); i++ {
+			fmt.Printf("        %#v\n", t.verifyKey[i])
 		}
 	} else {
-		fmt.Printf("        %d\n", t.verify_seed)
-		fmt.Printf("        %#v\n", t.verify_hash)
+		fmt.Printf("        %d\n", t.verifySeed)
+		fmt.Printf("        %#v\n", t.verifyHash)
 	}
 }
 
@@ -192,28 +192,28 @@ func TestSerializeKey(t *testing.T) {
 	}
 
 	// check verify key are not null
-	if table.verify_key == nil {
+	if table.verifyKey == nil {
 		t.Errorf("Unexpected nil verify key in orig table")
 	}
-	if loaded_table.verify_key == nil {
+	if loaded_table.verifyKey == nil {
 		t.Errorf("Unexpected nil verify key in loaded table")
 	}
 
 	// test keys
-	if len(table.verify_key) != len(loaded_table.verify_key) {
+	if len(table.verifyKey) != len(loaded_table.verifyKey) {
 		t.Errorf("Verify Key length mismatch")
 	}
-	for i := 0; i < len(table.verify_key); i++ {
-		if !EqByteArray(table.verify_key[i], loaded_table.verify_key[i]) {
+	for i := 0; i < len(table.verifyKey); i++ {
+		if !EqByteArray(table.verifyKey[i], loaded_table.verifyKey[i]) {
 			t.Errorf("Verify Key [%d] mismatch", i)
 		}
 	}
 
 	// check verify hash are null
-	if table.verify_hash != nil {
+	if table.verifyHash != nil {
 		t.Errorf("Unexpected not nil verify hash in orig table")
 	}
-	if loaded_table.verify_hash != nil {
+	if loaded_table.verifyHash != nil {
 		t.Errorf("Unexpected not nil verify hash in loaded table")
 	}
 }
@@ -254,18 +254,18 @@ func TestSerializeHash(t *testing.T) {
 	}
 
 	// check verify key are null
-	if table.verify_key != nil {
+	if table.verifyKey != nil {
 		t.Errorf("Unexpected not nil verify key in orig table")
 	}
-	if loaded_table.verify_key != nil {
+	if loaded_table.verifyKey != nil {
 		t.Errorf("Unexpected not nil verify key in loaded table")
 	}
 
 	// test verify hash
-	if table.verify_seed != loaded_table.verify_seed {
+	if table.verifySeed != loaded_table.verifySeed {
 		t.Errorf("Verify Seed mismatch")
 	}
-	if !EqUint32Array(table.verify_hash, loaded_table.verify_hash) {
+	if !EqUint32Array(table.verifyHash, loaded_table.verifyHash) {
 		t.Errorf("Verify Hash mismatch")
 	}
 }

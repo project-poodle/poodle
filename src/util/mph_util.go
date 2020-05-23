@@ -51,13 +51,13 @@ type IKey interface {
 // A Table is an immutable hash table that provides constant-time lookups of key
 // indices using a minimal perfect hash.
 type MPHTable struct {
-	level0      []uint32 // power of 2 size
-	level0Mask  int      // len(Level0) - 1
-	level1      []uint32 // power of 2 size >= len(keys)
-	level1Mask  int      // len(Level1) - 1
-	verify_key  [][]byte // verify key - if not nil, verify lookup by exact key
-	verify_seed uint32   // if verify key is nil, this is murmur seed for verify hash
-	verify_hash []uint32 // if verify key is nil, this is verify lookup by hash (bloom filter)
+	level0     []uint32 // power of 2 size
+	level0Mask int      // len(Level0) - 1
+	level1     []uint32 // power of 2 size >= len(keys)
+	level1Mask int      // len(Level1) - 1
+	verifyKey  [][]byte // verify key - if not nil, verify lookup by exact key
+	verifySeed uint32   // if verify key is nil, this is murmur seed for verify hash
+	verifyHash []uint32 // if verify key is nil, this is verify lookup by hash (bloom filter)
 }
 
 // parse MPHTable from []byte (deserialize)
@@ -130,19 +130,19 @@ func NewMPHTable(buf []byte) (*MPHTable, int, error) {
 	if buf[0] == 1 {
 
 		// verify by key
-		t.verify_hash = nil
+		t.verifyHash = nil
 
 		// verify key array size
 		if len(buf) < pos+4 {
 			return nil, pos, fmt.Errorf("NewMPHTable - missing verify key size %d", len(buf))
 		}
-		verify_key_size := binary.BigEndian.Uint32(buf[pos:])
+		verifyKeySize := binary.BigEndian.Uint32(buf[pos:])
 		pos += 4
 
-		t.verify_key = make([][]byte, verify_key_size)
+		t.verifyKey = make([][]byte, verifyKeySize)
 
 		// iterate each key
-		for i := 0; i < int(verify_key_size); i++ {
+		for i := 0; i < int(verifyKeySize); i++ {
 
 			// verify key length
 			if len(buf) < pos+4 {
@@ -155,20 +155,20 @@ func NewMPHTable(buf []byte) (*MPHTable, int, error) {
 			if len(buf) < pos+int(verify_key_len) {
 				return nil, pos, fmt.Errorf("NewMPHTable - missing verify key data [%d] %d", i, len(buf))
 			}
-			t.verify_key[i] = buf[pos : pos+int(verify_key_len)]
+			t.verifyKey[i] = buf[pos : pos+int(verify_key_len)]
 			pos += int(verify_key_len)
 		}
 
 	} else {
 
 		// verify by hash
-		t.verify_key = nil
+		t.verifyKey = nil
 
 		// verify hash seed
 		if len(buf) < pos+4 {
 			return nil, pos, fmt.Errorf("NewMPHTable - missing verify seed %d", len(buf))
 		}
-		t.verify_seed = binary.BigEndian.Uint32(buf[pos:])
+		t.verifySeed = binary.BigEndian.Uint32(buf[pos:])
 		pos += 4
 
 		// verify hash array size
@@ -182,11 +182,11 @@ func NewMPHTable(buf []byte) (*MPHTable, int, error) {
 		if len(buf) < pos+4*int(verify_hash_len) {
 			return nil, pos, fmt.Errorf("NewMPHTable - missing verify hash data %d", verify_hash_len)
 		}
-		t.verify_hash = make([]uint32, verify_hash_len)
+		t.verifyHash = make([]uint32, verify_hash_len)
 
 		// iterate each verify hash
 		for i := 0; i < int(verify_hash_len); i++ {
-			t.verify_hash[i] = binary.BigEndian.Uint32(buf[pos:])
+			t.verifyHash[i] = binary.BigEndian.Uint32(buf[pos:])
 			pos += 4
 		}
 	}
@@ -200,7 +200,7 @@ func (t *MPHTable) Buf() []byte {
 	buf_len := 1 + 4 + 4*len(t.level0) + 4 + 4 + 4*len(t.level1) + 4
 	buf := make([]byte, buf_len)
 	pos := 0
-	if t.verify_key != nil {
+	if t.verifyKey != nil {
 		buf[0] = 1
 		pos += 1
 	} else {
@@ -229,17 +229,17 @@ func (t *MPHTable) Buf() []byte {
 	pos += 4
 
 	// verify key, or verify hash
-	if t.verify_key != nil {
+	if t.verifyKey != nil {
 
 		// key array size
 		key_len_buf := make([]byte, 4)
-		binary.BigEndian.PutUint32(key_len_buf, uint32(len(t.verify_key)))
+		binary.BigEndian.PutUint32(key_len_buf, uint32(len(t.verifyKey)))
 		buf = append(buf, key_len_buf...)
 
 		// iterate each key
-		for i := 0; i < len(t.verify_key); i++ {
+		for i := 0; i < len(t.verifyKey); i++ {
 
-			key_data := t.verify_key[i]
+			key_data := t.verifyKey[i]
 			verify_key_buf := make([]byte, 4+len(key_data))
 
 			// key length
@@ -253,17 +253,17 @@ func (t *MPHTable) Buf() []byte {
 		}
 	} else {
 
-		verify_hash_buf := make([]byte, 4+4+4*len(t.verify_hash))
+		verify_hash_buf := make([]byte, 4+4+4*len(t.verifyHash))
 
 		// verify seed
-		binary.BigEndian.PutUint32(verify_hash_buf[0:], t.verify_seed)
+		binary.BigEndian.PutUint32(verify_hash_buf[0:], t.verifySeed)
 
 		// verify hash array size
-		binary.BigEndian.PutUint32(verify_hash_buf[4:], uint32(len(t.verify_hash)))
+		binary.BigEndian.PutUint32(verify_hash_buf[4:], uint32(len(t.verifyHash)))
 
 		// iterate each verify hash
-		for i := 0; i < len(t.verify_hash); i++ {
-			binary.BigEndian.PutUint32(verify_hash_buf[8+i*4:], t.verify_hash[i])
+		for i := 0; i < len(t.verifyHash); i++ {
+			binary.BigEndian.PutUint32(verify_hash_buf[8+i*4:], t.verifyHash[i])
 		}
 
 		// append
@@ -284,7 +284,7 @@ func MPHBuild(keys []IKey, verify_by_key bool) *MPHTable {
 		sparseBuckets = make([][]int, len(level0))
 		zeroSeed      = MurmurSeed(0)
 		keyArray      = make([][]byte, len(keys))
-		verify_seed   = uint32(RandUint64Range(2^16, 2^32-1))
+		verifySeed    = uint32(RandUint64Range(2^16, 2^32-1))
 	)
 	for i, s := range keys {
 		keyArray[i] = s.Key()
@@ -328,22 +328,22 @@ func MPHBuild(keys []IKey, verify_by_key bool) *MPHTable {
 			level0Mask: level0Mask,
 			level1:     level1,
 			level1Mask: level1Mask,
-			verify_key: keyArray,
+			verifyKey:  keyArray,
 		}
 	} else {
 		// verify by hash (bloom filter)
-		verify_hash := make([]uint32, len(keyArray))
+		verifyHash := make([]uint32, len(keyArray))
 		for i := 0; i < len(keyArray); i++ {
-			verify_hash[i] = (MurmurSeed)(verify_seed).hash(keyArray[i])
+			verifyHash[i] = (MurmurSeed)(verifySeed).hash(keyArray[i])
 		}
 
 		return &MPHTable{
-			level0:      level0,
-			level0Mask:  level0Mask,
-			level1:      level1,
-			level1Mask:  level1Mask,
-			verify_seed: verify_seed,
-			verify_hash: verify_hash,
+			level0:     level0,
+			level0Mask: level0Mask,
+			level1:     level1,
+			level1Mask: level1Mask,
+			verifySeed: verifySeed,
+			verifyHash: verifyHash,
 		}
 	}
 }
@@ -363,11 +363,11 @@ func (t *MPHTable) Lookup(s IKey) (n uint32, ok bool) {
 	seed := t.level0[i0]
 	i1 := int(MurmurSeed(seed).hash(s_key)) & t.level1Mask
 	n = t.level1[i1]
-	if t.verify_key != nil {
-		return n, EqByteArray(s_key, t.verify_key[int(n)])
+	if t.verifyKey != nil {
+		return n, EqByteArray(s_key, t.verifyKey[int(n)])
 	} else {
-		verify_hash := (MurmurSeed)(t.verify_seed).hash(s_key)
-		return n, verify_hash == t.verify_hash[int(n)]
+		verify_hash := (MurmurSeed)(t.verifySeed).hash(s_key)
+		return n, verify_hash == t.verifyHash[int(n)]
 	}
 }
 
