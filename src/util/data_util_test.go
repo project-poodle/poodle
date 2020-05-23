@@ -83,7 +83,7 @@ func generateRandomRecord(depth, breadth, length int) IRecord {
 
 func TestDataRandom(t *testing.T) {
 	randStart := RandUint32() % 1000000
-	randRange := RandUint32()%5000 + 1000
+	randRange := RandUint32()%2000 + 500
 	for i := int(randStart); i < int(randStart+randRange); i++ {
 		d := generateRandomData(2, 15, 300)
 		buf, _, err := d.Encode(false)

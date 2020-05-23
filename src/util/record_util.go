@@ -549,9 +549,9 @@ func (r *Record) SetTimestamp(t *time.Time) *Record {
 	return r
 }
 
-func (r *Record) SetSignature(sR, sS *big.Int) *Record {
-	r.signature_r = sR
-	r.signature_s = sS
+func (r *Record) SetSignature(R, S *big.Int) *Record {
+	r.signature_r = R
+	r.signature_s = S
 	r.encoded = false
 	return r
 }
