@@ -1126,7 +1126,7 @@ that stores file content.
 
 A Container can be divided to up to __1024 block groups__
 
-- A list of valid container size to block group size mappings as below
+A list of valid container size to block group size mappings as below
 
 | container size    | block group size                      |
 | :---              | :---                                  |
@@ -1139,7 +1139,7 @@ A Container can be divided to up to __1024 block groups__
 
 A block group can be divided to up to __1024 blocks__.
 
-- A list of valid block group size to block size mappings as below
+A list of valid block group size to block size mappings as below
 
 | block group size  | block size                            |
 | :---              | :---                                  |
