@@ -24,13 +24,12 @@ const (
 	DEFAULT_PUDP_PORT = 31415
 	DEFAULT_QUIC_PORT = 31416
 
-	MAX_KEY_LENGTH    = 4 * 1024  // Maximum  4 KB Key Length
-	MAX_VALUE_LENGTH  = 56 * 1024 // Maximum 56 KB Value Length
-	MAX_SCHEME_LENGTH = 2 * 1024  // Maximum  2 KB Scheme Length
-
-	MAX_DATA_LENGTH = 64 * 1024 // Maximum 64 KB Data Length
-
-	MAX_PACKET_LENGTH = 64*1024 - 1 // Maximum 64 KB Packet Length
+	MAX_KEY_LENGTH    = 4 * 1024    // Maximum  4 KB Key Length
+	MAX_VALUE_LENGTH  = 56 * 1024   // Maximum 56 KB Value Length
+	MAX_SCHEME_LENGTH = 2 * 1024    // Maximum  2 KB Scheme Length
+	MAX_ATTR_GROUPS   = 256         // maximum 256 Attribute Groups per Key
+	MAX_DATA_LENGTH   = 64*1024 - 1 // Maximum 64 KB - 1 Data Length
+	MAX_PACKET_LENGTH = 64*1024 - 1 // Maximum 64 KB - 1 Packet Length
 
 	CLS_NODE       = 1
 	CLS_CLUSTER    = 2

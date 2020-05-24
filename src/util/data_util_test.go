@@ -85,7 +85,7 @@ func TestDataRandom(t *testing.T) {
 	randStart := RandUint32() % 1000000
 	randRange := RandUint32()%1000 + 500
 	for i := int(randStart); i < int(randStart+randRange); i++ {
-		d := generateRandomData(2, 15, 300)
+		d := generateRandomData(2, 15, 320)
 		buf, _, err := d.Encode(false)
 		if err != nil {
 			t.Errorf("error occurred: %s", err)

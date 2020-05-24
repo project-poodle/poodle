@@ -45,7 +45,11 @@ import (
 // Interfaces
 
 type IKey interface {
+	// this returns a uniquely identified key
 	Key() []byte
+	// different bloom key is a security measure, and is not required
+	// bloom filter key needs to be consistent for a given key, and can be different from actual key bytes
+	BloomKey() []byte
 }
 
 // A Table is an immutable hash table that provides constant-time lookups of key
@@ -334,7 +338,10 @@ func MPHBuild(keys []IKey, verify_by_key bool) *MPHTable {
 		// verify by hash (bloom filter)
 		verifyHash := make([]uint32, len(keyArray))
 		for i := 0; i < len(keyArray); i++ {
-			verifyHash[i] = (MurmurSeed)(verifySeed).hash(keyArray[i])
+			// verify by bloom filter key
+			// bloom filter key needs to be consistent for a given key, and can be different from actual key bytes
+			// different bloom key is a security measure, and is not required
+			verifyHash[i] = (MurmurSeed)(verifySeed).hash(keys[i].BloomKey())
 		}
 
 		return &MPHTable{
@@ -366,7 +373,10 @@ func (t *MPHTable) Lookup(s IKey) (n uint32, ok bool) {
 	if t.verifyKey != nil {
 		return n, EqByteArray(s_key, t.verifyKey[int(n)])
 	} else {
-		verify_hash := (MurmurSeed)(t.verifySeed).hash(s_key)
+		// verify by bloom filter key
+		// bloom filter key needs to be consistent for a given key, and can be different from actual key bytes
+		// different bloom key is a security measure, and is not required
+		verify_hash := (MurmurSeed)(t.verifySeed).hash(s.BloomKey())
 		return n, verify_hash == t.verifyHash[int(n)]
 	}
 }

@@ -168,21 +168,29 @@ func (r *MappedRecord) Decode() (err error) {
 
 	pos := 1
 
+	var (
+		key    IData
+		value  IData
+		scheme IData
+	)
 	// key
 	encode := (r.buf[0] >> 6) & 0x03
 	switch encode {
 	case 0x00:
-		r.key, err = NewSimpleMappedData(encode, r.buf[pos:])
+		key, err = NewSimpleMappedData(encode, r.buf[pos:])
 	case 0x01:
-		r.key, err = NewSimpleMappedData(encode, r.buf[pos:])
+		key, err = NewSimpleMappedData(encode, r.buf[pos:])
 	case 0x02:
-		r.key, err = NewSimpleMappedData(encode, r.buf[pos:])
+		key, err = NewSimpleMappedData(encode, r.buf[pos:])
 	default:
-		r.key, err = NewStandardMappedData(r.buf[pos:])
+		key, err = NewStandardMappedData(r.buf[pos:])
 	}
 	if err != nil {
 		return err
+	} else if len(key.Data()) > MAX_KEY_LENGTH {
+		return fmt.Errorf("MappedRecord::Decode - key size %d larger than %d", len(key.Data()), MAX_KEY_LENGTH)
 	} else {
+		r.key = key
 		pos += len(r.key.Buf())
 	}
 
@@ -193,17 +201,20 @@ func (r *MappedRecord) Decode() (err error) {
 	encode = (r.buf[0] >> 4) & 0x03
 	switch encode {
 	case 0x00:
-		r.value, err = NewSimpleMappedData(encode, r.buf[pos:])
+		value, err = NewSimpleMappedData(encode, r.buf[pos:])
 	case 0x01:
-		r.value, err = NewSimpleMappedData(encode, r.buf[pos:])
+		value, err = NewSimpleMappedData(encode, r.buf[pos:])
 	case 0x02:
-		r.value, err = NewSimpleMappedData(encode, r.buf[pos:])
+		value, err = NewSimpleMappedData(encode, r.buf[pos:])
 	default:
-		r.value, err = NewStandardMappedData(r.buf[pos:])
+		value, err = NewStandardMappedData(r.buf[pos:])
 	}
 	if err != nil {
 		return err
+	} else if len(value.Data()) > MAX_VALUE_LENGTH {
+		return fmt.Errorf("MappedRecord::Decode - value size %d larger than %d", len(value.Data()), MAX_VALUE_LENGTH)
 	} else {
+		r.value = value
 		pos += len(r.value.Buf())
 	}
 
@@ -214,17 +225,20 @@ func (r *MappedRecord) Decode() (err error) {
 	encode = (r.buf[0] >> 2) & 0x03
 	switch encode {
 	case 0x00:
-		r.scheme, err = NewSimpleMappedData(encode, r.buf[pos:])
+		scheme, err = NewSimpleMappedData(encode, r.buf[pos:])
 	case 0x01:
-		r.scheme, err = NewSimpleMappedData(encode, r.buf[pos:])
+		scheme, err = NewSimpleMappedData(encode, r.buf[pos:])
 	case 0x02:
-		r.scheme, err = NewSimpleMappedData(encode, r.buf[pos:])
+		scheme, err = NewSimpleMappedData(encode, r.buf[pos:])
 	default:
-		r.scheme, err = NewStandardMappedData(r.buf[pos:])
+		scheme, err = NewStandardMappedData(r.buf[pos:])
 	}
 	if err != nil {
 		return err
+	} else if len(scheme.Data()) > MAX_SCHEME_LENGTH {
+		return fmt.Errorf("MappedRecord::Decode - scheme size %d larger than %d", len(scheme.Data()), MAX_SCHEME_LENGTH)
 	} else {
+		r.scheme = scheme
 		pos += len(r.scheme.Buf())
 	}
 

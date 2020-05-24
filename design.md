@@ -17,6 +17,7 @@ __cluster:node__ scheme, the Poodle node public key, a 'CLEAR'
 operation, and a timestamp, signed by the Poodle cluster private key.
 
 
+
 # Global Config #
 
 Poodle global config is set by a message containing the specific config
@@ -33,14 +34,15 @@ Some global config Key examples are:
 - raft.size
   - Suggested raft consensus size.
   - Actual raft consensus size is:
-        
+
         min(21, max(3, raft.size))
-    
+
 - raft.quorum
   - Suggested raft quorum size.
   - Actual raft quorum size is:
-        
+
         min(raft.size, max(ceil((raft.size + 2)/2), raft.quorum))
+
 
 
 # Time Synchronization #
@@ -63,10 +65,11 @@ These can be configured with following configs in __cluster:conf__ scheme:
 - time.drift.min - effective drift min is:
 
       min(300, max(50, time.drift.min)
-  
+
 - time.drift.max - effective drift max is:
-  
+
       min(500, max(100, time.drift.max, time.drift.min + 50))
+
 
 ### Leap Second ###
 
@@ -82,12 +85,14 @@ For Raft consensus, Poodle uses [Unix monotonic clock](https://golang.org/pkg/ti
 and is not affected by the Leap Second.
 
 
+
 # Consensus #
 
 Poodle treats all nodes in a Poodle cluster as members on a hash ring. Poodle uses
 the node public key to indicate the location of the node on the ring.
 
 There are different types of consensus in Poodle.
+
 
 ### Distributed Ledger ###
 
@@ -98,7 +103,7 @@ Poodle cluster level consensus is a distributed ledger with following properties
 - 30 seconds consensus time for each epoch
 
 - epoch represented as unsigned int (4 bytes), possible life span ~4000 years
- 
+
 Poodle cluster level consensus keeps global state for the entire poodle cluster,
 e.g.
 
@@ -112,7 +117,8 @@ e.g.
 Cluster level configs are published to all the nodes in the cluster, and are
 replicated to all the nodes.
 
-### Raft Consensus ###
+
+### Raft ###
 
 Each consecutive segment of nodes (raft.size) on the hash ring in a Poodle
 cluster forms a Raft consensus protocol.  Records are sharded, where each
@@ -130,13 +136,15 @@ Records are distributed to the specific Shard on the hash ring by:
     SHA256( CONCAT(consensus_id, domain, table, key) )
 
 
+
 # Proof of Stake #
 
 Poodle distributed ledger consensus is established with Proof of Stake. 2/3
 of the cluster members must sign a message for distributed ledger consensus.
 
 
-# Raft #
+
+# Raft Consensus #
 
 ### Raft Quorum ###
 
@@ -215,10 +223,12 @@ The raft consensus will repeat the above steps, until the entire raft consensus
 are running on the desired nodes for the data shard.
 
 
+
 # Bootstrap #
 
 During bootstrap, Poodle cluster may add new nodes, and potentially remove
 existing nodes.
+
 
 ### Raft Consensus Identities ###
 
@@ -228,11 +238,11 @@ splitted:
 - When new node membership is added, Poodle will split corresponding
   Raft consensus group identity by introducing a new Raft consensus identity,
   then split node membership to serve the newly split Raft consensus identity.
-  
+
 - When existing node membership is removed, Poodle will merge corresponding
   Raft consensus identity, and merge the metadata from two Raft consensus
   identities into one.
-  
+
 Raft consensus group identity changes are processed 1 node at a time, and
 is only processed after 3 confirmations of the cluster global consensus
 protocol.
@@ -240,6 +250,7 @@ protocol.
 The Raft consensus identities change only when node membership changes
 (config change). Node healthiness (status change) does not change the raft
 consensus group identities.
+
 
 ### Raft Consensus Membership ###
 
@@ -277,6 +288,7 @@ a 4-5 minutes process that avoids frequent Raft membership changes, and retains
 Raft stability.
 
 
+
 # Record #
 
 Record consists of a scheme, key, value tuple encoded as the following.
@@ -290,6 +302,7 @@ A Record cannot exceed 64 KB, with following constraints:
 - Scheme
   - Maximum scheme length is 2 KB
 
+
 ### Record Encode Magic ###
 
 The first byte is a __magic__.
@@ -298,7 +311,7 @@ The first byte is a __magic__.
                  and
               Signature
                  bit
-    Key    Scheme | 
+    Key    Scheme |
     | |     | |   |
     7 6 5 4 3 2 1 0
         | |     |
@@ -312,13 +325,13 @@ The first byte is a __magic__.
   - 10 means 2 bytes to represent key length (up to 4 KB)
   - 11 means key is encoded with __data encoding__
 
-- Bit 5 and 4 are the value bits for encoding of value 
+- Bit 5 and 4 are the value bits for encoding of value
   - 00 means no value
   - 01 means 1 byte to represent value length (up to 255 bytes)
   - 10 means 2 bytes to represent value length (up to 56 KB)
   - 11 means value is encoded with __data encoding__
 
-- Bit 3 and 2 are the value bits for encoding of scheme 
+- Bit 3 and 2 are the value bits for encoding of scheme
   - 00 means no scheme
   - 01 means 1 byte to represent scheme length (up to 255 bytes)
   - 10 means 2 bytes to represent scheme length (up to 2 KB)
@@ -327,7 +340,7 @@ The first byte is a __magic__.
 - Bit 1 is the clear bit
   - 1 means 'CLEAR' operation
   - 0 means 'UPDATE' operation
-  
+
 - Bit 0 is the timestamp and signature bit
   - 1 means there is a timestamp and signature at the end of the record
   - 0 means no timestamp or signature at the end of the record
@@ -342,7 +355,8 @@ The first byte is a __magic__.
     Timestamp
   - If signature is present, the content of data are in raw format, and
     cannot be encoded with lookup scheme, or compression scheme
-  
+
+
 ### Scheme Format ###
 
 Scheme consists of the following components:
@@ -356,13 +370,13 @@ Scheme consists of the following components:
   - This is similar to database or NoSQL schema
   - Domain name is an alpha-numeric string separated by '.'
   - Domain name is required as part of the standard Scheme
-  
+
 - Table
   - This is similar to database or NoSQL table
   - Each row is identified by a unique key
-  - Table name is an alpha-numeric string separated by '.' 
+  - Table name is an alpha-numeric string separated by '.'
   - Table name is required as part of the standard Scheme
-  
+
 - Attribute Group
   - This is similar to column group in a NoSQL table
   - Attribute Group name is an alpha-numeric string separated by '/'
@@ -372,7 +386,7 @@ A full Scheme is joined by Consensus ID, with Domain, Table, and optional
 Attribute Group. E.g.
 
     <consensus_id>, <domain>:<table>[/<attribute-group>]
-    
+
 Scheme in Record encoding is encoded differently when transmitted via network,
 or when stored on disk.  Not all Scheme components are stored in the Record
 in all format.
@@ -380,7 +394,7 @@ in all format.
 - When transmitted via network, Consensus ID is NOT encoded as part of the
   Record.  Instead, Consensus ID is encoded as part of Consensus Block as
   defined in P-UDP Packet encoding.
-  
+
 - When stored on disk, Consensus ID, Domain, and Table are NOT encoded as
   part of the Record.  Instead, Consensus ID, Domain, and Table are encoded
   as part of SSTable header as defined in SSTable encoding.
@@ -402,6 +416,7 @@ Examples below:
 | \<C\>, \<S\>, \<E\>, raft:poodle.status       | Cluster ID, Shard Start, Shard End | Raft consensus | poodle status table | status attribute group |
 | \<C\>, \<S\>, \<E\>, raft:poodle.status/stats | Cluster ID, Shard Start, Shard End | Raft consensus | poodle status table | stats attribute group |
 
+
 ### Record Encoding ###
 
 A full record is encoded as following:
@@ -417,7 +432,7 @@ A full record is encoded as following:
      |                                    Scheme Content
     Record
     Magic
-                                      
+
 - Lead by a __magic__ byte
 
 - Followed by key length, then key content (if applicable)
@@ -433,6 +448,7 @@ A full record is encoded as following:
   - The 64 bytes signature is __not__ present in:
     - SSTable for Distributed Ledger or Raft
     - Replication log for Raft
+
 
 ### Data Encode Magic ###
 
@@ -509,7 +525,7 @@ A full __data encoding__ is as following:
      |    Lookup   | |
      |     | |     | |
      |     | |     | |
-     X X X X X X X X X X ... ... X 
+     X X X X X X X X X X ... ... X
        | |     | |     |         |
        | |     | |     Data Content
       Data     | |
@@ -522,7 +538,7 @@ A full __data encoding__ is as following:
 When data size is relatively small (less than ~1k), and when possible
 enumeration of data content is limited, lookup can be an effective
 way of reducing the data size.
- 
+
 A poodle consensus keeps a list of cluster wide lookup schemes.
 The list of lookup schemes are registered across the cluster, and is
 specific to a consensus.  The cluster wide lookup scheme and can be
@@ -530,19 +546,19 @@ used to encode data.  E.g.
 
 - A 256 bits ECDSA public key is 32 bytes long.  Sending 32 bytes
   over the wire, or store on disk can represent a significant overhead.
-  
+
 - Instead, if we have a lookup scheme that will lookup the encoded data
   for original content of the data, this can significantly reduce the
   data size to represent an ECDSA public key.
-  
+
 - Assume there are total 10k nodes (10k possible public keys), a perfect
   hash and 2 bytes lookup key will be enough to represent an ECDSA public
   key.
-  
+
 - Considering we will need to continuously evolving lookup schemes (e.g.
   when new nodes are added, and old removed, the lookup scheme will need
   to be updated), we will need to record a list of actively used schemes.
-  
+
 - Assume 1 byte to represent scheme, and 2 bytes to represent data content,
   total encoding length of a 32 bytes ECDSA public key is: 1 magic byte +
   1 lookup scheme byte + 0 compression scheme byte + 0 length byte + 2
@@ -557,6 +573,7 @@ The list of schemes are registered across the cluster, and can be
 used to encode data.
 
 
+
 # P-UDP Packet #
 
 Poodle uses UDP Packet for fast metadata operations.
@@ -564,6 +581,7 @@ Poodle uses UDP Packet for fast metadata operations.
 P-UDP stands for Poodle UDP.  A P-UDP packet consists of the sender's
 node ID, followed by a list of Request(s) and Response(s), followed
 by the sender's Timestamp and Signature.
+
 
 ### Packet Encoding ###
 
@@ -588,17 +606,18 @@ of the buffer without waiting for the timer.
 
 - Node ID
   - Node ID is encoded with DATA
-  
+
 - A list of Consensus Blocks
   - a list of Consensus Blocks as in the Consensus Block encoding
-  
+
 - Timestamp
   - 8 bytes timestamp represent node own timestamp
-  
+
 - Signature
   - 32 bytes signature covers a list of requests and responses and the
     timestamp
-    
+
+
 ### Consensus ID Magic ###
 
          Federation
@@ -618,25 +637,26 @@ of the buffer without waiting for the timer.
 - Bit 7 is Universe bit
   - 1 means Universe ID is present
   - 0 means no Universe ID
-  
+
 - Bit 6 is Cluster bit
   - 1 means Cluster ID is present
   - 0 means no Cluster ID
-  
+
 - Bit 5 is Federation bit
   - 1 means Federation ID is present
   - 0 means no Federation ID
-  
+
 - Bit 4 is Service bit
   - 1 means Service ID is present
   - 0 means no Service ID
-  
+
 - Bit 3 is Shard bit
   - 1 means Shard Start and Shard End are present
   - 0 means no Shard start or Shard End
-  
+
 - Bit 2, 1, and 0 are reserved
-  
+
+
 ### Consensus ID Encoding ###
 
                                            Shard
@@ -647,7 +667,7 @@ of the buffer without waiting for the timer.
     Consensus     Cluster         Service          Shard
        ID                                           End
       Magic
-      
+
 A Consensus ID is encoded as:
 
 - Consensus ID Magic
@@ -656,6 +676,7 @@ A Consensus ID is encoded as:
 - Followed by optional Federation ID
 - Followed by optional Service ID
 - Followed by optional Shard Start and Shard End ID
+
 
 ### Consensus Block Encoding ###
 
@@ -675,6 +696,7 @@ A Consensus Block is encoded as:
 - Followed by 1 byte Operation Count (maximum 255)
 - Followed by a list of Request or Response
 
+
 ### Request and Response Magic ###
 
               test
@@ -688,15 +710,15 @@ A Consensus Block is encoded as:
         bit      |
                 test
                millis
-                
+
 - Bit 7 is Request bit
   - 1 means this is a request
   - 0 means this is not a request
-  
+
 - Bit 6 is Response bit
   - 1 means this is a response
   - 0 means this is not a response
-  
+
 - Bit 5 and 4 are ops bits
   - 00 means GET
     - this gets the specified key of specific Consensus ID, Domain, Table, and
@@ -710,7 +732,7 @@ A Consensus Block is encoded as:
   - 11 means KEYS
     - this retrieves a list of Keys with the specified Key as prefix, of specific
       Consensus ID, Domain and Table
-      
+
 - Bits 3 is test bit
   - Test bit enables atomic operation for handling of locked operation
   - When ops is POST (bits 4 and 5 are 01), this will test if a key
@@ -729,7 +751,7 @@ A Consensus Block is encoded as:
       will return an error
     - if a value is set, and value is __v2__, this operation will
       clear the value, and return success
-      
+
 - Bit 2 is test millis bit
   - This bit is valid only if both request bit and test bit are 1
   - 1 means a test milliseconds (4 bytes unsigned integer) is added to
@@ -737,20 +759,21 @@ A Consensus Block is encoded as:
     - This test milliseconds is checked against record timestamp
     - If record timestamp not exist, this operation will return error
     - If record timestamp is newer than test milliseconds ago, this
-      operation will perform the checks as normal test bit will do 
+      operation will perform the checks as normal test bit will do
       for UPDATE and CLEAR records
     - If record timestamp is older than test milliseconds ago, this
       operation will treat the value as if it is already cleared, and
       will not perform the test checks
   - 0 means no test milliseconds at the end of the request
-  
+
 - Bit 1 is error bit
   - This bit is valid only if response bit is 1
   - 1 means error occurred
     - When error occurred, the record value field is the error content
   - 0 means no error
-  
+
 - Bit 0 is reserved
+
 
 ### Request and Response Encoding ###
 
@@ -765,6 +788,7 @@ content, followed by optional test millis:
         X X ... ... X X ... X
           |         |
           Record Content
+
 
 
 # SSTable #
@@ -783,6 +807,7 @@ A few properties of SSTable file:
 - Each SSTable is limited to maximum 1 GB size
 
 - Each Record is limited to less than 64 KB
+
 
 ### Record Scheme and SSTable ###
 
@@ -804,7 +829,7 @@ Poodle treats different portion of the Record Scheme separately:
   - Domain information is stored as the header of the storage files
   - Domain information is removed from Scheme when the Record is
     stored in SSTable
-  
+
 - Table
   - Each Table is stored as separate directory structure under the
     Domain directory
@@ -820,12 +845,13 @@ Poodle treats different portion of the Record Scheme separately:
   - Table information is stored as the header of the storage files
   - Table information is removed from Scheme when the Record is
     stored in SSTable
-  
+
 - Attribute Group
   - All Attribute Groups of the same Consensus ID, same Domain, and same
     Table are stored in the same groups of SSTable
   - Attribute Group information is stored in the Scheme field of a Record
     in SSTable
+
 
 ### SSTable Structure ###
 
@@ -836,7 +862,7 @@ A SSTable consists of:
   - followed by domain name and table name
   - followed by table level (L0, L1, L2, L3, L4 ...)
   - followed by start and end time
-    - for distributed ledger consensus, time is represented as Epoch # 
+    - for distributed ledger consensus, time is represented as Epoch #
     - for raft consensus, time is represented as Term + milliseconds
       elapsed + Record count in the same millisecond
   - followed by file start key
@@ -850,18 +876,20 @@ A SSTable consists of:
 - followed by a list of Records
   - each record followed by crc32 of the Records
 
+
 ### Record Offset Lookup ###
 
 For each SSTable, Poodle generates a Perfect Hash for fast lookup
 of Record in the file.
 
 The Hash Key is composed by:
- 
+
     <key_bytes> + 0x00 + <attribute_group_bytes>
 
 Each SSTable file is less than 4GB, the record offset can be represented as
 an uint32.  A 256 KB (64k * 4 bytes) offset table is enough to keep the offset
 of all Records in an SSTable file.
+
 
 ### List of Records ###
 
@@ -870,15 +898,240 @@ and store the sorted Records in the file:
 
     <key_bytes> + 0x00 + <attribute_group_bytes>
 
+
 ### Compaction ###
 
 SSTables are compacted to the next level when current level reaches 2 * 10
 tables.
 
 Compactions are performed on 10 tables - this keeps the time of compaction
-stable after the compaction. 
+stable after the compaction.
 
 This compaction scheme is to enable speedy data replication from the client.
+
+
+
+# Large Data Size #
+
+While Poodle metadata service has __strict__ limitation on the Record size
+and Data size.  Poodle metadata clients can support larger data size using
+various techniques.
+
+Note a Poodle Record cannot exceed 64 KB, with following constraints:
+
+- Key
+  - Maximum key length is 4 KB
+- Value
+  - Maximum value length is 56 KB
+- Scheme
+  - Maximum scheme length is 2 KB
+
+Below are examples to support very large data size.
+
+
+### Directory to File Mapping ###
+
+For a highly scallable distributed file system, to support a directory
+with millions of direct child files, a design as follows:
+
+- __poodle.fs:inode__
+  - this table keeps all inode information
+    - table key is 8 bytes inode id (64 bits)
+    - an inode can be a directory, or a file
+  - [inode information](http://man7.org/linux/man-pages/man7/inode.7.html) includes:
+    - file type (4 bits) and mode (12 bits)
+    - UID, GID (2 * 4 bytes)
+    - file size (8 bytes)
+    - timestamps (4 * 8 bytes)
+    - block information (optional)
+    - extended attributes (optional)
+
+- __poodle.fs:dir.filelist__
+  - this table keeps all directories to files mappings
+
+- each file metadata is 320 bytes (or less)
+  - this keeps only core metadata information
+  - the metadata is encoded as Record
+    - Key
+      - filename is Key
+      - up to 255 bytes filename
+    - Value
+      - 8 bytes inode id
+      - file type (4 bits) and mode (12 bits)
+      - UID, GID (2 * 4 bytes)
+      - file size (8 bytes)
+      - timestamps (4 * 8 bytes)
+
+- each attribute group stores metadata for up to 64 files
+  - 320 * 64 = 20KB
+
+- base table key is 8 bytes inode id for the directory
+  - maximum 256 attribute groups from 0x00 to 0xff under each key
+  - each shard can store up to 64 * 256 = 16K file metadata
+
+- __one__ byte extended key can be appended to the table key
+  - a bit map of 32 bytes (256 bits) is stored with base table key
+    to indicate which child key is used
+  - each extended key can have up to 256 attribute groups similar to
+    the base key
+  - each extended key adds metadata for another 16K files
+  - one byte key extension supports up to 4M files directly under one
+    directory
+
+- extended key can be further appended to already extended keys
+  - this further extends number of files directly under a same directory
+    to unlimited.
+
+By encoding with __keys__ and __attribute groups__, this file system can
+support unlimited files directly under a directory.
+
+Characteristics with this design:
+
+- This design is efficient for directory scanning batch operations,
+  such as __ls__, and __find__.
+
+- Lookup by filename can suffer for very large directories. e.g. for a
+  8M file directory (exteremly large), lookup a specific filename will
+  require scanning 512 shards, or up to 2.4GB of metadata.
+
+- Lookup by filename for small directories (e.g. less than 16K files)
+  can be reasonably fast as the operation scans only one shard, with
+  up to 5MB of metadata.
+
+
+### File to Block Mapping ###
+
+Another design is file to block mapping.  A very large file can have
+millions of blocks.  The below design keeps one Record for each block
+mapping, and store all block level data with this Record:
+
+- __poodle.fs:file.block__
+  - this table keeps all files to blocks mappings
+  - file to block mapping is encoded to the block boundary
+  - block index information is encoded as part of the key and attr groups
+    - e.g. a 4KB block information will be stored in a Record with:
+      - Key
+        - 8 bytes file inode id + 6 bytes block prefix
+      - Attribute Group
+        - 4 bits block prefix as attribute group id (masked with 0xf0)
+
+- each block stores metadata for __one__ block:
+  - each block metadata can be up to 255 bytes
+    - up to 16 container ids, each 8 bytes (up to 128 bytes)
+    - 2 bytes block group id
+    - 2 bytes block id
+    - 8 bytes start offset
+    - 4 bytes length
+    - other block level attributes
+
+
+| block size    | key size  | attr group size   |
+| :---          | :---      | :---              |
+| 1KB           | 6 bytes   | 6 bits            |
+| 4KB           | 6 bytes   | 4 bits            |
+| 16KB          | 6 bytes   | 2 bits            |
+| 64KB          | 5 bytes   | 8 bits            |
+| 256KB         | 5 bytes   | 6 bits            |
+| 1MB           | 5 bytes   | 4 bits            |
+| 4MB           | 5 bytes   | 2 bits            |
+
+
+
+# Data Synchronization #
+
+Poodle Metadata Service ensures atomic operation at Record level, but does
+not guarantee data synchronization among multiple records.
+
+A Poodle Metadata client can often make updates to multiple Poodle Metadata
+Records to a complete transactional operation. A design for such use case
+is to sequence the Record level operation properly, and only to complete
+the transaction (write the final Record) when all the required steps have
+completed.
+
+This usage pattern can leave some unsynchronized metadata (and data) with
+the system.  Some techniques to work with this pattern:
+
+
+### Sequenced Operations ###
+
+__Sequence__ the object creations: child first, then parent, then
+grandparent. Writes root records after all children are created
+successfully.
+
+If a sequence has failed or interrupted in the middle, this will leave
+__orphaned objects__.
+
+In this case, running __garbage collection__ regularly will clean up
+the orphaned objects.
+
+This pattern can be used with __Copy on Write__ file system, where
+garbage collection is a standard operation.
+
+This can be a __common pattern__ for writing multiple Records to
+fulfill a complete operation.
+
+- One example is adding new blocks to a file, where two Records are
+  required for the operation, one Record on __poodle.fs:block__, and
+  another Record to __poodle.fs:file.blocklist__.
+
+  - In this case, code will update __poodle.fs:block__ Record (child),
+    then update __poodle.fs:file.blocklist__ (parent).
+  - If code failed in bewteen, the __poodle.fs:block__ is orphaned,
+    and will be cleaned up during next garbage collection.
+
+- Another example use case is __link__ operation in a distributed file
+  system that creates hard link between a directory and a file, where
+  two Records, one on __poodle.fs:dir.filelist__, and another o
+  __poodle.fs:file__ are required for completion of the operation.
+
+
+### Caching ###
+
+This use case is when a Cached copy of the Authoritative Data is kept
+in alternative format for faster access purpose, where writing two or
+more Records are needed to make the system consistent.
+
+E.g. in a distributed file system:
+
+- poodle.fs:file
+  - This table keeps the authoritative data on a file's attributes
+    - access permissions
+    - timestamps (create, modify, access)
+    - etc.
+- poodle.fs:dir.filelist
+  - This table keeps a copy of the file attributes for fast access
+    - e.g. for __ls__, __find__, or similar operations
+
+In this design, keep the cached copy in parent object, and regularly
+sync between child object and parent object is needed.
+
+This pattern should be use only __when necessary__.  Refresh of
+cached data can be costly operation (when performed regularly),
+or error prone to implement (when triggered by event).
+
+A __alternate design__ can keep the file information at the parent
+directory level, and do not keep the information at file level.  In
+this design, __ls__ and __find__ do not incur additional cost, while
+one extra access is required when trying to access the file itself.
+
+
+### Journal Record ###
+
+Write a journal Record prior to writing a set of separate Records that
+can be represented by this one journal Record.
+
+The set of separate Records are usually in a format that can be easily
+accessed by direct access methods.
+
+In this design, the failed updates to Records after a successful Journal
+Record will repeatedly try until all Records are written successfully.
+
+This is eventual consistency model, and can have ramifications when
+the retries are handled across shards, with potential conflicting
+write operations happening in between.
+
+This should be use only with __extreme caution__.
+
 
 
 # Service #
@@ -891,10 +1144,10 @@ to its clients.  E.g.
 
 - Poodle POSIX File System Service
   - This is a distributed POSIX compliant file system service
-  
+
 - Poodle Key-Value Store Service
   - This is a distributed Key-Value service
-  
+
 - Poodle Metadata Service
   - This service is provided as part of Poodle core
 
@@ -918,18 +1171,19 @@ Poodle Service(s).  E.g.
   future management, the operator can create another Poodle Cluster,
   and move the selected Poodle Service(s) to the other Poodle Cluster
   without disruption to a running production Poodle Service.
-  
+
 - Moving service from one set of hardware to another set of hardware.
   This use case can be supported similar to the earlier case, by creating
   separate Poodle cluster on new hardware, and move the service over
   to the new cluster running on new hardware.  The entire operation
   can happen with live production traffic.
-  
+
 - Setup Poodle Service Federation across Poodle Cluster(s).  All the
   nodes in a Poodle Cluster is usually co-located in the same data
   center.  There can be needs to run services across data centers.
   In this case, Poodle Service Federation can run across multiple
   Poodle Clusters that serves the clients from federated service(s).
+
 
 
 # Nodes, Clusters, and Universe #
@@ -950,7 +1204,7 @@ Similarly, a Poodle Node can belong to more than one Poodle Cluster.
     key.
   - To remove a Node from a Cluster, the Cluster sends a CLR
     request, signed by Cluster private key.
-    
+
 - Node Attributes
   - To update Node Attributes, such as IP Addr and Port Num, a
     Node signs a message with updated attributes, broadcast to
@@ -961,9 +1215,10 @@ A pre-requisite for a Poodle Node to belong to multiple cluster is:
 
 - A Poodle Node can belong to multiple cluster if-and-only-if these
   clusters are in the same Poodle Universe.
-  
+
 - Neither Poodle Node, nor Poodle Cluster can cross multiple Poodle
   Universe.
+
 
 ### Universe ###
 
@@ -991,7 +1246,7 @@ of Poodle Universe Consensus.
     Universe private key.
   - To remove a Cluster from a Universe, the Universe sends a CLR
     request, signed by Universe private key.
-    
+
 - Space-Port Membership
   - To assign Space-Port, the Cluster signed a request to record
     Node as Space-Port.  The Space-Port Node broadcast the signed
@@ -999,7 +1254,7 @@ of Poodle Universe Consensus.
     when Universe Consensus accepts the Node as Space-Port.
   - To un-assign Space-Port, the Cluster sign a request to un-assign
     Node as Space-Port.
-    
+
 - Trust Relationship
   - Poodle Clusters in the same Universe can establish trust
     relationship.
@@ -1012,6 +1267,7 @@ of Poodle Universe Consensus.
   - Trust relationship is not transferable. Cluster 1 trust Cluster 2,
     and Cluster 2 trust Cluster 3, this does not mean Cluster 1 trust
     Cluster 3  
+
 
 
 # Multiverse #

@@ -40,15 +40,20 @@ import (
 )
 
 type TestKey struct {
-	key []byte
+	key      []byte
+	bloomKey []byte
 }
 
 func NewTestKey(s string) *TestKey {
-	return &TestKey{key: []byte(s)}
+	return &TestKey{key: []byte(s), bloomKey: append([]byte(s), '-')}
 }
 
 func (t *TestKey) Key() []byte {
 	return t.key
+}
+
+func (t *TestKey) BloomKey() []byte {
+	return t.bloomKey
 }
 
 var murmurTestCases = []struct {
