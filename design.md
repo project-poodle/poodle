@@ -162,8 +162,31 @@ Records are distributed to the specific Shard on the hash ring by:
 
 # Proof of Stake #
 
-Poodle distributed ledger consensus is established with Proof of Stake. 2/3
-of the cluster members must sign a message for distributed ledger consensus.
+At the end of the Epoch (30 seconds), any Poodle Node as part of the Cluster
+can propose a consensus block from its working memory.  The Records in the
+working memory are sorted, hashed, and constructed as a block for consensus
+proposal.
+
+A Poodle Block consists of:
+
+- 4 Bytes Version
+- 4 Bytes Block Height Start
+- 4 Bytes Block Height End      (Used only for merge consecutive empty blocks)
+- 4 Bytes Length
+- Variable Length ConsensusID
+- 32 Bytes Previous Block Hash (SHA256d)
+- 32 Bytes Merkle Root of Records
+- 4 Bytes Record Count
+- List of Records
+
+For Poodle Genesis Block, there is no previous block.  The Previous Block
+Hash is set to __POODLE.GENESIS.BLOCK__ (20 bytes), pre padded with 4
+0x00 bytes, and post padded with with 8 0x00 bytes, total 32 bytes.
+
+Poodle distributed ledger consensus is established with Proof of Stake,
+2/3 of the cluster members must sign a message for distributed ledger
+consensus.
+
 
 
 
