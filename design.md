@@ -1023,14 +1023,19 @@ with millions of direct child files, a design as follows:
       - file type (4 bits) and mode (12 bits)
       - UID, GID (2 * 4 bytes)
       - file size (8 bytes)
-      - timestamps (4 * 8 bytes)
+      - atime, mtime, ctime (3 * 8 bytes)
+   - considering filename commonly less than 48 bytes,
+     this data structure is commonly less than 96 bytes
 
-- each attribute group stores metadata for up to 64 files
-  - 320 * 64 = 20KB
+- each attribute group stores metadata for up to 64 inode entries
+  - max size: 320 * 64 = 20KB
+  - common size: 96 * 64 = 6KB
 
 - base Tablet key is 8 bytes inode id for the directory
   - maximum 256 attribute groups from 0x00 to 0xff under each key
-  - each shard can store up to 64 * 256 = 16K file metadata
+  - each shard can store metadata for up to 64 * 256 = __16K files__
+  - max size: 320 * 64 * 256 = 5MB
+  - common size: 96 * 64 * 256 = 1.5MB
 
 - __one__ byte extended key can be appended to the Tablet key
   - a bit map of 32 bytes (256 bits) is stored with base Tablet key
@@ -1065,38 +1070,80 @@ Characteristics with this design:
 ### File to Block Mapping ###
 
 Another design is file to block mapping.  A very large file can have
-millions of blocks.  The below design keeps one Record for each block
-mapping, and store all block level data with this Record:
+millions of blocks.  The below design keeps file to block mapping, and
+store all block level data:
 
-- __poodle.fs:file.block__
+- __poodle.fs:file.blocklist__
   - this Tablet keeps all files to blocks mappings
   - file to block mapping is encoded to the block boundary
-  - block index information is encoded as part of the key and attr groups
+  - block index information is encoded as part of the key and attribute groups
     - e.g. a 4KB block information will be stored in a Record with:
       - Key
-        - 8 bytes file inode id + 6 bytes block prefix
+        - 8 bytes file inode id + 5 bytes block prefix
       - Attribute Group
-        - 4 bits block prefix as attribute group id (masked with 0xf0)
+        - 6 bits block prefix as attribute group id (masked with 0xfc)
+      - Record
+        - 6 or 8 bits block prefix as in the
 
-- each block stores metadata for __one__ block:
-  - each block metadata can be up to 255 bytes
-    - up to 16 container ids, each 8 bytes (up to 128 bytes)
+- each block stores metadata for up to 64 or 256 blocks
+  - each block metadata consists of:
+    - 8 bytes container id
     - 2 bytes block group id
     - 2 bytes block id
     - 8 bytes start offset
     - 4 bytes length
-    - other block level attributes
+    - total 24 bytes
+  - blocklist Record size can be up to 24 * 256 = 6KB
+
+- each key stores up to 256 attribute groups
+  - each key can have up to 256 * 256 = __64K blocks__
+  - each key size can be up to 24 * 256 * 256 = 1.5MB
 
 
-| block size    | key size  | attr group size   |
-| :---          | :---      | :---              |
-| 1KB           | 6 bytes   | 6 bits            |
-| 4KB           | 6 bytes   | 4 bits            |
-| 16KB          | 6 bytes   | 2 bits            |
-| 64KB          | 5 bytes   | 8 bits            |
-| 256KB         | 5 bytes   | 6 bits            |
-| 1MB           | 5 bytes   | 4 bits            |
-| 4MB           | 5 bytes   | 2 bits            |
+| block size    | fraction size | key size  | attr group size   | block record bits |
+| :---          | :---          | :---      | :---              | :---              |
+| 1KB           | 256B          | 5 bytes   | 8 bits            | 6 or 8 bits       |
+| 4KB           | 1KB           | 5 bytes   | 6 bits            | 6 or 8 bits       |
+| 16KB          | 4KB           | 5 bytes   | 4 bits            | 6 or 8 bits       |
+| 64KB          | 16KB          | 5 bytes   | 2 bits            | 6 or 8 bits       |
+| 256KB         | 64KB          | 4 bytes   | 8 bits            | 6 or 8 bits       |
+| 1MB           | 256KB         | 4 bytes   | 6 bits            | 6 or 8 bits       |
+| 4MB           | 1MB           | 4 bytes   | 4 bits            | 6 or 8 bits       |
+| 16MB          | 4MB           | 4 bytes   | 2 bits            | 6 or 8 bits       |
+
+
+### Containers and Blocks ###
+
+
+
+    container (256MB, 1GB, 4GB, 16GB, 64GB)
+        |
+        +--- block groups (256KB, 1MB, 4MB, 16MB, 64MB, 256MB, 1GB)
+                |
+                +--- blocks (256B, 1KB, 4KB, 16KB, 64KB, 256KB, 1MB, 4MB, 16MB)
+
+- Each container can have up to __1024 block groups__
+
+| container size    | block group size                      |
+| :---              | :---                                  |
+| 256MB             | 256KB, 1MB, 4MB, 16MB, 64MB, 256MB    |
+| 1GB               | 1MB, 4MB, 16MB, 64MB, 256MB, 1GB      |
+| 4GB               | 4MB, 16MB, 64MB, 256MB, 1GB           |
+| 16GB              | 16MB, 64MB, 256MB, 1GB                |
+| 64GB              | 64MB, 256MB, 1GB                      |
+
+- Each block group can have up to __1024 blocks__
+  - fractions are considered same as block
+
+| block group size  | block size                            |
+| :---              | :---                                  |
+| 256B              | 256B, 1KB, 4KB, 16KB, 64KB, 256KB     |
+| 1MB               | 1KB, 4KB, 16KB, 64KB, 256KB, 1MB      |
+| 4MB               | 4KB, 16KB, 64KB, 256KB, 1MB, 4MB      |
+| 16MB              | 16KB, 64KB, 256KB, 1MB, 4MB, 16MB     |
+| 64MB              | 64KB, 256KB, 1MB, 4MB, 16MB           |
+| 256MB             | 256KB, 1MB, 4MB, 16MB                 |
+| 1GB               | 1MB, 4MB, 16MB                        |
 
 
 
