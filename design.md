@@ -1114,15 +1114,20 @@ store all block level data:
 
 ### Containers and Blocks ###
 
+In a distributed file system, Container is the storage unit on physical disk
+that stores file content.
 
+A Container can be divided to up to __1024 block groups__, where each block
+groups can be divided to up to __1024 blocks__.
 
-    container (256MB, 1GB, 4GB, 16GB, 64GB)
+    container (256MB, 1GB, 4GB, 16GB, 64GB - 5 options)
         |
-        +--- block groups (256KB, 1MB, 4MB, 16MB, 64MB, 256MB, 1GB)
+        +--- block groups (256KB, 1MB, 4MB, 16MB, 64MB, 256MB, 1GB - 7 options)
                 |
-                +--- blocks (256B, 1KB, 4KB, 16KB, 64KB, 256KB, 1MB, 4MB, 16MB)
+                +--- blocks (256B, 1KB, 4KB, 16KB, 64KB, 256KB, 1MB, 4MB, 16MB - 9 options)
 
-- Each container can have up to __1024 block groups__
+
+A list of valid container size to block group size mappings:
 
 | container size    | block group size                      |
 | :---              | :---                                  |
@@ -1132,8 +1137,8 @@ store all block level data:
 | 16GB              | 16MB, 64MB, 256MB, 1GB                |
 | 64GB              | 64MB, 256MB, 1GB                      |
 
-- Each block group can have up to __1024 blocks__
-  - fractions are considered same as block
+
+A list of valid block group size to block size mappings:
 
 | block group size  | block size                            |
 | :---              | :---                                  |
