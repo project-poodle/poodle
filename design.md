@@ -9,23 +9,85 @@ Poodle objects (e.g. Clusters, Nodes, Services, etc.) are identified by
   ECDSA key.
 
 A Poodle Node is added to a Poodle Cluster by a message containing the
-__cluster:node__ scheme, the Poodle node public key, a 'UPDATE'
-operation, and a timestamp, signed by the Poodle cluster private key.
+__cluster:node__ scheme, the Poodle node public key, a 'UPDATE' flag,
+and a timestamp, signed by the Poodle cluster private key.
 
-A Poodle Node is removed from a Poodle Cluster by a message containing the
-__cluster:node__ scheme, the Poodle node public key, a 'CLEAR'
-operation, and a timestamp, signed by the Poodle cluster private key.
+A Poodle Node is removed from a Poodle Cluster by a message containing
+the __cluster:node__ scheme, the Poodle node public key, a 'CLEAR' flag,
+and a timestamp, signed by the Poodle cluster private key.
+
+
+
+# Time Synchronization #
+
+Poodle assumes all nodes are synced with each other on Unix time.  The
+assumption does not require exact clock sync, and allows clock drift of
+100s of milliseconds.
+
+Each Poodle network message contains a timestamp of the source node.  When
+the destination node received the message, it checks the timestamp against
+its own, and if the timestamp difference is significantly high, the receiving
+node will discard the message and log an error.
+
+By default, poodle will accept time difference from another node with less
+than 300 milliseconds difference; reject message with time difference above
+500 milliseconds; and randomly chose to accept or reject packet from another
+node if time difference is between 300 and 500 milliseconds.
+
+These can be configured with following configs in __cluster:conf__ scheme:
+
+- time.drift.min - effective drift min is:
+
+      min(300, max(50, time.drift.min)
+
+- time.drift.max - effective drift max is:
+
+      min(500, max(100, time.drift.max, time.drift.min + 50))
+
+
+### Leap Second ###
+
+[Leap Second](https://en.wikipedia.org/wiki/Leap_second) is a one-second
+adjustment that is occasionally applied to Coordinated Universal Time (UTC),
+to accommodate the difference between precise time (as measured by atomic
+clocks) and imprecise observed solar time.
+
+For Distributed Ledger consensus, Poodle uses 30 seconds epoch, and can
+tolerate leap second when it occurs.
+
+For Raft consensus, Poodle uses [Unix monotonic clock](https://golang.org/pkg/time/),
+and is not affected by the Leap Second.
+
+
+
+# Unique ID #
+
+Unique ID generation can be a common use case with distributed services.
+E.g.
+
+- A distributed file system may require a unique __inode__ id
+
+- A distributed storage service may require a unique __container__ id.
+
+In Poodle, Unique ID generation can performed by TEST + UPDATE
+
+- TEST is an ops bit in Request and Response
+
+- UPDATE is a clear bit as part of Record flag
+
+Refer to __Record__ and __P-UDP__ section for details
 
 
 
 # Global Config #
 
 Poodle global config is set by a message containing the specific config
-information, a 'UPDATE' or 'CLEAR' operation, and a timestamp, signed by
+information, a 'UPDATE' or 'CLEAR' flag, and a timestamp, signed by
 the Poodle cluster private key.
 
-Global config information are stored on all Poodle nodes.  All Poodle nodes
-in the same cluster will replicate the entire global config with change logs.
+Global config information are stored on all Poodle nodes.  All Poodle
+nodes in the same cluster will replicate the entire global config with
+change logs.
 
 Poodle global configs are associated with scheme: __cluster:conf__
 
@@ -45,67 +107,28 @@ Some global config Key examples are:
 
 
 
-# Time Synchronization #
-
-Poodle assumes all nodes are synced with each other on Unix time.  The assumption
-does not require exact clock sync, and allows clock drift of 100s of milliseconds.
-
-Each Poodle network message contains a timestamp of the source node.  When the
-destination node received the message, it checks the timestamp against its own,
-and if the timestamp difference is significantly high, the receiving node will
-discard the message and log an error.
-
-By default, poodle will accept time difference from another node with less than
-300 milliseconds difference; reject time difference above 500 milliseconds; and
-randomly chose to accept or reject packet from another node if time difference
-is between 300 and 500 milliseconds.
-
-These can be configured with following configs in __cluster:conf__ scheme:
-
-- time.drift.min - effective drift min is:
-
-      min(300, max(50, time.drift.min)
-
-- time.drift.max - effective drift max is:
-
-      min(500, max(100, time.drift.max, time.drift.min + 50))
-
-
-### Leap Second ###
-
-[Leap Second](https://en.wikipedia.org/wiki/Leap_second) is a one-second
-adjustment that is occasionally applied to Coordinated Universal Time (UTC),
-to accommodate the difference between precise time (as measured by atomic clocks)
-and imprecise observed solar time.
-
-For Distributed Ledger consensus, Poodle uses 30 seconds epoch, and can tolerate
-leap second when it occurs.
-
-For Raft consensus, Poodle uses [Unix monotonic clock](https://golang.org/pkg/time/),
-and is not affected by the Leap Second.
-
-
-
 # Consensus #
 
-Poodle treats all nodes in a Poodle cluster as members on a hash ring. Poodle uses
-the node public key to indicate the location of the node on the ring.
+Poodle treats all nodes in a Poodle cluster as members on a hash ring. Poodle
+uses the node public key to indicate the location of the node on the ring.
 
 There are different types of consensus in Poodle.
 
 
 ### Distributed Ledger ###
 
-Poodle cluster level consensus is a distributed ledger with following properties:
+Poodle cluster level consensus is a distributed ledger with following
+properties:
 
-- Consensus by Proof of Stake, each valid member node has 1/N-th of voting share
+- Consensus by Proof of Stake, each valid member node has 1/N-th of voting
+  share
 
 - 30 seconds consensus time for each epoch
 
 - epoch represented as unsigned int (4 bytes), possible life span ~4000 years
 
-Poodle cluster level consensus keeps global state for the entire poodle cluster,
-e.g.
+Poodle cluster level consensus keeps global state for the entire poodle
+cluster, e.g.
 
 - node membership
 - global config parameters
@@ -148,23 +171,24 @@ of the cluster members must sign a message for distributed ledger consensus.
 
 ### Raft Quorum ###
 
-As Poodle cluster dynamically adds or removes nodes, the raft protocol for a data
-shard will need to dynamically add and remove membership.  This poses additional
-requirement to the raft consensus quorum.
+As Poodle cluster dynamically adds or removes nodes, the raft protocol for a
+data shard will need to dynamically add and remove membership.  This poses
+additional requirement to the raft consensus quorum.
 
-If a raft consensus will need to add 1 or remove 1 member from the raft, it will
-need more than the usual (N+1)/2 quorum in the consensus protocol.  E.g.
+If a raft consensus will need to add 1 or remove 1 member from the raft, it
+will need more than the usual (N+1)/2 quorum in the consensus protocol.
+E.g.
 
 - to dynamically add 1 new nodes, a quorum will need (N+1+1)/2 nodes
 - to dynamically add M more nodes, a quorum will need (N+1+M)/2 nodes
 
-As raft node addition can be fast, adding and removing 1 node at a time can be
-sufficient in most of the cases.  E.g. to add 2 new nodes and remove 2 existing
-nodes, a raft consensus can sequentially add 1 new node, remove 1 existing node,
-then add another new node, then remove another existing node.
+As raft node addition can be fast, adding and removing 1 node at a time can
+be sufficient in most of the cases.  E.g. to add 2 new nodes and remove 2
+existing nodes, a raft consensus can sequentially add 1 new node, remove 1
+existing node, then add another new node, then remove another existing node.
 
-When adding or removing max 1 node at a time in the raft consensus protocol, we
-can derive the following:
+When adding or removing max 1 node at a time in the raft consensus protocol,
+we can derive the following:
 
 | Raft Nodes | Quorum Size | Max Failure | Max Raft Nodes |
 | :---: | :---: | :---: | :---: |
@@ -193,7 +217,8 @@ Members in raft protocol can be in one of the 3 states:
 * Follower
 * Candidate
 
-To enable dynamically adding nodes to raft protocol, a new state is introduced:
+To enable dynamically adding nodes to raft protocol, a new state is
+introduced:
 
 * Learner
 
@@ -201,26 +226,26 @@ A learner learns from a raft consensus protocol all the historical state and
 replicate the entire state and most recent change logs.
 
 Leader sends raft messages to all the nodes, including the learner.  Learner
-responds its status to the leader, indicating whether the Leander is up to date
-with latest log replication from the Leader.
+responds its status to the leader, indicating whether the Leander is up to
+date with latest log replication from the Leader.
 
-Once Leaner is up-to-date with the latest log replication, the Leader will decide
-whether to turn the Leaner into a Follower.  In case there are more than on Leaner
-up-to-date and ready, the Leader will only attempt to turn one of the Learners to
-Follower.  The Leader sends a log message to itself and all the Followers about
-the membership change, upon positive response by Quorum nodes, the Leaner is
-formally a Follower.
+Once Leaner is up-to-date with the latest log replication, the Leader will
+decide whether to turn the Leaner into a Follower.  In case there are more
+than on Leaner up-to-date and ready, the Leader will only attempt to turn
+one of the Learners to Follower.  The Leader sends a log message to itself
+and all the Followers about the membership change, upon positive response
+by Quorum nodes, the Leaner is formally a Follower.
 
 If the Leader + Follower + Candidate size has reached Maximum Raft Nodes, the
 Leader will choose a Follower to retire from the current raft consensus.  The
 chosen node will be one of the node outside of the designated consensus for
 the corresponding data shard.  A log message is appended to all the nodes
-so that membership change is persisted.  If the Leader itself is to be removed,
-the Leader will append the log to all nodes, waiting for the positive response,
-and then stop itself from participating in the consensus.
+so that membership change is persisted.  If the Leader itself is to be
+removed, the Leader will append the log to all nodes, waiting for the positive
+response, and then stop itself from participating in the consensus.
 
-The raft consensus will repeat the above steps, until the entire raft consensus
-are running on the desired nodes for the data shard.
+The raft consensus will repeat the above steps, until the entire raft
+consensus are running on the desired nodes for the data shard.
 
 
 
@@ -232,8 +257,8 @@ existing nodes.
 
 ### Raft Consensus Identities ###
 
-Node membership change directly impact Poodle cluster wrt how the hash ring is
-splitted:
+Node membership change directly impact Poodle cluster wrt how the hash ring
+is splitted:
 
 - When new node membership is added, Poodle will split corresponding
   Raft consensus group identity by introducing a new Raft consensus identity,
@@ -254,9 +279,10 @@ consensus group identities.
 
 ### Raft Consensus Membership ###
 
-Node healthiness status, when consistently detected in raft consensus group by
-the leader after one full epoch, will be logged to the Raft consensus log, then
-published to the cluster level consensus as __cluster.status:node__ scheme.
+Node healthiness status, when consistently detected in raft consensus group
+by the leader after one full epoch, will be logged to the Raft consensus log,
+then published to the cluster level consensus as __cluster.status:node__
+scheme.
 
 Poodle records node status as one of the 3 conditions:
 
@@ -269,23 +295,25 @@ Poodle records node status as one of the 3 conditions:
 - flaky
   - node responds to between 1% and 99% of requests from leader.   
 
-After 3 confirmation of 5 consecutive node healthiness as down or flaky, Poodle
-will consider the node not eligible participating in the Raft consensus group,
-and will be removed Raft consensus group membership.  The Raft consensus group
-will pick the next node in the ring to form updated consensus group.
+After 3 confirmation of 5 consecutive node healthiness as down or flaky,
+Poodle will consider the node not eligible participating in the Raft
+consensus group, and will be removed Raft consensus group membership.
+The Raft consensus group will pick the next node in the ring to form
+updated consensus group.
 
 When a node come up again, it will announce itself to the corresponding Raft
 consensus group, and act as learner.  After the node learned its knowledge,
 Raft consensus identity leader will announce its healthiness to the global
 cluster consensus.
 
-After 3 confirmation of 5 consecutive node healthiness as up, Poodle will consider
-the node eligible participating in the Raft consensus group, and will be
-added to Raft consensus group membership for the corresponding Raft identity.
+After 3 confirmation of 5 consecutive node healthiness as up, Poodle will
+consider the node eligible participating in the Raft consensus group, and
+will be added to Raft consensus group membership for the corresponding Raft
+identity.
 
 The healthiness detection, together with global cluster consensus build is
-a 4-5 minutes process that avoids frequent Raft membership changes, and retains
-Raft stability.
+a 4-5 minutes process that avoids frequent Raft membership changes, and
+retains Raft stability.
 
 
 
@@ -338,8 +366,8 @@ The first byte is a __magic__.
   - 11 means scheme is encoded with __data encoding__
 
 - Bit 1 is the clear bit
-  - 1 means 'CLEAR' operation
-  - 0 means 'UPDATE' operation
+  - 1 means 'CLEAR' flag
+  - 0 means 'UPDATE' flag
 
 - Bit 0 is the timestamp and signature bit
   - 1 means there is a timestamp and signature at the end of the record
@@ -348,8 +376,8 @@ The first byte is a __magic__.
     Distributed Ledger Consensus Block
   - Signature is __not__ present for SSTable (Distribute Ledger or Raft
     Consensus), nor Raft replication log.
-    - In these cases, even if this bit is set to 1, only timestamp is present
-      with the record
+    - In these cases, even if this bit is set to 1, only timestamp is
+      present with the record
   - source content of the signature include binary consensus ID, concatenated
     with Record content, including Record Magic, Key, Value, Scheme, and
     Timestamp
@@ -495,8 +523,8 @@ magic__.
   - 1 means 2 bytes off compression scheme
 
 - Bit 1 and 0 are length of data length
-  - When lookup bit is 1, this 2 bits represent lookup data length, not length
-    of data length
+  - When lookup bit is 1, this 2 bits represent lookup data length, not
+    length of data length
   - 00 means 0 length
   - 01 means 1 byte length
   - 10 means 2 bytes length
@@ -510,10 +538,12 @@ Note:
   - Lookup Scheme
   - Compression Scheme
 
-- A properly encoded Data can have only one of the encoding schemes from above.
+- A properly encoded Data can have only one of the encoding schemes from
+  above.
 
-- If none of these encoding scheme are set, and if Data is encoded inside a Record,
-  then Data content will be normalized to become as part of Record encoding.
+- If none of these encoding scheme are set, and if Data is encoded inside
+  a Record, then Data content will be normalized to become as part of
+  Record encoding.
 
 
 ### Data Encoding ###
@@ -576,7 +606,8 @@ used to encode data.
 
 # P-UDP Packet #
 
-Poodle uses UDP Packet for fast metadata operations.
+Poodle uses UDP Packet for fast metadata operations, encoded as Requests
+and Responses.
 
 P-UDP stands for Poodle UDP.  A P-UDP packet consists of the sender's
 node ID, followed by a list of Request(s) and Response(s), followed
@@ -721,17 +752,18 @@ A Consensus Block is encoded as:
 
 - Bit 5 and 4 are ops bits
   - 00 means GET
-    - this gets the specified key of specific Consensus ID, Domain, Tablet, and
-      Attribute Group
+    - this gets the specified key of specific Consensus ID, Domain,
+      Tablet, and Attribute Group
   - 01 means SET
-    - this sets value of the specified key of specific Consensus ID, Domain,
-      Tablet, and Attribute Group. Both UPDATE and CLEAR Records are considered SET
+    - this sets value of the specified key of specific Consensus ID,
+      Domain, Tablet, and Attribute Group. Both UPDATE and CLEAR Records
+      are considered SET
   - 10 means GROUPS
-    - this retrieves a list of Attribute Groups under the specified Key of
-      specific Consensus ID, Domain and Tablet
+    - this retrieves a list of Attribute Groups under the specified Key
+      of specific Consensus ID, Domain and Tablet
   - 11 means KEYS
-    - this retrieves a list of Keys with the specified Key as prefix, of specific
-      Consensus ID, Domain and Tablet
+    - this retrieves a list of Keys with the specified Key as prefix,
+      of specific Consensus ID, Domain and Tablet
 
 - Bits 3 is test bit
   - Test bit enables atomic operation for handling of locked operation
@@ -945,7 +977,8 @@ with millions of direct child files, a design as follows:
   - this Tablet keeps all inode information
     - Tablet key is 8 bytes inode id (64 bits)
     - an inode can be a directory, or a file
-  - [inode information](http://man7.org/linux/man-pages/man7/inode.7.html) includes:
+  - [inode information](http://man7.org/linux/man-pages/man7/inode.7.html)
+    includes:
     - file type (4 bits) and mode (12 bits)
     - UID, GID (2 * 4 bytes)
     - file size (8 bytes)
