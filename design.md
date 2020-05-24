@@ -133,7 +133,7 @@ by the location of the node on the hash ring.  E.g.
 
 Records are distributed to the specific Shard on the hash ring by:
 
-    SHA256( CONCAT(consensus_id, domain, table, key) )
+    SHA256( CONCAT(consensus_id, domain, tablet, key) )
 
 
 
@@ -371,21 +371,21 @@ Scheme consists of the following components:
   - Domain name is an alpha-numeric string separated by '.'
   - Domain name is required as part of the standard Scheme
 
-- Table
+- Tablet
   - This is similar to database or NoSQL table
   - Each row is identified by a unique key
-  - Table name is an alpha-numeric string separated by '.'
-  - Table name is required as part of the standard Scheme
+  - Tablet name is an alpha-numeric string separated by '.'
+  - Tablet name is required as part of the standard Scheme
 
 - Attribute Group
   - This is similar to column group in a NoSQL table
   - Attribute Group name is an alpha-numeric string separated by '/'
   - Attribute Group name is optional part of the Scheme
 
-A full Scheme is joined by Consensus ID, with Domain, Table, and optional
+A full Scheme is joined by Consensus ID, with Domain, Tablet, and optional
 Attribute Group. E.g.
 
-    <consensus_id>, <domain>:<table>[/<attribute-group>]
+    <consensus_id>, <domain>:<tablet>[/<attribute-group>]
 
 Scheme in Record encoding is encoded differently when transmitted via network,
 or when stored on disk.  Not all Scheme components are stored in the Record
@@ -395,26 +395,26 @@ in all format.
   Record.  Instead, Consensus ID is encoded as part of Consensus Block as
   defined in P-UDP Packet encoding.
 
-- When stored on disk, Consensus ID, Domain, and Table are NOT encoded as
-  part of the Record.  Instead, Consensus ID, Domain, and Table are encoded
+- When stored on disk, Consensus ID, Domain, and Tablet are NOT encoded as
+  part of the Record.  Instead, Consensus ID, Domain, and Tablet are encoded
   as part of SSTable header as defined in SSTable encoding.
 
 Examples below:
 
-| Scheme | Consensus ID | Domain | Table | Attribute Group |
+| Scheme | Consensus ID | Domain | Tablet | Attribute Group |
 | :--- | :--- | :--- | :--- | :--- |
-| \<C\>, cluster:conf                           | Cluster ID | cluster consensus | cluster conf table | base attribute group |
-| \<C\>, cluster:node                           | Cluster ID | cluster consensus | node table | base attribute group for membership |
-| \<C\>, cluster:node/conf                      | Cluster ID | cluster consensus | node table | conf attribute group |
-| \<C\>, cluster:spaceport                      | Cluster ID | cluster consensus | space port table | base attribute group for membership |
-| \<C\>, cluster:spaceport/conf                 | Cluster ID | cluster consensus | space port table | conf attribute group |
-| \<C\>, cluster.status:node                    | Cluster ID | cluster status | node table | base attribute group for status |
-| \<C\>, cluster.status:node/stats              | Cluster ID | cluster status | node table | stats attribute group |
-| \<C\>, cluster.status:spaceport               | Cluster ID | cluster status | space port table | base attribute group for status |
-| \<C\>, cluster.status:spaceport/stats         | Cluster ID | cluster status | space port table | stats attribute group |
-| \<C\>, \<S\>, \<E\>, raft:poodle              | Cluster ID, Shard Start, Shard End | Raft consensus | poodle table | base attribute group for poodle metadata service |
-| \<C\>, \<S\>, \<E\>, raft:poodle.status       | Cluster ID, Shard Start, Shard End | Raft consensus | poodle status table | status attribute group |
-| \<C\>, \<S\>, \<E\>, raft:poodle.status/stats | Cluster ID, Shard Start, Shard End | Raft consensus | poodle status table | stats attribute group |
+| \<C\>, cluster:conf                           | Cluster ID | cluster consensus | cluster conf tablet | base attribute group |
+| \<C\>, cluster:node                           | Cluster ID | cluster consensus | node tablet | base attribute group for membership |
+| \<C\>, cluster:node/conf                      | Cluster ID | cluster consensus | node tablet | conf attribute group |
+| \<C\>, cluster:spaceport                      | Cluster ID | cluster consensus | space port tablet | base attribute group for membership |
+| \<C\>, cluster:spaceport/conf                 | Cluster ID | cluster consensus | space port tablet | conf attribute group |
+| \<C\>, cluster.status:node                    | Cluster ID | cluster status | node tablet | base attribute group for status |
+| \<C\>, cluster.status:node/stats              | Cluster ID | cluster status | node tablet | stats attribute group |
+| \<C\>, cluster.status:spaceport               | Cluster ID | cluster status | space port tablet | base attribute group for status |
+| \<C\>, cluster.status:spaceport/stats         | Cluster ID | cluster status | space port tablet | stats attribute group |
+| \<C\>, \<S\>, \<E\>, raft:poodle              | Cluster ID, Shard Start, Shard End | Raft consensus | poodle tablet | base attribute group for poodle metadata service |
+| \<C\>, \<S\>, \<E\>, raft:poodle.status       | Cluster ID, Shard Start, Shard End | Raft consensus | poodle status tablet | status attribute group |
+| \<C\>, \<S\>, \<E\>, raft:poodle.status/stats | Cluster ID, Shard Start, Shard End | Raft consensus | poodle status tablet | stats attribute group |
 
 
 ### Record Encoding ###
@@ -721,17 +721,17 @@ A Consensus Block is encoded as:
 
 - Bit 5 and 4 are ops bits
   - 00 means GET
-    - this gets the specified key of specific Consensus ID, Domain, Table, and
+    - this gets the specified key of specific Consensus ID, Domain, Tablet, and
       Attribute Group
   - 01 means SET
     - this sets value of the specified key of specific Consensus ID, Domain,
-      Table, and Attribute Group. Both UPDATE and CLEAR Records are considered SET
+      Tablet, and Attribute Group. Both UPDATE and CLEAR Records are considered SET
   - 10 means GROUPS
     - this retrieves a list of Attribute Groups under the specified Key of
-      specific Consensus ID, Domain and Table
+      specific Consensus ID, Domain and Tablet
   - 11 means KEYS
     - this retrieves a list of Keys with the specified Key as prefix, of specific
-      Consensus ID, Domain and Table
+      Consensus ID, Domain and Tablet
 
 - Bits 3 is test bit
   - Test bit enables atomic operation for handling of locked operation
@@ -797,7 +797,7 @@ Poodle stores Records as SSTable.
 
 A few properties of SSTable file:
 
-- SSTable is immutable - once written, it is never modified
+- SSTable files is immutable - once written, it is never modified
   - SSTables are merged with other SSTables
   - SSTables can be removed once merged and not longer needed
   - SSTables content are never changed
@@ -830,25 +830,25 @@ Poodle treats different portion of the Record Scheme separately:
   - Domain information is removed from Scheme when the Record is
     stored in SSTable
 
-- Table
-  - Each Table is stored as separate directory structure under the
+- Tablet
+  - Each Tablet is stored as separate directory structure under the
     Domain directory
-  - Like LevelDB and RocksDB, Poodle Table is a leveled structure of
+  - Like LevelDB and RocksDB, Poodle Tablet is a leveled structure of
     multiple SSTables at each level.
-  - MemTables are flushed to L0 table
-  - 10 L0 tables merges into one L1 table
-  - 10 L1 tables merges into one L2 table
-  - 10 L2 tables merges into one L3 table
-  - 10 L3 tables merges into one L4 table
+  - MemTables are flushed to L0 SSTable
+  - 10 L0 SSTables merges into one L1 SSTable
+  - 10 L1 SSTables merges into one L2 SSTable
+  - 10 L2 SSTables merges into one L3 SSTable
+  - 10 L3 SSTables merges into one L4 SSTable
   - ...
-  - Table information determines directory name of the storage files
-  - Table information is stored as the header of the storage files
-  - Table information is removed from Scheme when the Record is
+  - Tablet information determines directory name of the storage files
+  - Tablet information is stored as the header of the storage files
+  - Tablet information is removed from Scheme when the Record is
     stored in SSTable
 
 - Attribute Group
   - All Attribute Groups of the same Consensus ID, same Domain, and same
-    Table are stored in the same groups of SSTable
+    Tablet are stored in the same groups of SSTable
   - Attribute Group information is stored in the Scheme field of a Record
     in SSTable
 
@@ -859,22 +859,29 @@ A SSTable consists of:
 
 - SSTable header:
   - Consensus ID
-  - followed by domain name and table name
-  - followed by table level (L0, L1, L2, L3, L4 ...)
+  - followed by Domain name and Tablet name
+  - followed by SSTable level (L0, L1, L2, L3, L4 ...)
   - followed by start and end time
     - for distributed ledger consensus, time is represented as Epoch #
     - for raft consensus, time is represented as Term + milliseconds
       elapsed + Record count in the same millisecond
   - followed by file start key
-  - followed by crc32 of the header
+  - followed by crc32 of the header (one per file)
 
 - followed by Record Offset lookup:
   - the hash scheme for Record lookup
   - followed by the Record offset and length table
-  - followed by crc32 of the offset lookup
+  - followed by crc32 of the offset lookup (one per file)
 
-- followed by a list of Records
-  - each record followed by crc32 of the Records
+- followed by a list of Record Groups
+  - each Record Group share the same Key, with one or more Attribute Groups
+  - Record Groups are sorted by Key and are stored in sorted order
+  - a crc32 is at the end of all the Record Groups (one per file)
+
+- Attribute Groups for Key
+  - Default Attribute Group has empty name, and is always stored as the
+    first record.
+  - Other Attribute Groups (if exist), are stored in sorted order
 
 
 ### Record Offset Lookup ###
@@ -904,7 +911,7 @@ and store the sorted Records in the file:
 SSTables are compacted to the next level when current level reaches 2 * 10
 tables.
 
-Compactions are performed on 10 tables - this keeps the time of compaction
+Compactions are performed on 10 SSTables - this keeps the time of compaction
 stable after the compaction.
 
 This compaction scheme is to enable speedy data replication from the client.
@@ -935,8 +942,8 @@ For a highly scallable distributed file system, to support a directory
 with millions of direct child files, a design as follows:
 
 - __poodle.fs:inode__
-  - this table keeps all inode information
-    - table key is 8 bytes inode id (64 bits)
+  - this Tablet keeps all inode information
+    - Tablet key is 8 bytes inode id (64 bits)
     - an inode can be a directory, or a file
   - [inode information](http://man7.org/linux/man-pages/man7/inode.7.html) includes:
     - file type (4 bits) and mode (12 bits)
@@ -947,7 +954,7 @@ with millions of direct child files, a design as follows:
     - extended attributes (optional)
 
 - __poodle.fs:dir.filelist__
-  - this table keeps all directories to files mappings
+  - this Tablet keeps all directories to files mappings
 
 - each file metadata is 320 bytes (or less)
   - this keeps only core metadata information
@@ -965,12 +972,12 @@ with millions of direct child files, a design as follows:
 - each attribute group stores metadata for up to 64 files
   - 320 * 64 = 20KB
 
-- base table key is 8 bytes inode id for the directory
+- base Tablet key is 8 bytes inode id for the directory
   - maximum 256 attribute groups from 0x00 to 0xff under each key
   - each shard can store up to 64 * 256 = 16K file metadata
 
-- __one__ byte extended key can be appended to the table key
-  - a bit map of 32 bytes (256 bits) is stored with base table key
+- __one__ byte extended key can be appended to the Tablet key
+  - a bit map of 32 bytes (256 bits) is stored with base Tablet key
     to indicate which child key is used
   - each extended key can have up to 256 attribute groups similar to
     the base key
@@ -1006,7 +1013,7 @@ millions of blocks.  The below design keeps one Record for each block
 mapping, and store all block level data with this Record:
 
 - __poodle.fs:file.block__
-  - this table keeps all files to blocks mappings
+  - this Tablet keeps all files to blocks mappings
   - file to block mapping is encoded to the block boundary
   - block index information is encoded as part of the key and attr groups
     - e.g. a 4KB block information will be stored in a Record with:
@@ -1094,12 +1101,12 @@ more Records are needed to make the system consistent.
 E.g. in a distributed file system:
 
 - poodle.fs:file
-  - This table keeps the authoritative data on a file's attributes
+  - This Tablet keeps the authoritative data on a file's attributes
     - access permissions
     - timestamps (create, modify, access)
     - etc.
 - poodle.fs:dir.filelist
-  - This table keeps a copy of the file attributes for fast access
+  - This Tablet keeps a copy of the file attributes for fast access
     - e.g. for __ls__, __find__, or similar operations
 
 In this design, keep the cached copy in parent object, and regularly
