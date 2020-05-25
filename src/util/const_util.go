@@ -41,6 +41,10 @@ const (
 ////////////////////////////////////////////////////////////////////////////////
 // utilities
 
+func µ(a ...interface{}) []interface{} {
+	return a
+}
+
 func Ternary(statement bool, a, b interface{}) interface{} {
 	if statement {
 		return a
