@@ -39,51 +39,34 @@ import (
 	"testing"
 )
 
-type TestKey struct {
-	key      []byte
-	bloomKey []byte
-}
-
-func NewTestKey(s string) *TestKey {
-	return &TestKey{key: []byte(s), bloomKey: append([]byte(s), '-')}
-}
-
-func (t *TestKey) Key() []byte {
-	return t.key
-}
-
-func (t *TestKey) BloomKey() []byte {
-	return t.bloomKey
-}
-
 var murmurTestCases = []struct {
 	input IKey
 	seed  MurmurSeed
 	want  uint32
 }{
-	{NewTestKey(""), 0, 0},
-	{NewTestKey(""), 1, 0x514e28b7},
-	{NewTestKey(""), 0xffffffff, 0x81f16f39},
-	{NewTestKey("\xff\xff\xff\xff"), 0, 0x76293b50},
-	{NewTestKey("!Ce\x87"), 0, 0xf55b516b},
-	{NewTestKey("!Ce\x87"), 0x5082edee, 0x2362f9de},
-	{NewTestKey("!Ce"), 0, 0x7e4a8634},
-	{NewTestKey("!C"), 0, 0xa0f7b07a},
-	{NewTestKey("!"), 0, 0x72661cf4},
-	{NewTestKey("\x00\x00\x00\x00"), 0, 0x2362f9de},
-	{NewTestKey("\x00\x00\x00"), 0, 0x85f0b427},
-	{NewTestKey("\x00\x00"), 0, 0x30f4c306},
-	{NewTestKey("Hello, world!"), 0x9747b28c, 0x24884CBA},
-	{NewTestKey("ππππππππ"), 0x9747b28c, 0xD58063C1},
-	{NewTestKey("abc"), 0, 0xb3dd93fa},
-	{NewTestKey("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"), 0, 0xee925b90},
-	{NewTestKey("The quick brown fox jumps over the lazy dog"), 0x9747b28c, 0x2fa826cd},
-	{NewTestKey(strings.Repeat("a", 256)), 0x9747b28c, 0x37405bdc},
+	{NewStringKey(""), 0, 0},
+	{NewStringKey(""), 1, 0x514e28b7},
+	{NewStringKey(""), 0xffffffff, 0x81f16f39},
+	{NewStringKey("\xff\xff\xff\xff"), 0, 0x76293b50},
+	{NewStringKey("!Ce\x87"), 0, 0xf55b516b},
+	{NewStringKey("!Ce\x87"), 0x5082edee, 0x2362f9de},
+	{NewStringKey("!Ce"), 0, 0x7e4a8634},
+	{NewStringKey("!C"), 0, 0xa0f7b07a},
+	{NewStringKey("!"), 0, 0x72661cf4},
+	{NewStringKey("\x00\x00\x00\x00"), 0, 0x2362f9de},
+	{NewStringKey("\x00\x00\x00"), 0, 0x85f0b427},
+	{NewStringKey("\x00\x00"), 0, 0x30f4c306},
+	{NewStringKey("Hello, world!"), 0x9747b28c, 0x24884CBA},
+	{NewStringKey("ππππππππ"), 0x9747b28c, 0xD58063C1},
+	{NewStringKey("abc"), 0, 0xb3dd93fa},
+	{NewStringKey("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"), 0, 0xee925b90},
+	{NewStringKey("The quick brown fox jumps over the lazy dog"), 0x9747b28c, 0x2fa826cd},
+	{NewStringKey(strings.Repeat("a", 256)), 0x9747b28c, 0x37405bdc},
 }
 
 func TestMurmur(t *testing.T) {
 	for _, tt := range murmurTestCases {
-		got := tt.seed.hash(tt.input.Key())
+		got := tt.input.HashUint32(tt.seed.hash)
 		if got != tt.want {
 			t.Errorf("hash(%q, seed=0x%x): got 0x%x; want %x",
 				tt.input, tt.seed, got, tt.want)
@@ -106,7 +89,7 @@ func BenchmarkMurmur(b *testing.B) {
 }
 
 func TestBuild_simple(t *testing.T) {
-	testTable(t, []IKey{NewTestKey("foo"), NewTestKey("foo2"), NewTestKey("bar"), NewTestKey("baz")}, []IKey{NewTestKey("quux")})
+	testTable(t, []IKey{NewStringKey("foo"), NewStringKey("foo2"), NewStringKey("bar"), NewStringKey("baz")}, []IKey{NewStringKey("quux")})
 }
 
 func TestBuild_stress(t *testing.T) {
@@ -116,9 +99,9 @@ func TestBuild_stress(t *testing.T) {
 	for i := int(rand_start); i < int(rand_start+rand_range); i++ {
 		s := strconv.Itoa(i)
 		if i < int(rand_start)+int(rand_range)/2 {
-			keys = append(keys, NewTestKey(s))
+			keys = append(keys, NewStringKey(s))
 		} else {
-			extra = append(extra, NewTestKey(s))
+			extra = append(extra, NewStringKey(s))
 		}
 	}
 	testTable(t, keys, extra)
@@ -165,21 +148,26 @@ func TestSerializeKey(t *testing.T) {
 	rand_range := RandUint32()%50000 + 10000
 	for i := int(rand_start); i < int(rand_start+rand_range); i++ {
 		s := strconv.Itoa(i)
-		keys = append(keys, NewTestKey(s))
+		keys = append(keys, NewStringKey(s))
 	}
 
 	// build table
 	table := MPHBuild(keys, true)
 
 	// serialize, then deserialize
-	buf := table.Buf()
+	buf, err := table.Encode()
+	if err != nil {
+		t.Errorf("Parse MPHTable encode failed %s", err)
+		return
+	}
 	loaded_table, _, err := NewMPHTable(buf)
 	if err != nil {
-		t.Errorf("Parse MPHTable failed %s, %x", err, buf)
+		t.Errorf("Parse MPHTable failed %s", err)
+		return
 	}
 
 	// test level 0
-	if !EqUint32Array(table.level0, loaded_table.level0) {
+	if !EqualUint32Array(table.level0, loaded_table.level0) {
 		t.Errorf("Level 0 data mismatch")
 	}
 	if table.level0Mask != loaded_table.level0Mask {
@@ -187,7 +175,7 @@ func TestSerializeKey(t *testing.T) {
 	}
 
 	// test level 1
-	if !EqUint32Array(table.level1, loaded_table.level1) {
+	if !EqualUint32Array(table.level1, loaded_table.level1) {
 		//table.Print()
 		//loaded_table.Print()
 		t.Errorf("Level 1 data mismatch")
@@ -209,7 +197,7 @@ func TestSerializeKey(t *testing.T) {
 		t.Errorf("Verify Key length mismatch")
 	}
 	for i := 0; i < len(table.verifyKey); i++ {
-		if !EqByteArray(table.verifyKey[i], loaded_table.verifyKey[i]) {
+		if !table.verifyKey[i].Equal(loaded_table.verifyKey[i]) {
 			t.Errorf("Verify Key [%d] mismatch", i)
 		}
 	}
@@ -229,21 +217,24 @@ func TestSerializeHash(t *testing.T) {
 	rand_range := RandUint32()%50000 + 10000
 	for i := int(rand_start); i < int(rand_start+rand_range); i++ {
 		s := strconv.Itoa(i)
-		keys = append(keys, NewTestKey(s))
+		keys = append(keys, NewStringKey(s))
 	}
 
 	// build table
 	table := MPHBuild(keys, false)
 
 	// serialize, then deserialize
-	buf := table.Buf()
+	buf, err := table.Encode()
+	if err != nil {
+		t.Errorf("Parse MPHTable encode failed %s", err)
+	}
 	loaded_table, _, err := NewMPHTable(buf)
 	if err != nil {
 		t.Errorf("Parse MPHTable failed %s", err)
 	}
 
 	// test level 0
-	if !EqUint32Array(table.level0, loaded_table.level0) {
+	if !EqualUint32Array(table.level0, loaded_table.level0) {
 		t.Errorf("Level 0 data mismatch")
 	}
 	if table.level0Mask != loaded_table.level0Mask {
@@ -251,7 +242,7 @@ func TestSerializeHash(t *testing.T) {
 	}
 
 	// test level 1
-	if !EqUint32Array(table.level1, loaded_table.level1) {
+	if !EqualUint32Array(table.level1, loaded_table.level1) {
 		t.Errorf("Level 1 data mismatch")
 	}
 	if table.level1Mask != loaded_table.level1Mask {
@@ -270,7 +261,7 @@ func TestSerializeHash(t *testing.T) {
 	if table.verifySeed != loaded_table.verifySeed {
 		t.Errorf("Verify Seed mismatch")
 	}
-	if !EqUint32Array(table.verifyHash, loaded_table.verifyHash) {
+	if !EqualUint32Array(table.verifyHash, loaded_table.verifyHash) {
 		t.Errorf("Verify Hash mismatch")
 	}
 }
@@ -317,12 +308,18 @@ func BenchmarkMPHTableMap(b *testing.B) {
 	}
 	m := make(map[string]uint32)
 	for i, word := range words {
-		m[string(word.Key())] = uint32(i)
+		if !word.IsEncoded() {
+			err := word.Encode()
+			if err != nil {
+				b.Errorf("encode failed %s", word)
+			}
+		}
+		m[string(word.SubKeyAt(0))] = uint32(i)
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		j := i % len(words)
-		n, ok := m[string(words[j].Key())]
+		n, ok := m[string(words[j].SubKeyAt(0))]
 		if !ok {
 			b.Fatal("missing key")
 		}
@@ -354,7 +351,7 @@ func loadDict(dict string) ([]IKey, error) {
 	scanner := bufio.NewScanner(f)
 	var words []IKey
 	for scanner.Scan() {
-		words = append(words, NewTestKey(scanner.Text()))
+		words = append(words, NewStringKey(scanner.Text()))
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, err

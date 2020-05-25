@@ -24,7 +24,7 @@ func TestKey(t *testing.T) {
 			t.Errorf("error occurred: %s", err)
 		}
 		gotData := tt.input.Buf()
-		if !EqByteArray(gotData, tt.wantData) {
+		if !EqualByteArray(gotData, tt.wantData) {
 			t.Errorf("(%v): got %v; want %v",
 				tt.input, gotData, tt.wantData)
 		}
@@ -56,7 +56,7 @@ func TestKeyRandom(t *testing.T) {
 			//fmt.Printf("    %#v\n", d)
 			continue
 		}
-		mapped, err := NewMappedKey(d.Buf())
+		mapped, _, err := NewMappedKey(d.Buf())
 		if err != nil {
 			t.Errorf("error occurred: %s", err)
 			//fmt.Printf("    %#v\n", d)
@@ -72,14 +72,14 @@ func TestKeyRandom(t *testing.T) {
 
 func testKeyEqual(k1, k2 IKey, t *testing.T) bool {
 	if !k1.IsDecoded() {
-		err := k1.Decode()
+		_, err := k1.Decode()
 		if err != nil {
 			t.Errorf("cannot decode k1 - %s", err)
 		}
 	}
 
 	if !k2.IsDecoded() {
-		err := k2.Decode()
+		_, err := k2.Decode()
 		if err != nil {
 			t.Errorf("cannot decode k2 - %s", err)
 		}

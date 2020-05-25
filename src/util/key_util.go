@@ -15,11 +15,11 @@ type IKey interface {
 	Key() [][]byte
 	SubKeyAt(idx int) []byte
 	// encode, decode, and buf
-	Buf() []byte     // return buf
-	IsEncoded() bool // check if encoded
-	Encode() error   // encode
-	IsDecoded() bool // check if decoded
-	Decode() error   // decode
+	Buf() []byte          // return buf
+	IsEncoded() bool      // check if encoded
+	Encode() error        // encode
+	IsDecoded() bool      // check if decoded
+	Decode() (int, error) // decode, returns bytes read, and error if any
 	// copy
 	Copy() IKey                   // copy
 	CopyConstruct() (IKey, error) // copy construct
@@ -73,8 +73,8 @@ func (k *EmptyKey) IsDecoded() bool {
 	return true
 }
 
-func (k *EmptyKey) Decode() error {
-	return nil
+func (k *EmptyKey) Decode() (int, error) {
+	return 0, nil
 }
 
 func (k *EmptyKey) Copy() IKey {
@@ -112,21 +112,25 @@ type MappedKey struct {
 ////////////////////////////////////////
 // constructor
 
-func NewMappedKey(buf []byte) (*MappedKey, error) {
+func NewMappedKey(buf []byte) (*MappedKey, int, error) {
 
-	result := &MappedKey{keys: []([]byte){}, buf: buf} // initialize with empty key and empty buf
+	result := &MappedKey{keys: []([]byte){}, buf: Ternary(buf == nil, []byte{}, buf).([]byte)} // initialize with empty key and empty buf
 
-	err := result.Decode()
+	keyN, err := result.Decode()
 	if err != nil {
-		return nil, err
+		return nil, keyN, err
 	}
 
-	return result, nil
+	return result, keyN, nil
 }
 
 func (k *MappedKey) IsNil() bool {
+	if k.buf == nil || len(k.buf) == 0 {
+		return true
+	}
+
 	if !k.decoded {
-		panic(fmt.Sprintf("MappedKey::Key - not decoded"))
+		panic(fmt.Sprintf("MappedKey::IsNil - not decoded"))
 	}
 
 	return k.keys == nil || len(k.keys) == 0
@@ -171,50 +175,58 @@ func (k *MappedKey) IsDecoded() bool {
 	return k.keys == nil
 }
 
-func (k *MappedKey) Decode() error {
+func (k *MappedKey) Decode() (int, error) {
 
 	k.keys = []([]byte){}
-	pos := 0
 
-	totalKeyLength, totalKeyN := binary.Uvarint(k.buf)
-	if totalKeyN < 0 || (len(k.buf) != 0 && totalKeyN == 0 && k.buf[0] != 0) {
-		//if n <= 0 {
-		return fmt.Errorf("NewMappedKey - failed to read length")
-	} else if totalKeyN == 0 && totalKeyLength == 0 {
+	totalKey, totalKeyN, err := DecodeVarchar(k.buf)
+	if err != nil {
+		return 0, fmt.Errorf("MappedKey::Decode - %s", err)
+	}
+
+	if totalKey == nil {
 		k.decoded = true
-		return nil // return empty buf
-	} else if totalKeyLength > MAX_KEY_LENGTH {
-		return fmt.Errorf("NewMappedKey - length %d bigger than %d", totalKeyLength, MAX_KEY_LENGTH)
-	} else if len(k.buf) < int(totalKeyLength)+totalKeyN {
-		return fmt.Errorf("NewMappedKey - length %d bigger than buf length %d", len(k.buf), totalKeyLength)
+		return 0, nil // return empty buf successfully
 	}
-	pos += totalKeyN
 
-	for pos < int(totalKeyLength)+totalKeyN {
+	if len(totalKey) > MAX_KEY_LENGTH {
+		return 0, fmt.Errorf("MappedKey::Decode - length %d bigger than %d", len(totalKey), MAX_KEY_LENGTH)
+	}
 
-		subKeylength, subKeyN := binary.Uvarint(k.buf[pos:])
-		if subKeyN < 0 {
+	pos := 0
+	for pos < len(totalKey) {
+
+		subKey, subKeyN, err := DecodeVarchar(totalKey[pos:])
+		if err != nil {
+			return 0, fmt.Errorf("MappedKey::Decode - position [%d] - %s", pos, err)
+		} else if pos+subKeyN > len(totalKey) {
+			return 0, fmt.Errorf("MappedKey::Decode - sub key [%d / %d] at [%d] too long [%d]", subKeyN, len(subKey), pos, len(totalKey))
+		} else if len(subKey) == 0 {
 			// sub key cannot have zero length
-			return fmt.Errorf("NewMappedKey - failed to read sub key length at pos %d", pos)
-		} else if len(k.buf)-pos < int(subKeylength)+subKeyN {
-			return fmt.Errorf("NewMappedKey - sub key length %d bigger than buf length %d at pos %d", subKeylength, len(k.buf), pos)
+			return 0, fmt.Errorf("MappedKey::Decode - zero sub key length at [%d]", pos)
 		}
-		k.keys = append(k.keys, k.buf[pos+subKeyN:pos+subKeyN+int(subKeylength)])
-		pos += subKeyN + int(subKeylength)
-		// check if we have parsed all of key buffer
-		if pos > int(totalKeyLength)+totalKeyN {
-			return fmt.Errorf("NewMappedKey - position %d out of bound %d", pos, int(totalKeyLength)+totalKeyN)
-		}
+		k.keys = append(k.keys, subKey)
+		pos += subKeyN
 	}
 
-	k.buf = k.buf[:pos] // set buf to exact key length
+	// check if we have parsed all of key buffer
+	if pos > len(totalKey) {
+		return 0, fmt.Errorf("MappedKey::Decode - position [%d] out of bound %d", pos, len(totalKey)+totalKeyN)
+	}
+
+	// we are here when len(totalKey) == pos
+	if pos != len(totalKey) {
+		panic(fmt.Sprintf("MappedKey::Decode - position [%d] does not match key length %d", pos, len(totalKey)))
+	}
+
+	k.buf = k.buf[:totalKeyN] // set buf to exact key length
 	k.decoded = true
 
-	return nil
+	return totalKeyN, nil
 }
 
 func (k *MappedKey) Copy() IKey {
-	result, err := NewMappedKey(k.buf)
+	result, _, err := NewMappedKey(k.buf)
 	if err != nil {
 		panic(fmt.Errorf("MappedKey::Copy - unexpected failure %s", err))
 	}
@@ -239,7 +251,7 @@ func (k *MappedKey) Equal(o IKey) bool {
 	}
 
 	for i, key := range k.keys {
-		if !EqByteArray(key, o.SubKeyAt(i)) {
+		if !EqualByteArray(key, o.SubKeyAt(i)) {
 			return false
 		}
 	}
@@ -364,8 +376,8 @@ func (k *Key) IsDecoded() bool {
 	return true
 }
 
-func (k *Key) Decode() error {
-	return nil
+func (k *Key) Decode() (int, error) {
+	return 0, nil
 }
 
 func (k *Key) Copy() IKey {
@@ -404,7 +416,7 @@ func (k *Key) Equal(o IKey) bool {
 	}
 
 	for i, key := range k.keys {
-		if !EqByteArray(key, o.SubKeyAt(i)) {
+		if !EqualByteArray(key, o.SubKeyAt(i)) {
 			return false
 		}
 	}
