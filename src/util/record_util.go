@@ -177,11 +177,11 @@ func (r *MappedRecord) Decode() (err error) {
 	encode := (r.buf[0] >> 6) & 0x03
 	switch encode {
 	case 0x00:
-		key, err = NewSimpleMappedData(encode, r.buf[pos:])
+		key, _, err = NewSimpleMappedData(encode, r.buf[pos:])
 	case 0x01:
-		key, err = NewSimpleMappedData(encode, r.buf[pos:])
+		key, _, err = NewSimpleMappedData(encode, r.buf[pos:])
 	case 0x02:
-		key, err = NewSimpleMappedData(encode, r.buf[pos:])
+		key, _, err = NewSimpleMappedData(encode, r.buf[pos:])
 	default:
 		key, err = NewStandardMappedData(r.buf[pos:])
 	}
@@ -201,11 +201,11 @@ func (r *MappedRecord) Decode() (err error) {
 	encode = (r.buf[0] >> 4) & 0x03
 	switch encode {
 	case 0x00:
-		value, err = NewSimpleMappedData(encode, r.buf[pos:])
+		value, _, err = NewSimpleMappedData(encode, r.buf[pos:])
 	case 0x01:
-		value, err = NewSimpleMappedData(encode, r.buf[pos:])
+		value, _, err = NewSimpleMappedData(encode, r.buf[pos:])
 	case 0x02:
-		value, err = NewSimpleMappedData(encode, r.buf[pos:])
+		value, _, err = NewSimpleMappedData(encode, r.buf[pos:])
 	default:
 		value, err = NewStandardMappedData(r.buf[pos:])
 	}
@@ -225,11 +225,11 @@ func (r *MappedRecord) Decode() (err error) {
 	encode = (r.buf[0] >> 2) & 0x03
 	switch encode {
 	case 0x00:
-		scheme, err = NewSimpleMappedData(encode, r.buf[pos:])
+		scheme, _, err = NewSimpleMappedData(encode, r.buf[pos:])
 	case 0x01:
-		scheme, err = NewSimpleMappedData(encode, r.buf[pos:])
+		scheme, _, err = NewSimpleMappedData(encode, r.buf[pos:])
 	case 0x02:
-		scheme, err = NewSimpleMappedData(encode, r.buf[pos:])
+		scheme, _, err = NewSimpleMappedData(encode, r.buf[pos:])
 	default:
 		scheme, err = NewStandardMappedData(r.buf[pos:])
 	}

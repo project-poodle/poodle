@@ -81,14 +81,14 @@ type SimpleMappedData struct {
 ////////////////////////////////////////
 // constructor
 
-func NewSimpleMappedData(parent byte, buf []byte) (*SimpleMappedData, error) {
+func NewSimpleMappedData(parent byte, buf []byte) (*SimpleMappedData, int, error) {
 
 	result := &SimpleMappedData{decoded: false, parent: parent & 0x03, buf: buf}
 	err := result.Decode(parent)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	} else {
-		return result, nil
+		return result, len(result.buf), nil
 	}
 }
 
@@ -210,7 +210,7 @@ func (d *SimpleMappedData) Copy() IData {
 	// make a deep copy of the buf
 	buf := make([]byte, len(d.buf))
 	copy(buf, d.buf)
-	result, err := NewSimpleMappedData(d.parent, buf)
+	result, _, err := NewSimpleMappedData(d.parent, buf)
 	if err != nil {
 		// this should not happen
 		panic(fmt.Sprintf("SimpleMappedData:Copy - %s", err))

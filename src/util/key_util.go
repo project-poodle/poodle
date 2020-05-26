@@ -10,20 +10,28 @@ import (
 ////////////////////////////////////////////////////////////////////////////////
 
 type IKey interface {
-	// this returns a uniquely identified key
+
+	////////////////////////////////////////
+	// accessor to elements
 	IsNil() bool // whether Key is nil
 	Key() [][]byte
 	SubKeyAt(idx int) []byte
+
+	////////////////////////////////////////
 	// encode, decode, and buf
 	Buf() []byte          // return buf
 	IsEncoded() bool      // check if encoded
 	Encode() error        // encode
 	IsDecoded() bool      // check if decoded
 	Decode() (int, error) // decode, returns bytes read, and error if any
+
+	////////////////////////////////////////
 	// copy
 	Copy() IKey                   // copy
 	CopyConstruct() (IKey, error) // copy construct
-	// hash, equals and print
+
+	////////////////////////////////////////
+	// hash, equals and tostring
 	Equal(IKey) bool // compare if two IKey equal to each other
 	// takes a hash function, and return XOR hash of all sub keys, return 0 for empty key
 	HashUint32(f func([]byte) uint32) uint32
@@ -425,11 +433,14 @@ func (k *Key) Equal(o IKey) bool {
 }
 
 func (k *Key) ToString() string {
+
 	str := fmt.Sprintf("Key")
+
 	for i, subKey := range k.keys {
 		str += fmt.Sprintf("\n    subKey[%d] = %v", i, subKey)
 	}
 	str += fmt.Sprintf("\n    buf = %v", k.buf[:MinInt(len(k.buf), 32)])
+
 	return str
 }
 

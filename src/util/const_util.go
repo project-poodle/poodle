@@ -28,4 +28,7 @@ const (
 	CLS_UNIVERSE   = 3
 	CLS_SERVICE    = 4
 	CLS_FEDERATION = 5
+
+	TRIE_NODE_TYPE_KEY        = byte(0x01) // trie node type key
+	TRIE_NODE_TYPE_ATTR_GROUP = byte(0x02) // trie node type attr group
 )
