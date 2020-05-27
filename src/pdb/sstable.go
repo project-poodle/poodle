@@ -1,4 +1,4 @@
-package ldb
+package pdb
 
 import (
 	"encoding/binary"
@@ -12,8 +12,9 @@ import (
 )
 
 const (
-	SSTABLE_MAX_RECORDS = uint32(1024 * 1024)
-	SSTABLE_MAX_LENGTH  = uint32(1 * 1024 * 1024 * 1024)
+	SSTABLE_MAX_BLOCK_SIZE = uint32(4 * 1024 * 1024)        // this is a soft limit, it helps keep operation relatively small
+	SSTABLE_MAX_FILE_SIZE  = uint32(1 * 1024 * 1024 * 1024) // max file keeps total file small
+	SSTABLE_MAX_RECORDS    = uint32(1024 * 1024)
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -23,8 +24,8 @@ type ISSTable interface {
 	// SSTable Level Attributes
 	Version() uint32                // Version
 	ConsensusID() util.IConsensusID // Consensus ID
-	Domain() []byte                 // Domain Name
-	Table() []byte                  // Table Name
+	Domain() string                 // Domain Name
+	Table() string                  // Table Name
 	StartTime() util.IConsensusTime // Start Time
 	EndTime() util.IConsensusTime   // End Time
 	StartKey() util.IData           // Start Key
@@ -32,9 +33,9 @@ type ISSTable interface {
 	Level() uint32                  // Level
 	Count() uint32                  // Record Count
 	// Record Operations
-	Get(key, group *util.IData) (util.IRecord, error)                // get record with specified key and attribute group
-	Groups(key *util.IData) ([]util.IData, error)                    // retrieve a list of attribute groups for the given key
-	Keys(key *util.IData) ([]util.IData, error)                      // retrieve a list of keys with the given key as prefix
+	Get(key, group *util.IData) (util.IRecord, error) // get record with specified key and attribute group
+	Groups(key, scheme util.IData) ([]string, error)
+	Keys(key, scheme util.IData) ([]util.IData, error)
 	Read(pos, suggest_offset uint32) ([]util.IRecord, uint32, error) // Batch scan and read operation, return a list of IRecord, bytes read, or error
 	// Close the resource
 	Close() error
@@ -65,7 +66,7 @@ type SSTableV1 struct {
 	record_start_pos uint32 // start of record position
 }
 
-func NewSSTableV1(filepath string) (t *SSTableV1, err error) {
+func LoadSSTableV1(filepath string) (t *SSTableV1, err error) {
 
 	f, err := os.OpenFile(filepath, os.O_RDONLY, 0644)
 	if err != nil {
