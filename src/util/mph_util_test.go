@@ -309,7 +309,7 @@ func BenchmarkMPHTableMap(b *testing.B) {
 	m := make(map[string]uint32)
 	for i, word := range words {
 		if !word.IsEncoded() {
-			err := word.Encode()
+			err := word.Encode(nil)
 			if err != nil {
 				b.Errorf("encode failed %s", word)
 			}

@@ -19,7 +19,7 @@ var keyTestCases = []struct {
 
 func TestKey(t *testing.T) {
 	for _, tt := range keyTestCases {
-		err := tt.input.Encode()
+		err := tt.input.Encode(nil)
 		if err != nil {
 			t.Errorf("error occurred: %s", err)
 		}
@@ -50,7 +50,7 @@ func TestKeyRandom(t *testing.T) {
 	randRange := RandUint32()%500 + 100
 	for i := int(randStart); i < int(randStart+randRange); i++ {
 		d := generateRandomKey(10, 320)
-		err := d.Encode()
+		err := d.Encode(nil)
 		if err != nil {
 			t.Errorf("error occurred: %s", err)
 			//fmt.Printf("    %#v\n", d)
@@ -72,14 +72,14 @@ func TestKeyRandom(t *testing.T) {
 
 func testKeyEqual(k1, k2 IKey, t *testing.T) bool {
 	if !k1.IsDecoded() {
-		_, err := k1.Decode()
+		_, err := k1.Decode(nil)
 		if err != nil {
 			t.Errorf("cannot decode k1 - %s", err)
 		}
 	}
 
 	if !k2.IsDecoded() {
-		_, err := k2.Decode()
+		_, err := k2.Decode(nil)
 		if err != nil {
 			t.Errorf("cannot decode k2 - %s", err)
 		}

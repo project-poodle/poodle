@@ -286,7 +286,67 @@ func EqualByteArray(a, b []byte) bool {
 	return true
 }
 
+func EqualInt8Array(a, b []int8) bool {
+
+	// If one is nil, the other must also be nil.
+	if (a == nil) != (b == nil) {
+		return false
+	}
+
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
+func EqualInt16Array(a, b []int16) bool {
+
+	// If one is nil, the other must also be nil.
+	if (a == nil) != (b == nil) {
+		return false
+	}
+
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
 func EqualUint16Array(a, b []uint16) bool {
+
+	// If one is nil, the other must also be nil.
+	if (a == nil) != (b == nil) {
+		return false
+	}
+
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
+func EqualInt32Array(a, b []int32) bool {
 
 	// If one is nil, the other must also be nil.
 	if (a == nil) != (b == nil) {
@@ -326,7 +386,47 @@ func EqualUint32Array(a, b []uint32) bool {
 	return true
 }
 
+func EqualInt64Array(a, b []int64) bool {
+
+	// If one is nil, the other must also be nil.
+	if (a == nil) != (b == nil) {
+		return false
+	}
+
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
 func EqualUint64Array(a, b []uint64) bool {
+
+	// If one is nil, the other must also be nil.
+	if (a == nil) != (b == nil) {
+		return false
+	}
+
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
+func EqualIntArray(a, b []int) bool {
 
 	// If one is nil, the other must also be nil.
 	if (a == nil) != (b == nil) {

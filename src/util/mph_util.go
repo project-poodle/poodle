@@ -234,7 +234,7 @@ func (t *MPHTable) Encode() ([]byte, error) {
 
 			key_data := t.verifyKey[i]
 			if !key_data.IsEncoded() {
-				err := key_data.Encode()
+				err := key_data.Encode(nil)
 				if err != nil {
 					return nil, fmt.Errorf("MPHTable::Encode - %s", err)
 				}

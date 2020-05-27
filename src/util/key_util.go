@@ -12,18 +12,15 @@ import (
 type IKey interface {
 
 	////////////////////////////////////////
+	// embeded interfaces
+	IEncodable
+	IPrintable
+
+	////////////////////////////////////////
 	// accessor to elements
 	IsNil() bool // whether Key is nil
 	Key() [][]byte
 	SubKeyAt(idx int) []byte
-
-	////////////////////////////////////////
-	// encode, decode, and buf
-	Buf() []byte          // return buf
-	IsEncoded() bool      // check if encoded
-	Encode() error        // encode
-	IsDecoded() bool      // check if decoded
-	Decode() (int, error) // decode, returns bytes read, and error if any
 
 	////////////////////////////////////////
 	// copy
@@ -35,8 +32,6 @@ type IKey interface {
 	Equal(IKey) bool // compare if two IKey equal to each other
 	// takes a hash function, and return XOR hash of all sub keys, return 0 for empty key
 	HashUint32(f func([]byte) uint32) uint32
-	// print in readable format
-	ToString() string
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -73,7 +68,7 @@ func (k *EmptyKey) IsEncoded() bool {
 	return true
 }
 
-func (k *EmptyKey) Encode() error {
+func (k *EmptyKey) Encode(IContext) error {
 	return nil
 }
 
@@ -81,7 +76,7 @@ func (k *EmptyKey) IsDecoded() bool {
 	return true
 }
 
-func (k *EmptyKey) Decode() (int, error) {
+func (k *EmptyKey) Decode(IContext) (int, error) {
 	return 0, nil
 }
 
@@ -124,7 +119,7 @@ func NewMappedKey(buf []byte) (*MappedKey, int, error) {
 
 	result := &MappedKey{keys: []([]byte){}, buf: Ternary(buf == nil, []byte{}, buf).([]byte)} // initialize with empty key and empty buf
 
-	keyN, err := result.Decode()
+	keyN, err := result.Decode(nil)
 	if err != nil {
 		return nil, keyN, err
 	}
@@ -175,7 +170,7 @@ func (k *MappedKey) IsEncoded() bool {
 	return true
 }
 
-func (k *MappedKey) Encode() error {
+func (k *MappedKey) Encode(IContext) error {
 	return nil
 }
 
@@ -183,7 +178,7 @@ func (k *MappedKey) IsDecoded() bool {
 	return k.keys == nil
 }
 
-func (k *MappedKey) Decode() (int, error) {
+func (k *MappedKey) Decode(IContext) (int, error) {
 
 	k.keys = []([]byte){}
 
@@ -337,7 +332,7 @@ func (k *Key) IsEncoded() bool {
 	return k.encoded
 }
 
-func (k *Key) Encode() error {
+func (k *Key) Encode(IContext) error {
 	// TODO
 	bufs := make([][]byte, len(k.keys))
 
@@ -384,8 +379,8 @@ func (k *Key) IsDecoded() bool {
 	return true
 }
 
-func (k *Key) Decode() (int, error) {
-	return 0, nil
+func (k *Key) Decode(IContext) (int, error) {
+	return 0, fmt.Errorf("Key::Decode - not supported")
 }
 
 func (k *Key) Copy() IKey {

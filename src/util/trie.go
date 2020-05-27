@@ -9,6 +9,11 @@ import "fmt"
 type ITrie interface {
 
 	////////////////////////////////////////
+	// embedded interfaces
+	IEncodable
+	IPrintable
+
+	////////////////////////////////////////
 	// accessor to elements
 	Get(IKey) (IData, error)                      // get
 	Set(IKey, IData) error                        // set
@@ -17,24 +22,17 @@ type ITrie interface {
 	KeyRangeIterator(start, end IKey) func() IKey // return iterator for key within given range
 
 	////////////////////////////////////////
-	// encode, decode, and buf
-	Buf() []byte          // return buf
-	IsEncoded() bool      // check if encoded
-	Encode() error        // encode
-	IsDecoded() bool      // check if decoded
-	Decode() (int, error) // decode, returns bytes read, and error if any
-
-	////////////////////////////////////////
 	// copy
 	Copy() ITrie                   // copy
 	CopyConstruct() (ITrie, error) // copy construct
-
-	////////////////////////////////////////
-	// return in readable format
-	ToString() string
 }
 
 type ITrieNode interface {
+
+	////////////////////////////////////////
+	// embedded interfaces
+	IEncodable
+	IPrintable
 
 	////////////////////////////////////////
 	// accessor to elements
@@ -51,12 +49,7 @@ type ITrieNode interface {
 	SetData(IData) error                        // set associated data
 
 	////////////////////////////////////////
-	// encode, decode, and buf
-	Buf() []byte            // return buf
-	IsEncoded() bool        // check if encoded
-	Encode() error          // encode
-	IsDecoded() bool        // check if decoded
-	Decode() (int, error)   // decode, returns bytes read, and error if any
+	// offset
 	GetOffset() uint32      // get offset when this TrieNode is encoded
 	SetOffset(uint32) error // set offset when this TrieNode is encoded to
 
@@ -64,10 +57,6 @@ type ITrieNode interface {
 	// copy
 	Copy() ITrieNode                   // copy
 	CopyConstruct() (ITrieNode, error) // copy construct
-
-	////////////////////////////////////////
-	// return in readable format
-	ToString() string
 }
 
 func newEven() func() int {
@@ -100,7 +89,7 @@ func NewMappedTrie(buf []byte) (*MappedTrie, int, error) {
 
 	result := &MappedTrie{buf: buf}
 
-	length, err := result.Decode()
+	length, err := result.Decode(nil)
 	if err != nil {
 		return nil, length, fmt.Errorf("NewMappedTrie - %s", err)
 	}
@@ -211,7 +200,7 @@ func (t *MappedTrie) IsEncoded() bool {
 	return true
 }
 
-func (t *MappedTrie) Encode() error {
+func (t *MappedTrie) Encode(IContext) error {
 	return fmt.Errorf("MappedTrie::Encode - not supported")
 }
 
@@ -219,14 +208,14 @@ func (t *MappedTrie) IsDecoded() bool {
 	return t.decoded
 }
 
-func (t *MappedTrie) Decode() (int, error) {
+func (t *MappedTrie) Decode(IContext) (int, error) {
 
 	// initial setup
 	t.known_nodes = map[uint32]ITrieNode{}                                                   // clear known knows
 	t.root = &MappedTrieNode{parent: nil, buf: t.buf, offset: 0, known_nodes: t.known_nodes} // start with root node
 	t.known_nodes[0] = t.root                                                                // add myself
 
-	pos, err := t.root.Decode()
+	pos, err := t.root.Decode(nil)
 	if err != nil {
 		return 0, fmt.Errorf("MappedTrie::Decode - decode %s", err)
 	}
@@ -234,7 +223,7 @@ func (t *MappedTrie) Decode() (int, error) {
 	currNode := (t.root).(*MappedTrieNode)
 	for {
 		node := &MappedTrieNode{parent: currNode, buf: t.buf[pos:], offset: uint32(pos), known_nodes: t.known_nodes}
-		length, err := node.Decode()
+		length, err := node.Decode(nil)
 		if err != nil {
 			return 0, fmt.Errorf("MappedTrie::Decode - decode [%d] %s", pos, err)
 		}
@@ -317,7 +306,7 @@ func NewMappedTrieNode(parent ITrieNode, buf []byte, offset uint32, known_nodes 
 
 	result := &MappedTrieNode{parent: parent, buf: buf, offset: offset, children: map[string]ITrieNode{}, known_nodes: known_nodes}
 
-	length, err := result.Decode()
+	length, err := result.Decode(nil)
 	if err != nil {
 		fmt.Errorf("NewMappedTrieNode - %s", err)
 	}
@@ -441,7 +430,7 @@ func (tn *MappedTrieNode) IsEncoded() bool {
 	return true
 }
 
-func (tn *MappedTrieNode) Encode() error {
+func (tn *MappedTrieNode) Encode(IContext) error {
 	return fmt.Errorf("MappedTrieNode::Encode - not supported")
 }
 
@@ -449,7 +438,7 @@ func (tn *MappedTrieNode) IsDecoded() bool {
 	return tn.decoded
 }
 
-func (tn *MappedTrieNode) Decode() (int, error) {
+func (tn *MappedTrieNode) Decode(IContext) (int, error) {
 
 	pos := 0
 
@@ -542,7 +531,7 @@ func (tn *MappedTrieNode) Copy() ITrieNode {
 	copy(buf, tn.buf)
 
 	result := &MappedTrieNode{buf: buf, offset: tn.offset, known_nodes: tn.known_nodes}
-	_, err := result.Decode()
+	_, err := result.Decode(nil)
 	if err != nil {
 		panic(fmt.Sprintf("MappedTrieNode::Copy - unexpected error %s", err))
 	}
