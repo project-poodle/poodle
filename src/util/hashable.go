@@ -17,7 +17,7 @@ type IHashable interface {
 
 	////////////////////////////////////////
 	// compare if two hashable objects equal to each other
-	Equal(IHashable) bool
+	Equal(IObject) bool
 
 	////////////////////////////////////////
 	// takes a hash function, and return uint32 hash value of the object
@@ -41,7 +41,7 @@ func NewHashableSlice(s []IHashable) *HashableSlice {
 }
 
 // return XOR of hash of each IHashable object in the slice
-func (s *HashableSlice) Equal(t IHashable) bool {
+func (s *HashableSlice) Equal(t IObject) bool {
 	if (s == nil) != (t == nil) {
 		return false
 	}
@@ -114,7 +114,7 @@ func NewHashableByteSlice(s []byte) *HashableByteSlice {
 }
 
 // return if two hashable byte array equals
-func (s *HashableByteSlice) Equal(t IHashable) bool {
+func (s *HashableByteSlice) Equal(t IObject) bool {
 	if (s == nil) != (t == nil) {
 		return false
 	}
@@ -161,7 +161,7 @@ func NewHashableInt16Slice(s []int16) *HashableInt16Slice {
 }
 
 // return if two hashable byte array equals
-func (s *HashableInt16Slice) Equal(t IHashable) bool {
+func (s *HashableInt16Slice) Equal(t IObject) bool {
 	if (s == nil) != (t == nil) {
 		return false
 	}
@@ -210,7 +210,7 @@ func NewHashableUint16Slice(s []uint16) *HashableUint16Slice {
 }
 
 // return if two hashable byte array equals
-func (s *HashableUint16Slice) Equal(t IHashable) bool {
+func (s *HashableUint16Slice) Equal(t IObject) bool {
 	if (s == nil) != (t == nil) {
 		return false
 	}
@@ -259,7 +259,7 @@ func NewHashableInt32Slice(s []int32) *HashableInt32Slice {
 }
 
 // return if two hashable byte array equals
-func (s *HashableInt32Slice) Equal(t IHashable) bool {
+func (s *HashableInt32Slice) Equal(t IObject) bool {
 	if (s == nil) != (t == nil) {
 		return false
 	}
@@ -308,7 +308,7 @@ func NewHashableUint32Slice(s []uint32) *HashableUint32Slice {
 }
 
 // return if two hashable byte array equals
-func (s *HashableUint32Slice) Equal(t IHashable) bool {
+func (s *HashableUint32Slice) Equal(t IObject) bool {
 	if (s == nil) != (t == nil) {
 		return false
 	}
@@ -357,7 +357,7 @@ func NewHashableInt64Slice(s []int64) *HashableInt64Slice {
 }
 
 // return if two hashable byte array equals
-func (s *HashableInt64Slice) Equal(t IHashable) bool {
+func (s *HashableInt64Slice) Equal(t IObject) bool {
 	if (s == nil) != (t == nil) {
 		return false
 	}
@@ -406,7 +406,7 @@ func NewHashableUint64Slice(s []uint64) *HashableUint64Slice {
 }
 
 // return if two hashable byte array equals
-func (s *HashableUint64Slice) Equal(t IHashable) bool {
+func (s *HashableUint64Slice) Equal(t IObject) bool {
 	if (s == nil) != (t == nil) {
 		return false
 	}

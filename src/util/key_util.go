@@ -3,6 +3,7 @@ package util
 import (
 	"encoding/binary"
 	"fmt"
+	"reflect"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -14,6 +15,7 @@ type IKey interface {
 	////////////////////////////////////////
 	// embeded interfaces
 	IEncodable
+	IHashable
 	IPrintable
 
 	////////////////////////////////////////
@@ -26,12 +28,6 @@ type IKey interface {
 	// copy
 	Copy() IKey                   // copy
 	CopyConstruct() (IKey, error) // copy construct
-
-	////////////////////////////////////////
-	// hash, equals and tostring
-	Equal(IKey) bool // compare if two IKey equal to each other
-	// takes a hash function, and return XOR hash of all sub keys, return 0 for empty key
-	HashUint32(f func([]byte) uint32) uint32
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -88,8 +84,12 @@ func (k *EmptyKey) CopyConstruct() (IKey, error) {
 	return NewEmptyKey(), nil
 }
 
-func (k *EmptyKey) Equal(o IKey) bool {
-	return len(o.Key()) == 0
+func (k *EmptyKey) Equal(o IObject) bool {
+	if !reflect.TypeOf(o).Implements(reflect.TypeOf((IKey)(nil))) {
+		return false
+	}
+
+	return len(o.(IKey).Key()) == 0
 }
 
 func (k *EmptyKey) HashUint32(f func([]byte) uint32) uint32 {
@@ -248,13 +248,19 @@ func (k *MappedKey) CopyConstruct() (IKey, error) {
 	return result, nil
 }
 
-func (k *MappedKey) Equal(o IKey) bool {
-	if len(k.Key()) != len(o.Key()) {
+func (k *MappedKey) Equal(o IObject) bool {
+
+	if !reflect.TypeOf(o).Implements(reflect.TypeOf((IKey)(nil))) {
+		return false
+	}
+
+	obj := o.(IKey)
+	if len(k.Key()) != len(obj.Key()) {
 		return false
 	}
 
 	for i, key := range k.keys {
-		if !EqualByteArray(key, o.SubKeyAt(i)) {
+		if !EqualByteArray(key, obj.SubKeyAt(i)) {
 			return false
 		}
 	}
@@ -413,13 +419,18 @@ func (k *Key) HashUint32(f func([]byte) uint32) uint32 {
 	return hashValue
 }
 
-func (k *Key) Equal(o IKey) bool {
-	if len(k.Key()) != len(o.Key()) {
+func (k *Key) Equal(o IObject) bool {
+	if !reflect.TypeOf(o).Implements(reflect.TypeOf((IKey)(nil))) {
+		return false
+	}
+
+	obj := o.(IKey)
+	if len(k.Key()) != len(obj.Key()) {
 		return false
 	}
 
 	for i, key := range k.keys {
-		if !EqualByteArray(key, o.SubKeyAt(i)) {
+		if !EqualByteArray(key, obj.SubKeyAt(i)) {
 			return false
 		}
 	}
