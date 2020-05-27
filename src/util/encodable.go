@@ -9,8 +9,8 @@ type IContext interface {
 
 type IEncodable interface {
 
-	// return encoded buf (byte array)
-	Buf() []byte
+	////////////////////////////////////////
+	// encode and decode
 
 	// whether Data is encoded      - always return true for Mapped Data
 	//                                  - return true for Constructed Data if encoded buf cache exists
@@ -33,4 +33,16 @@ type IEncodable interface {
 	//                                  - parent param is data encode from parent: 0x00 is no length; 0x01 is 1 byte length; 0x02 is 2 byte length; 0x03 is custom encoding
 	//                                  - use 0xff if no parent
 	Decode(ctx IContext) (int, error)
+
+	////////////////////////////////////////
+	// copy & buf
+
+	// copy
+	// - for mapped object, copy the underlying mapped byte array (read only)
+	// - for constructed object, make a copy of the constructed object (modifiable)
+	Copy() IEncodable
+	// make a constructed (modifiable) copy of the object
+	CopyConstruct() (IEncodable, error)
+	// return encoded buf (byte array)
+	Buf() []byte
 }

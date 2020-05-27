@@ -23,11 +23,6 @@ type IKey interface {
 	IsNil() bool // whether Key is nil
 	Key() [][]byte
 	SubKeyAt(idx int) []byte
-
-	////////////////////////////////////////
-	// copy
-	Copy() IKey                   // copy
-	CopyConstruct() (IKey, error) // copy construct
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -76,16 +71,20 @@ func (k *EmptyKey) Decode(IContext) (int, error) {
 	return 0, nil
 }
 
-func (k *EmptyKey) Copy() IKey {
+func (k *EmptyKey) Copy() IEncodable {
 	return NewEmptyKey()
 }
 
-func (k *EmptyKey) CopyConstruct() (IKey, error) {
+func (k *EmptyKey) CopyConstruct() (IEncodable, error) {
 	return NewEmptyKey(), nil
 }
 
 func (k *EmptyKey) Equal(o IObject) bool {
-	if !reflect.TypeOf(o).Implements(reflect.TypeOf((IKey)(nil))) {
+	if o == nil {
+		return false
+	}
+
+	if !reflect.TypeOf(o).Implements(reflect.TypeOf((*IKey)(nil)).Elem()) {
 		return false
 	}
 
@@ -228,7 +227,7 @@ func (k *MappedKey) Decode(IContext) (int, error) {
 	return totalKeyN, nil
 }
 
-func (k *MappedKey) Copy() IKey {
+func (k *MappedKey) Copy() IEncodable {
 	result, _, err := NewMappedKey(k.buf)
 	if err != nil {
 		panic(fmt.Errorf("MappedKey::Copy - unexpected failure %s", err))
@@ -237,7 +236,7 @@ func (k *MappedKey) Copy() IKey {
 	return result
 }
 
-func (k *MappedKey) CopyConstruct() (IKey, error) {
+func (k *MappedKey) CopyConstruct() (IEncodable, error) {
 
 	result := NewKey()
 
@@ -249,8 +248,11 @@ func (k *MappedKey) CopyConstruct() (IKey, error) {
 }
 
 func (k *MappedKey) Equal(o IObject) bool {
+	if o == nil {
+		return false
+	}
 
-	if !reflect.TypeOf(o).Implements(reflect.TypeOf((IKey)(nil))) {
+	if !reflect.TypeOf(o).Implements(reflect.TypeOf((*IKey)(nil)).Elem()) {
 		return false
 	}
 
@@ -389,7 +391,7 @@ func (k *Key) Decode(IContext) (int, error) {
 	return 0, fmt.Errorf("Key::Decode - not supported")
 }
 
-func (k *Key) Copy() IKey {
+func (k *Key) Copy() IEncodable {
 
 	result := NewKey()
 
@@ -400,7 +402,7 @@ func (k *Key) Copy() IKey {
 	return result
 }
 
-func (k *Key) CopyConstruct() (IKey, error) {
+func (k *Key) CopyConstruct() (IEncodable, error) {
 
 	result := NewKey()
 
@@ -420,7 +422,11 @@ func (k *Key) HashUint32(f func([]byte) uint32) uint32 {
 }
 
 func (k *Key) Equal(o IObject) bool {
-	if !reflect.TypeOf(o).Implements(reflect.TypeOf((IKey)(nil))) {
+	if o == nil {
+		return false
+	}
+
+	if !reflect.TypeOf(o).Implements(reflect.TypeOf((*IKey)(nil)).Elem()) {
 		return false
 	}
 

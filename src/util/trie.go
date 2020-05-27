@@ -20,11 +20,6 @@ type ITrie interface {
 	Keys(IKey) []IKey                             // get a list of keys
 	KeyIterator() func() IKey                     // return iterator for all keys
 	KeyRangeIterator(start, end IKey) func() IKey // return iterator for key within given range
-
-	////////////////////////////////////////
-	// copy
-	Copy() ITrie                   // copy
-	CopyConstruct() (ITrie, error) // copy construct
 }
 
 type ITrieNode interface {
@@ -52,11 +47,6 @@ type ITrieNode interface {
 	// offset
 	GetOffset() uint32      // get offset when this TrieNode is encoded
 	SetOffset(uint32) error // set offset when this TrieNode is encoded to
-
-	////////////////////////////////////////
-	// copy
-	Copy() ITrieNode                   // copy
-	CopyConstruct() (ITrieNode, error) // copy construct
 }
 
 func newEven() func() int {
@@ -249,7 +239,7 @@ func (t *MappedTrie) Decode(IContext) (int, error) {
 ////////////////////////////////////////
 // copy
 
-func (t *MappedTrie) Copy() ITrie {
+func (t *MappedTrie) Copy() IEncodable {
 
 	buf := make([]byte, len(t.buf))
 	copy(buf, t.buf)
@@ -261,7 +251,7 @@ func (t *MappedTrie) Copy() ITrie {
 	return result
 }
 
-func (t *MappedTrie) CopyConstruct() (ITrie, error) {
+func (t *MappedTrie) CopyConstruct() (IEncodable, error) {
 	return nil, fmt.Errorf("MappedTrie::CopyConstruct - not supported")
 }
 
@@ -525,7 +515,7 @@ func (tn *MappedTrieNode) SetOffset(uint32) error {
 ////////////////////////////////////////
 // copy
 
-func (tn *MappedTrieNode) Copy() ITrieNode {
+func (tn *MappedTrieNode) Copy() IEncodable {
 
 	buf := make([]byte, len(tn.buf))
 	copy(buf, tn.buf)
@@ -539,7 +529,7 @@ func (tn *MappedTrieNode) Copy() ITrieNode {
 	return result
 }
 
-func (tn *MappedTrieNode) CopyConstruct() (ITrieNode, error) {
+func (tn *MappedTrieNode) CopyConstruct() (IEncodable, error) {
 	return nil, fmt.Errorf("MappedTrieNode::CopyConstruct - not supported")
 }
 
