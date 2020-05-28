@@ -1,6 +1,6 @@
 package util
 
-// This is an adoption of the original implementation at:
+// This code is an adoption of the original implementation at:
 // https://www.golangprograms.com/golang-program-for-implementation-of-avl-trees.html
 
 //type Key interface {
