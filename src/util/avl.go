@@ -20,12 +20,17 @@ type AVLNode struct {
 
 // Put a node into the AVL tree.
 func (t *AVLTree) Put(data IComparable) {
-	t.root, _ = putR(t.root, data)
+	if t.root == nil {
+		t.root = &AVLNode{data: data}
+		return
+	} else {
+		t.root, _ = t.root.putR(data)
+	}
 }
 
 // Remove a single item from an AVL tree.
 func (t *AVLTree) Remove(data IComparable) {
-	t.root, _ = removeR(t.root, data)
+	t.root, _ = t.root.removeR(data)
 }
 
 func opp(dir int) int {
@@ -33,7 +38,7 @@ func opp(dir int) int {
 }
 
 // single rotation
-func single(root *AVLNode, dir int) *AVLNode {
+func (root *AVLNode) single(dir int) *AVLNode {
 	save := root.link[opp(dir)]
 	root.link[opp(dir)] = save.link[dir]
 	save.link[dir] = root
@@ -41,7 +46,7 @@ func single(root *AVLNode, dir int) *AVLNode {
 }
 
 // double rotation
-func double(root *AVLNode, dir int) *AVLNode {
+func (root *AVLNode) double(dir int) *AVLNode {
 	save := root.link[opp(dir)].link[dir]
 
 	root.link[opp(dir)].link[dir] = save.link[opp(dir)]
@@ -55,7 +60,7 @@ func double(root *AVLNode, dir int) *AVLNode {
 }
 
 // adjust valance factors after double rotation
-func adjustBalance(root *AVLNode, dir, bal int) {
+func (root *AVLNode) adjustBalance(dir, bal int) {
 	n := root.link[dir]
 	nn := n.link[opp(dir)]
 	switch nn.balance {
@@ -72,22 +77,22 @@ func adjustBalance(root *AVLNode, dir, bal int) {
 	nn.balance = 0
 }
 
-func insertBalance(root *AVLNode, dir int) *AVLNode {
+func (root *AVLNode) insertBalance(dir int) *AVLNode {
 	n := root.link[dir]
 	bal := 2*dir - 1
 	if n.balance == bal {
 		root.balance = 0
 		n.balance = 0
-		return single(root, opp(dir))
+		return root.single(opp(dir))
 	}
-	adjustBalance(root, dir, bal)
-	return double(root, opp(dir))
+	root.adjustBalance(dir, bal)
+	return root.double(opp(dir))
 }
 
-func putR(root *AVLNode, data IComparable) (*AVLNode, bool) {
-	if root == nil {
-		return &AVLNode{data: data}, false
-	}
+func (root *AVLNode) putR(data IComparable) (*AVLNode, bool) {
+	// if root == nil {
+	// 	return &AVLNode{data: data}, false
+	// }
 	dir := 0
 	if root.data.Equal(data) {
 		root.data = data // if data is the same, replace the data and return
@@ -96,7 +101,7 @@ func putR(root *AVLNode, data IComparable) (*AVLNode, bool) {
 		dir = 1
 	}
 	var done bool
-	root.link[dir], done = putR(root.link[dir], data)
+	root.link[dir], done = root.link[dir].putR(data)
 	if done {
 		return root, true
 	}
@@ -107,27 +112,27 @@ func putR(root *AVLNode, data IComparable) (*AVLNode, bool) {
 	case 1, -1:
 		return root, false
 	}
-	return insertBalance(root, dir), true
+	return root.insertBalance(dir), true
 }
 
-func removeBalance(root *AVLNode, dir int) (*AVLNode, bool) {
+func (root *AVLNode) removeBalance(dir int) (*AVLNode, bool) {
 	n := root.link[opp(dir)]
 	bal := 2*dir - 1
 	switch n.balance {
 	case -bal:
 		root.balance = 0
 		n.balance = 0
-		return single(root, dir), false
+		return root.single(dir), false
 	case bal:
-		adjustBalance(root, opp(dir), -bal)
-		return double(root, dir), false
+		root.adjustBalance(opp(dir), -bal)
+		return root.double(dir), false
 	}
 	root.balance = -bal
 	n.balance = bal
-	return single(root, dir), true
+	return root.single(dir), true
 }
 
-func removeR(root *AVLNode, data IComparable) (*AVLNode, bool) {
+func (root *AVLNode) removeR(data IComparable) (*AVLNode, bool) {
 	if root == nil {
 		return nil, false
 	}
@@ -150,7 +155,7 @@ func removeR(root *AVLNode, data IComparable) (*AVLNode, bool) {
 		dir = 1
 	}
 	var done bool
-	root.link[dir], done = removeR(root.link[dir], data)
+	root.link[dir], done = root.link[dir].removeR(data)
 	if done {
 		return root, true
 	}
@@ -161,5 +166,5 @@ func removeR(root *AVLNode, data IComparable) (*AVLNode, bool) {
 	case 0:
 		return root, false
 	}
-	return removeBalance(root, dir)
+	return root.removeBalance(dir)
 }
