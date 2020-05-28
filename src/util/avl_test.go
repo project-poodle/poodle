@@ -3,6 +3,7 @@ package util
 import (
 	"encoding/json"
 	"fmt"
+	"testing"
 )
 
 type intKey struct {
@@ -23,7 +24,7 @@ func (k intKey) Equal(k2 IObject) bool {
 	return k.int == k2.(intKey).int
 }
 
-func main() {
+func TestAVL(t *testing.T) {
 	tree := &AVLTree{}
 	fmt.Println("Empty Tree:")
 	avl, _ := json.MarshalIndent(tree, "", "   ")
