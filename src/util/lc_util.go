@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"strings"
 
+	"../collection"
 	"github.com/howeyc/gopass"
 )
 
@@ -237,7 +238,7 @@ func lc_load_key_data(filepath string) ([]byte, error) {
 	binary.BigEndian.PutUint32(compute_crc, crc32.ChecksumIEEE(data))
 
 	content_crc := output[n-4 : n]
-	if !EqualByteArray(compute_crc, content_crc) {
+	if !collection.EqualByteArray(compute_crc, content_crc) {
 		return nil, fmt.Errorf("[%s] computed CRC does not match content CRC", filepath)
 	}
 
@@ -316,7 +317,7 @@ func lc_save_pub_key(cls int, id string, pub_key *big.Int) error {
 
 	pub_key_filepath := lc_get_pub_key_path(cls, id)
 
-	pub_key_bytes := BigIntToByteArray(pub_key)
+	pub_key_bytes := collection.BigIntToByteArray(pub_key)
 	pub_key_crc := make([]byte, 4)
 	binary.BigEndian.PutUint32(pub_key_crc, crc32.ChecksumIEEE(pub_key_bytes))
 	pub_data := append(pub_key_bytes[:], pub_key_crc[:]...)
@@ -355,12 +356,12 @@ func lc_save_key_pair(cls int, id string, pub_key, priv_key *big.Int, secret []b
 		return err
 	}
 
-	pub_key_bytes := BigIntToByteArray(pub_key)
+	pub_key_bytes := collection.BigIntToByteArray(pub_key)
 	pub_key_crc := make([]byte, 4)
 	binary.BigEndian.PutUint32(pub_key_crc, crc32.ChecksumIEEE(pub_key_bytes))
 	pub_data := append(pub_key_bytes[:], pub_key_crc[:]...)
 
-	priv_key_bytes := BigIntToByteArray(priv_key)
+	priv_key_bytes := collection.BigIntToByteArray(priv_key)
 	ciphertext := aesgcm.Seal(nil, nonce, priv_key_bytes, nil)
 	priv_encrypted := append(nonce[:], ciphertext[:]...)
 	priv_encrypted_crc := make([]byte, 4)

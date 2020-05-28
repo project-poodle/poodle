@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"time"
 	//"encoding/binary"
+	"../collection"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -250,7 +251,7 @@ func (r *MappedRecord) Decode() (err error) {
 		if len(r.buf) < pos {
 			return fmt.Errorf("MappedRecord::Decode - invalid buf, no timestamp, %d, %x", len(r.buf), r.buf)
 		}
-		r.timestamp, err = BytesToTime(r.buf[pos:])
+		r.timestamp, err = collection.BytesToTime(r.buf[pos:])
 		if err != nil {
 			return err
 		} else {
@@ -266,8 +267,8 @@ func (r *MappedRecord) Decode() (err error) {
 			r.signature_r = nil
 			r.signature_s = nil
 		} else {
-			r.signature_r = ByteArrayToBigInt(r.buf[pos : pos+32])
-			r.signature_s = ByteArrayToBigInt(r.buf[pos+32 : pos+64])
+			r.signature_r = collection.ByteArrayToBigInt(r.buf[pos : pos+32])
+			r.signature_s = collection.ByteArrayToBigInt(r.buf[pos+32 : pos+64])
 			pos += 64
 		}
 	}
@@ -436,12 +437,12 @@ func (r *Record) Encode() ([]byte, error) {
 	if r.timestamp != nil {
 
 		buf[0] |= 0x01
-		buf = append(buf, TimeToBytes(r.timestamp)...)
+		buf = append(buf, collection.TimeToBytes(r.timestamp)...)
 
 		// encode signature
 		if r.signature_r != nil && r.signature_s != nil {
-			buf = append(buf, BigIntToByteArray(r.signature_r)...)
-			buf = append(buf, BigIntToByteArray(r.signature_s)...)
+			buf = append(buf, collection.BigIntToByteArray(r.signature_r)...)
+			buf = append(buf, collection.BigIntToByteArray(r.signature_s)...)
 		}
 	}
 

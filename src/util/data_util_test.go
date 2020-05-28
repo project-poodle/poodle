@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 	//"strconv"
+	"../collection"
 )
 
 var dataTestCases = []struct {
@@ -29,7 +30,7 @@ func TestData(t *testing.T) {
 		if err != nil {
 			t.Errorf("error occurred: %s", err)
 		}
-		if !EqualByteArray(gotData, tt.wantData) || gotCode != tt.wantCode {
+		if !collection.EqualByteArray(gotData, tt.wantData) || gotCode != tt.wantCode {
 			t.Errorf("(%v, parent=%t): got %v (%x); want %v (%x)",
 				tt.input, tt.parent, gotData, gotCode, tt.wantData, tt.wantCode)
 		}
@@ -131,7 +132,7 @@ func testDataEqual(d1, d2 IData, t *testing.T) bool {
 	}
 
 	if d1.IsPrimitive() {
-		return d2.IsPrimitive() && EqualByteArray(d1.Data(), d2.Data())
+		return d2.IsPrimitive() && collection.EqualByteArray(d1.Data(), d2.Data())
 	}
 
 	if d1.IsDataArray() {

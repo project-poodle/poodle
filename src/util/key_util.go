@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"reflect"
+
+	"../collection"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -15,8 +17,8 @@ type IKey interface {
 	////////////////////////////////////////
 	// embeded interfaces
 	IEncodable
-	IHashable
-	IPrintable
+	collection.IHashable
+	collection.IPrintable
 
 	////////////////////////////////////////
 	// accessor to elements
@@ -79,7 +81,7 @@ func (k *EmptyKey) CopyConstruct() (IEncodable, error) {
 	return NewEmptyKey(), nil
 }
 
-func (k *EmptyKey) Equal(o IObject) bool {
+func (k *EmptyKey) Equal(o collection.IObject) bool {
 	if o == nil {
 		return false
 	}
@@ -247,7 +249,7 @@ func (k *MappedKey) CopyConstruct() (IEncodable, error) {
 	return result, nil
 }
 
-func (k *MappedKey) Equal(o IObject) bool {
+func (k *MappedKey) Equal(o collection.IObject) bool {
 	if o == nil {
 		return false
 	}
@@ -262,7 +264,7 @@ func (k *MappedKey) Equal(o IObject) bool {
 	}
 
 	for i, key := range k.keys {
-		if !EqualByteArray(key, obj.SubKeyAt(i)) {
+		if !collection.EqualByteArray(key, obj.SubKeyAt(i)) {
 			return false
 		}
 	}
@@ -285,7 +287,7 @@ func (k *MappedKey) ToString() string {
 			str += fmt.Sprintf("\n    subKey[%d] = %v", i, subKey)
 		}
 	}
-	str += fmt.Sprintf("\n    buf = %v", k.buf[:MinInt(len(k.buf), 32)])
+	str += fmt.Sprintf("\n    buf = %v", k.buf[:collection.MinInt(len(k.buf), 32)])
 	return str
 }
 
@@ -421,7 +423,7 @@ func (k *Key) HashUint32(f func([]byte) uint32) uint32 {
 	return hashValue
 }
 
-func (k *Key) Equal(o IObject) bool {
+func (k *Key) Equal(o collection.IObject) bool {
 	if o == nil {
 		return false
 	}
@@ -436,7 +438,7 @@ func (k *Key) Equal(o IObject) bool {
 	}
 
 	for i, key := range k.keys {
-		if !EqualByteArray(key, obj.SubKeyAt(i)) {
+		if !collection.EqualByteArray(key, obj.SubKeyAt(i)) {
 			return false
 		}
 	}
@@ -451,7 +453,7 @@ func (k *Key) ToString() string {
 	for i, subKey := range k.keys {
 		str += fmt.Sprintf("\n    subKey[%d] = %v", i, subKey)
 	}
-	str += fmt.Sprintf("\n    buf = %v", k.buf[:MinInt(len(k.buf), 32)])
+	str += fmt.Sprintf("\n    buf = %v", k.buf[:collection.MinInt(len(k.buf), 32)])
 
 	return str
 }

@@ -1,4 +1,4 @@
-package util
+package collection
 
 type IPrintable interface {
 	ToString() string

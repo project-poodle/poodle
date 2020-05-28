@@ -1,4 +1,4 @@
-package util
+package collection
 
 // This code is an adoption of the original implementation at:
 // https://www.golangprograms.com/golang-program-for-implementation-of-avl-trees.html
@@ -90,9 +90,9 @@ func (root *AVLNode) insertBalance(dir int) *AVLNode {
 }
 
 func (root *AVLNode) putR(data IComparable) (*AVLNode, bool) {
-	// if root == nil {
-	// 	return &AVLNode{data: data}, false
-	// }
+	if root == nil {
+		return &AVLNode{data: data}, false
+	}
 	dir := 0
 	if root.data.Equal(data) {
 		root.data = data // if data is the same, replace the data and return

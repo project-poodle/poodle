@@ -1,6 +1,10 @@
 package util
 
-import "fmt"
+import (
+	"fmt"
+
+	"../collection"
+)
 
 ////////////////////////////////////////////////////////////////////////////////
 // Interfaces
@@ -11,15 +15,16 @@ type ITrie interface {
 	////////////////////////////////////////
 	// embedded interfaces
 	IEncodable
-	IPrintable
+	collection.IPrintable
 
 	////////////////////////////////////////
 	// accessor to elements
-	Get(IKey) (IData, error)                      // get
-	Set(IKey, IData) error                        // set
-	Keys(IKey) []IKey                             // get a list of keys
-	KeyIterator() func() IKey                     // return iterator for all keys
-	KeyRangeIterator(start, end IKey) func() IKey // return iterator for key within given range
+	Get(IKey) (IData, error) // get
+	Set(IKey, IData) error   // set
+
+	// Iterators
+	Iterator(key IKey) func() (IKey, IData)             // nil key param returns iterator for all keys, otherwise return iterator for specified key and children
+	RangeIterator(start, end IKey) func() (IKey, IData) // return iterator for keys within given range
 }
 
 type ITrieNode interface {
@@ -27,25 +32,27 @@ type ITrieNode interface {
 	////////////////////////////////////////
 	// embedded interfaces
 	IEncodable
-	IPrintable
+	collection.IPrintable
 
 	////////////////////////////////////////
-	// accessor to elements
+	// accessor to elements - parent, children, and keys
 	FullKey() IKey                              // return full key
 	NodeKey() []byte                            // trie node key is a sub key of IKey
-	NodeType() byte                             // node type : 0x01 is Key, 0x02 is Attribute Group
 	Parent() ITrieNode                          // link to parent
 	Children() map[string]ITrieNode             // a list of children
 	ChildSize() int                             // child size
 	ChildAt(nodeKey []byte) ITrieNode           // get i-th child
 	PutChild(nodeKey []byte, n ITrieNode) error // add child (automatically sort)
 	RemoveChild(nodeKey []byte) error           // remote child
-	GetData() IData                             // get associated data
-	SetData(IData) error                        // set associated data
+
+	////////////////////////////////////////
+	// data
+	Data() IData         // get associated data
+	SetData(IData) error // set associated data
 
 	////////////////////////////////////////
 	// offset
-	GetOffset() uint32      // get offset when this TrieNode is encoded
+	Offset() uint32         // get offset when this TrieNode is encoded
 	SetOffset(uint32) error // set offset when this TrieNode is encoded to
 }
 
@@ -98,7 +105,7 @@ func (t *MappedTrie) Get(k IKey) (IData, error) {
 
 	// return root data is key is nil
 	if k.IsNil() {
-		return t.root.GetData(), nil
+		return t.root.Data(), nil
 	}
 
 	currNode := t.root
@@ -112,7 +119,7 @@ func (t *MappedTrie) Get(k IKey) (IData, error) {
 	}
 
 	if currNode != nil {
-		return currNode.GetData(), nil
+		return currNode.Data(), nil
 	} else {
 		return nil, nil
 	}
@@ -122,56 +129,56 @@ func (t *MappedTrie) Set(IKey, IData) error {
 	return fmt.Errorf("MappedTrie::Set - set not supported")
 }
 
-func (t *MappedTrie) Keys(k IKey) []IKey {
+func (t *MappedTrie) Iterator(k IKey) func() (IKey, IData) {
 
 	if !t.decoded {
-		panic(fmt.Sprintf("MappedTrie::Get - not decoded"))
+		panic(fmt.Sprintf("MappedTrie::KeyIterator - not decoded"))
 	}
 
 	// return root data is key is nil
 	currNode := t.root
-	if !k.IsNil() {
-		for _, subKey := range k.Key() {
-			childNode := currNode.ChildAt(subKey)
-			if childNode == nil {
-				return nil // if not found, return nil
-			} else {
-				currNode = childNode // traverse down
-			}
-		}
-	}
+	f := func() (IKey, IData) {
+		result_k, result_d := t.root.FullKey(), t.root.Data()
 
-	if currNode == nil {
-		return nil
-	}
-
-	result := []IKey{}
-
-	// traverse children
-	traverse_stack := []ITrieNode{currNode}
-	for len(traverse_stack) != 0 {
-
-		currNode := traverse_stack[0]
-		if currNode.NodeType() == TRIE_NODE_TYPE_KEY {
-
-			// add to result
-			result = append(result, currNode.FullKey())
-			for _, child := range currNode.Children() {
-				if child.NodeType() == TRIE_NODE_TYPE_KEY {
-					traverse_stack = append(traverse_stack, child)
+		if !k.IsNil() {
+			for _, subKey := range k.Key() {
+				childNode := currNode.ChildAt(subKey)
+				if childNode == nil {
+					return nil // if not found, return nil
+				} else {
+					currNode = childNode // traverse down
 				}
 			}
 		}
 
-		traverse_stack = traverse_stack[1:]
+		if currNode == nil {
+			return nil
+		}
+
+		result := []IKey{}
+
+		// traverse children
+		traverse_stack := []ITrieNode{currNode}
+		for len(traverse_stack) != 0 {
+
+			currNode := traverse_stack[0]
+			if currNode.NodeType() == TRIE_NODE_TYPE_KEY {
+
+				// add to result
+				result = append(result, currNode.FullKey())
+				for _, child := range currNode.Children() {
+					if child.NodeType() == TRIE_NODE_TYPE_KEY {
+						traverse_stack = append(traverse_stack, child)
+					}
+				}
+			}
+
+			traverse_stack = traverse_stack[1:]
+		}
 	}
 
-	return result
-}
-
-func (t *MappedTrie) KeyIterator() func() IKey {
 	// TODO:
-	return nil
+	return f
 }
 
 func (t *MappedTrie) KeyRangeIterator(start, end IKey) func() IKey {
@@ -263,7 +270,7 @@ func (t *MappedTrie) ToString() string {
 	str := fmt.Sprintf("MappedTrie")
 
 	str += fmt.Sprintf("\n    root = %s", t.root.ToString())
-	str += fmt.Sprintf("\n    buf = %v", t.buf[:MinInt(len(t.buf), 32)])
+	str += fmt.Sprintf("\n    buf = %v", t.buf[:collection.MinInt(len(t.buf), 32)])
 
 	return str
 }
@@ -396,10 +403,10 @@ func (tn *MappedTrieNode) RemoveChild(nodeKey []byte) error {
 	return fmt.Errorf("MappedTrieNode::RemoteChild - not supported")
 }
 
-func (tn *MappedTrieNode) GetData() IData {
+func (tn *MappedTrieNode) Data() IData {
 
 	if !tn.decoded {
-		panic(fmt.Sprintf("MappedTrieNode::GetData - not decoded"))
+		panic(fmt.Sprintf("MappedTrieNode::Data - not decoded"))
 	}
 
 	return tn.data
@@ -504,7 +511,7 @@ func (tn *MappedTrieNode) Decode(IContext) (int, error) {
 	return pos, nil
 }
 
-func (tn *MappedTrieNode) GetOffset() uint32 {
+func (tn *MappedTrieNode) Offset() uint32 {
 	return tn.offset
 }
 
@@ -546,7 +553,7 @@ func (tn *MappedTrieNode) ToString() string {
 	}
 	str += fmt.Sprintf("\n    data = %v", tn.data)
 	str += fmt.Sprintf("\n    offset = %d", tn.offset)
-	str += fmt.Sprintf("\n    buf = %v", tn.buf[:MinInt(len(tn.buf), 32)])
+	str += fmt.Sprintf("\n    buf = %v", tn.buf[:collection.MinInt(len(tn.buf), 32)])
 
 	return str
 }
