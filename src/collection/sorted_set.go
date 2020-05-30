@@ -15,7 +15,7 @@ func NewSortedSet() *SortedSet {
 
 func (m *SortedSet) Exist(k IComparable) bool {
 	node := m.tree.Get(k)
-	if node != nil {
+	if !IsNil(node) {
 		return true
 	} else {
 		return false
@@ -24,7 +24,7 @@ func (m *SortedSet) Exist(k IComparable) bool {
 
 func (m *SortedSet) Put(k IComparable) IComparable {
 	node := m.tree.Put(k, nil)
-	if node != nil {
+	if !IsNil(node) {
 		return node.key
 	} else {
 		return nil
@@ -33,7 +33,7 @@ func (m *SortedSet) Put(k IComparable) IComparable {
 
 func (m *SortedSet) Remove(k IComparable) IComparable {
 	node := m.tree.Remove(k)
-	if node != nil {
+	if !IsNil(node) {
 		return node.key
 	} else {
 		return nil
@@ -42,7 +42,7 @@ func (m *SortedSet) Remove(k IComparable) IComparable {
 
 func (i *SortedSetIterator) Next() IObject {
 	node := i.iter.Next().(*AVLNode)
-	if node != nil {
+	if !IsNil(node) {
 		return node.key
 	} else {
 		return nil
