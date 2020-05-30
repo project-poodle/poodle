@@ -27,14 +27,24 @@ func (t *AVLTree) Put(data IComparable) {
 		t.root = &AVLNode{data: data}
 		return
 	} else {
-		t.root, _ = t.root.putR(data)
+		t.root, _ = insertR(t.root, data)
 	}
 }
 
 // Remove a single item from an AVL tree.
 func (t *AVLTree) Remove(data IComparable) {
-	t.root, _ = t.root.removeR(data)
+	t.root, _ = removeR(t.root, data)
 }
+
+// Insert a node into the AVL tree.
+//func Insert(tree *AVLTree, data IComparable) {
+//	tree.root, _ = insertR(tree.root, data)
+//}
+
+// Remove a single item from an AVL tree.
+//func Remove(tree *AVLTree, data IComparable) {
+//	tree.root, _ = removeR(tree.root, data)
+//}
 
 func (i *AVLIterator) Next() IObject {
 
@@ -102,7 +112,7 @@ func opp(dir int) int {
 }
 
 // single rotation
-func (root *AVLNode) single(dir int) *AVLNode {
+func single(root *AVLNode, dir int) *AVLNode {
 	save := root.link[opp(dir)]
 	root.link[opp(dir)] = save.link[dir]
 	save.link[dir] = root
@@ -110,7 +120,7 @@ func (root *AVLNode) single(dir int) *AVLNode {
 }
 
 // double rotation
-func (root *AVLNode) double(dir int) *AVLNode {
+func double(root *AVLNode, dir int) *AVLNode {
 	save := root.link[opp(dir)].link[dir]
 
 	root.link[opp(dir)].link[dir] = save.link[opp(dir)]
@@ -124,7 +134,7 @@ func (root *AVLNode) double(dir int) *AVLNode {
 }
 
 // adjust valance factors after double rotation
-func (root *AVLNode) adjustBalance(dir, bal int) {
+func adjustBalance(root *AVLNode, dir, bal int) {
 	n := root.link[dir]
 	nn := n.link[opp(dir)]
 	switch nn.balance {
@@ -141,31 +151,32 @@ func (root *AVLNode) adjustBalance(dir, bal int) {
 	nn.balance = 0
 }
 
-func (root *AVLNode) insertBalance(dir int) *AVLNode {
+func insertBalance(root *AVLNode, dir int) *AVLNode {
 	n := root.link[dir]
 	bal := 2*dir - 1
 	if n.balance == bal {
 		root.balance = 0
 		n.balance = 0
-		return root.single(opp(dir))
+		return single(root, opp(dir))
 	}
-	root.adjustBalance(dir, bal)
-	return root.double(opp(dir))
+	adjustBalance(root, dir, bal)
+	return double(root, opp(dir))
 }
 
-func (root *AVLNode) putR(data IComparable) (*AVLNode, bool) {
+func insertR(root *AVLNode, data IComparable) (*AVLNode, bool) {
 	if root == nil {
 		return &AVLNode{data: data}, false
 	}
-	dir := 0
 	if root.data.Equal(data) {
-		root.data = data // if data is the same, replace the data and return
+		root.data = data
 		return root, true
-	} else if root.data.Compare(data) < 0 {
+	}
+	dir := 0
+	if root.data.Compare(data) < 0 {
 		dir = 1
 	}
 	var done bool
-	root.link[dir], done = root.link[dir].putR(data)
+	root.link[dir], done = insertR(root.link[dir], data)
 	if done {
 		return root, true
 	}
@@ -176,29 +187,30 @@ func (root *AVLNode) putR(data IComparable) (*AVLNode, bool) {
 	case 1, -1:
 		return root, false
 	}
-	return root.insertBalance(dir), true
+	return insertBalance(root, dir), true
 }
 
-func (root *AVLNode) removeBalance(dir int) (*AVLNode, bool) {
+func removeBalance(root *AVLNode, dir int) (*AVLNode, bool) {
 	n := root.link[opp(dir)]
 	bal := 2*dir - 1
 	switch n.balance {
 	case -bal:
 		root.balance = 0
 		n.balance = 0
-		return root.single(dir), false
+		return single(root, dir), false
 	case bal:
-		root.adjustBalance(opp(dir), -bal)
-		return root.double(dir), false
+		adjustBalance(root, opp(dir), -bal)
+		return double(root, dir), false
 	}
 	root.balance = -bal
 	n.balance = bal
-	return root.single(dir), true
+	return single(root, dir), true
 }
 
-func (root *AVLNode) removeR(data IComparable) (*AVLNode, bool) {
+func removeR(root *AVLNode, data IComparable) (*AVLNode, bool) {
 	if root == nil {
-		return nil, false
+		//return nil, false
+		return nil, true
 	}
 	if root.data.Equal(data) {
 		switch {
@@ -219,7 +231,7 @@ func (root *AVLNode) removeR(data IComparable) (*AVLNode, bool) {
 		dir = 1
 	}
 	var done bool
-	root.link[dir], done = root.link[dir].removeR(data)
+	root.link[dir], done = removeR(root.link[dir], data)
 	if done {
 		return root, true
 	}
@@ -230,5 +242,5 @@ func (root *AVLNode) removeR(data IComparable) (*AVLNode, bool) {
 	case 0:
 		return root, false
 	}
-	return root.removeBalance(dir)
+	return removeBalance(root, dir)
 }
