@@ -22,17 +22,19 @@ type AVLIterator struct {
 }
 
 // Get a node from the AVL tree.
-//func (t *AVLTree) Get(data IComparable) IComparable {
-//	if t.root == nil {
-//		return nil
-//	}
-//
-//	return getR(t.root, data)
-//}
+func (t *AVLTree) Get(data IComparable) IComparable {
+	if t.root == nil {
+		return nil
+	}
+
+	return t.root.getR(data).data
+}
 
 // Put a node into the AVL tree.
 func (t *AVLTree) Put(data IComparable) {
-	if t.root == nil {
+	if data == nil {
+		panic("AVLTree::Put - data is nil")
+	} else if t.root == nil {
 		t.root = &AVLNode{data: data}
 		return
 	} else {
@@ -42,18 +44,12 @@ func (t *AVLTree) Put(data IComparable) {
 
 // Remove a single item from an AVL tree.
 func (t *AVLTree) Remove(data IComparable) {
-	t.root, _ = t.root.removeR(data)
+	if data == nil {
+		panic("AVLTree::Remove - data is nil")
+	} else {
+		t.root, _ = t.root.removeR(data)
+	}
 }
-
-// Insert a node into the AVL tree.
-//func Insert(tree *AVLTree, data IComparable) {
-//	tree.root, _ = putR(tree.root, data)
-//}
-
-// Remove a single item from an AVL tree.
-//func Remove(tree *AVLTree, data IComparable) {
-//	tree.root, _ = removeR(tree.root, data)
-//}
 
 func (i *AVLIterator) Next() IObject {
 
@@ -252,4 +248,20 @@ func (root *AVLNode) removeR(data IComparable) (*AVLNode, bool) {
 		return root, false
 	}
 	return root.removeBalance(dir)
+}
+
+func (root *AVLNode) getR(data IComparable) *AVLNode {
+	if root.data.Equal(data) {
+		root.data = data
+		return root
+	}
+	dir := 0
+	if root.data.Compare(data) < 0 {
+		dir = 1
+	}
+	if root.link[dir] != nil {
+		return root.link[dir].getR(data)
+	} else {
+		return nil
+	}
 }
