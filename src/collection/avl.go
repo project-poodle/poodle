@@ -1,6 +1,10 @@
 package collection
 
-import "fmt"
+import (
+	"fmt"
+	"io"
+	"strconv"
+)
 
 // This code is an adoption of the original implementation at:
 // https://www.golangprograms.com/golang-program-for-implementation-of-avl-trees.html
@@ -37,7 +41,7 @@ func (t *AVLTree) Put(key IComparable, value IObject) *AVLNode {
 		panic("AVLTree::Put - key is nil")
 	} else if t.root == nil {
 		t.root = &AVLNode{key: key, value: value}
-		return t.root
+		return nil
 	} else {
 		var node *AVLNode
 		t.root, node, _ = t.root.putR(key, value)
@@ -115,6 +119,17 @@ func (t *AVLTree) Iterator() IIterator {
 	iter := &AVLIterator{paths: []*AVLNode{}, currNode: t.root, currPos: 0}
 
 	return iter
+}
+
+func (t *AVLTree) Print(w io.Writer, indent int) {
+	fmt.Fprintf(w, "%"+strconv.Itoa(indent)+"vAVLTree:\n", "")
+	if t.root != nil {
+		t.root.Print(w, indent+4)
+	}
+}
+
+func (t *AVLTree) ToString() string {
+	return fmt.Sprintf("AVLTree: %s", Ternary(t.root == nil, nil, t.root.ToString()))
 }
 
 func opp(dir int) int {
@@ -258,7 +273,7 @@ func (root *AVLNode) removeR(key IComparable) (*AVLNode, *AVLNode, bool) {
 	var done bool
 	var node *AVLNode
 	root.link[dir], node, done = root.link[dir].removeR(key)
-	if found != nil {
+	if IsNil(found) {
 		found = node
 	}
 	if done {
@@ -288,4 +303,43 @@ func (root *AVLNode) getR(key IComparable) *AVLNode {
 	} else {
 		return nil
 	}
+}
+
+func (root *AVLNode) Print(w io.Writer, indent int) {
+	var l1, l2 IComparable
+	if root.link[0] != nil {
+		l1 = root.link[0].key
+	}
+	if root.link[1] != nil {
+		l2 = root.link[1].key
+	}
+	fmt.Fprintf(w, "%"+strconv.Itoa(indent)+"vk=%v, v=%v, b=%d, l=[%v, %v]\n",
+		"",
+		root.key,
+		root.value,
+		root.balance,
+		l1,
+		l2)
+	if root.link[0] != nil {
+		root.link[0].Print(w, indent+4)
+	}
+	if root.link[1] != nil {
+		root.link[1].Print(w, indent+4)
+	}
+}
+
+func (root *AVLNode) ToString() string {
+	var l1, l2 IComparable
+	if root.link[0] != nil {
+		l1 = root.link[0].key
+	}
+	if root.link[1] != nil {
+		l2 = root.link[1].key
+	}
+	return fmt.Sprintf("k=%v, v=%v, b=%d, l=[%v, %v]",
+		root.key,
+		root.value,
+		root.balance,
+		l1,
+		l2)
 }

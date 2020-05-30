@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math/big"
+	"reflect"
 	"time"
 )
 
@@ -21,6 +22,17 @@ func Ternary(statement bool, a, b interface{}) interface{} {
 		return a
 	}
 	return b
+}
+
+func IsNil(i interface{}) bool {
+	if i == nil {
+		return true
+	}
+	switch reflect.TypeOf(i).Kind() {
+	case reflect.Ptr, reflect.Map, reflect.Array, reflect.Chan, reflect.Slice:
+		return reflect.ValueOf(i).IsNil()
+	}
+	return false
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -198,6 +210,10 @@ func EqualByteArray(a, b []byte) bool {
 		return false
 	}
 
+	if a == nil && b == nil {
+		return true
+	}
+
 	if len(a) != len(b) {
 		return false
 	}
@@ -216,6 +232,10 @@ func EqualInt8Array(a, b []int8) bool {
 	// If one is nil, the other must also be nil.
 	if (a == nil) != (b == nil) {
 		return false
+	}
+
+	if a == nil && b == nil {
+		return true
 	}
 
 	if len(a) != len(b) {
@@ -238,6 +258,10 @@ func EqualInt16Array(a, b []int16) bool {
 		return false
 	}
 
+	if a == nil && b == nil {
+		return true
+	}
+
 	if len(a) != len(b) {
 		return false
 	}
@@ -256,6 +280,10 @@ func EqualUint16Array(a, b []uint16) bool {
 	// If one is nil, the other must also be nil.
 	if (a == nil) != (b == nil) {
 		return false
+	}
+
+	if a == nil && b == nil {
+		return true
 	}
 
 	if len(a) != len(b) {
@@ -278,6 +306,10 @@ func EqualInt32Array(a, b []int32) bool {
 		return false
 	}
 
+	if a == nil && b == nil {
+		return true
+	}
+
 	if len(a) != len(b) {
 		return false
 	}
@@ -296,6 +328,10 @@ func EqualUint32Array(a, b []uint32) bool {
 	// If one is nil, the other must also be nil.
 	if (a == nil) != (b == nil) {
 		return false
+	}
+
+	if a == nil && b == nil {
+		return true
 	}
 
 	if len(a) != len(b) {
@@ -318,6 +354,10 @@ func EqualInt64Array(a, b []int64) bool {
 		return false
 	}
 
+	if a == nil && b == nil {
+		return true
+	}
+
 	if len(a) != len(b) {
 		return false
 	}
@@ -338,6 +378,10 @@ func EqualUint64Array(a, b []uint64) bool {
 		return false
 	}
 
+	if a == nil && b == nil {
+		return true
+	}
+
 	if len(a) != len(b) {
 		return false
 	}
@@ -356,6 +400,10 @@ func EqualIntArray(a, b []int) bool {
 	// If one is nil, the other must also be nil.
 	if (a == nil) != (b == nil) {
 		return false
+	}
+
+	if a == nil && b == nil {
+		return true
 	}
 
 	if len(a) != len(b) {
