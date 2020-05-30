@@ -30,7 +30,7 @@ func TestAVL(t *testing.T) {
 	//avl, _ := json.MarshalIndent(tree, "", "   ")
 	//fmt.Println(string(avl))
 	for iter := tree.Iterator(); iter.HasNext(); {
-		time.Sleep(300 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 		fmt.Println(iter.Next())
 	}
 
@@ -51,25 +51,22 @@ func TestAVL(t *testing.T) {
 	//avl, _ = json.MarshalIndent(tree, "", "   ")
 	//fmt.Println(string(avl))
 	for iter := tree.Iterator(); iter.HasNext(); {
-		time.Sleep(300 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 		fmt.Println(iter.Next())
 	}
 
 	fmt.Println("\nRemove Tree:")
 	tree.Remove(intKey{4})
-	fmt.Println("\n     Removed 4 successfully!")
 	tree.Remove(intKey{6})
-	fmt.Println("\n     Removed 6 successfully!")
 	tree.Remove(intKey{1})
-	fmt.Println("\n     Removed 1 successfully!")
 	tree.Remove(intKey{4})
-	fmt.Println("\n     Removed 4 successfully!")
 	tree.Remove(intKey{1})
-	fmt.Println("\n     Removed 1 successfully!")
+	tree.Remove(intKey{9})
+	tree.Remove(intKey{9})
 	//avl, _ = json.MarshalIndent(tree, "", "   ")
 	//fmt.Println(string(avl))
 	for iter := tree.Iterator(); iter.HasNext(); {
-		time.Sleep(300 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 		fmt.Println(iter.Next())
 	}
 
