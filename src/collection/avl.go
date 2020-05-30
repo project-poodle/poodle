@@ -1,12 +1,9 @@
 package collection
 
+import "fmt"
+
 // This code is an adoption of the original implementation at:
 // https://www.golangprograms.com/golang-program-for-implementation-of-avl-trees.html
-
-//type Key interface {
-//	Less(Key) bool
-//	Eq(Key) bool
-//}
 
 type AVLTree struct {
 	root *AVLNode
@@ -16,6 +13,12 @@ type AVLNode struct {
 	data    IComparable
 	balance int
 	link    [2]*AVLNode
+}
+
+type AVLIterator struct {
+	paths    []*AVLNode
+	currNode *AVLNode
+	currPos  int
 }
 
 // Put a node into the AVL tree.
@@ -31,6 +34,67 @@ func (t *AVLTree) Put(data IComparable) {
 // Remove a single item from an AVL tree.
 func (t *AVLTree) Remove(data IComparable) {
 	t.root, _ = t.root.removeR(data)
+}
+
+func (i *AVLIterator) Next() IObject {
+
+	if len(i.paths) == 0 && i.currNode == nil {
+		return nil
+	}
+
+	switch i.currPos {
+
+	case 0:
+		for i.currNode.link[0] != nil {
+			i.paths = append(i.paths, i.currNode)
+			i.currNode = i.currNode.link[0]
+		}
+		data := i.currNode.data
+		i.currPos = 1
+		if i.currNode.link[1] != nil {
+			i.currNode = i.currNode.link[1]
+			i.currPos = 0
+		}
+		return data
+
+	case 1:
+		if len(i.paths) != 0 {
+			i.currNode = i.paths[len(i.paths)-1]
+			i.currPos = 0
+			i.paths = i.paths[:len(i.paths)-1]
+		}
+		if len(i.paths) == 0 && i.currPos == 1 {
+			i.currNode = nil
+			return nil
+		} else {
+			data := i.currNode.data
+			i.currPos = 1
+			if i.currNode.link[1] != nil {
+				i.currNode = i.currNode.link[1]
+				i.currPos = 0
+			}
+			return data
+		}
+
+	//case 2:
+	default:
+		panic(fmt.Sprintf("AVLIterator::Next - unknown currPos %d", i.currPos))
+	}
+}
+
+func (i *AVLIterator) HasNext() bool {
+
+	isEmpty := len(i.paths) == 0 && (i.currNode == nil || i.currPos == 1)
+
+	return !isEmpty
+}
+
+// Return an iterator of the AVL tree.
+func (t *AVLTree) Iterator() IIterator {
+
+	iter := &AVLIterator{paths: []*AVLNode{}, currNode: t.root, currPos: 0}
+
+	return iter
 }
 
 func opp(dir int) int {

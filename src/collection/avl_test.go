@@ -1,9 +1,9 @@
 package collection
 
 import (
-	"encoding/json"
 	"fmt"
 	"testing"
+	"time"
 )
 
 type intKey struct {
@@ -27,8 +27,12 @@ func (k intKey) Equal(k2 IObject) bool {
 func TestAVL(t *testing.T) {
 	tree := &AVLTree{}
 	fmt.Println("Empty Tree:")
-	avl, _ := json.MarshalIndent(tree, "", "   ")
-	fmt.Println(string(avl))
+	//avl, _ := json.MarshalIndent(tree, "", "   ")
+	//fmt.Println(string(avl))
+	for iter := tree.Iterator(); iter.HasNext(); {
+		time.Sleep(300 * time.Millisecond)
+		fmt.Println(iter.Next())
+	}
 
 	fmt.Println("\nInsert Tree:")
 	tree.Put(intKey{4})
@@ -37,12 +41,31 @@ func TestAVL(t *testing.T) {
 	tree.Put(intKey{6})
 	tree.Put(intKey{6})
 	tree.Put(intKey{9})
-	avl, _ = json.MarshalIndent(tree, "", "   ")
-	fmt.Println(string(avl))
+	tree.Put(intKey{5})
+	tree.Put(intKey{3})
+	tree.Put(intKey{8})
+	tree.Put(intKey{3})
+	tree.Put(intKey{1})
+	//tree.Put(intKey{3})
+	//tree.Put(intKey{2})
+	//avl, _ = json.MarshalIndent(tree, "", "   ")
+	//fmt.Println(string(avl))
+	for iter := tree.Iterator(); iter.HasNext(); {
+		time.Sleep(300 * time.Millisecond)
+		fmt.Println(iter.Next())
+	}
 
 	fmt.Println("\nRemove Tree:")
 	tree.Remove(intKey{4})
 	tree.Remove(intKey{6})
-	avl, _ = json.MarshalIndent(tree, "", "   ")
-	fmt.Println(string(avl))
+	tree.Remove(intKey{1})
+	tree.Remove(intKey{4})
+	tree.Remove(intKey{1})
+	//avl, _ = json.MarshalIndent(tree, "", "   ")
+	//fmt.Println(string(avl))
+	for iter := tree.Iterator(); iter.HasNext(); {
+		time.Sleep(300 * time.Millisecond)
+		fmt.Println(iter.Next())
+	}
+
 }
