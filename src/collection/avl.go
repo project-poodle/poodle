@@ -10,7 +10,8 @@ type AVLTree struct {
 }
 
 type AVLNode struct {
-	data    IComparable
+	key     IComparable
+	value   IObject
 	balance int
 	link    [2]*AVLNode
 }
@@ -22,39 +23,46 @@ type AVLIterator struct {
 }
 
 // Get a node from the AVL tree.
-func (t *AVLTree) Get(data IComparable) IComparable {
+func (t *AVLTree) Get(data IComparable) (IComparable, IObject) {
 	if t.root == nil {
-		return nil
+		return nil, nil
 	}
 
-	return t.root.getR(data).data
+	node := t.root.getR(data)
+	if node != nil {
+		return node.key, node.value
+	} else {
+		return nil, nil
+	}
 }
 
 // Put a node into the AVL tree.
-func (t *AVLTree) Put(data IComparable) {
-	if data == nil {
-		panic("AVLTree::Put - data is nil")
+func (t *AVLTree) Put(key IComparable, value IObject) {
+	if key == nil {
+		panic("AVLTree::Put - key is nil")
 	} else if t.root == nil {
-		t.root = &AVLNode{data: data}
+		t.root = &AVLNode{key: key, value: value}
 		return
 	} else {
-		t.root, _ = t.root.putR(data)
+		t.root, _ = t.root.putR(key, value)
 	}
 }
 
 // Remove a single item from an AVL tree.
-func (t *AVLTree) Remove(data IComparable) {
-	if data == nil {
+func (t *AVLTree) Remove(key IComparable) IObject {
+	if key == nil {
 		panic("AVLTree::Remove - data is nil")
 	} else {
-		t.root, _ = t.root.removeR(data)
+		var value IObject
+		t.root, value, _ = t.root.removeR(key)
+		return value
 	}
 }
 
-func (i *AVLIterator) Next() IObject {
+func (i *AVLIterator) Next() (IComparable, IObject) {
 
 	if len(i.paths) == 0 && i.currNode == nil {
-		return nil
+		return nil, nil
 	}
 
 	switch i.currPos {
@@ -64,13 +72,13 @@ func (i *AVLIterator) Next() IObject {
 			i.paths = append(i.paths, i.currNode)
 			i.currNode = i.currNode.link[0]
 		}
-		data := i.currNode.data
+		resultKey, resultValue := i.currNode.key, i.currNode.value
 		i.currPos = 1
 		if i.currNode.link[1] != nil {
 			i.currNode = i.currNode.link[1]
 			i.currPos = 0
 		}
-		return data
+		return resultKey, resultValue
 
 	case 1:
 		if len(i.paths) != 0 {
@@ -80,15 +88,15 @@ func (i *AVLIterator) Next() IObject {
 		}
 		if len(i.paths) == 0 && i.currPos == 1 {
 			i.currNode = nil
-			return nil
+			return nil, nil
 		} else {
-			data := i.currNode.data
+			resultKey, resultValue := i.currNode.key, i.currNode.value
 			i.currPos = 1
 			if i.currNode.link[1] != nil {
 				i.currNode = i.currNode.link[1]
 				i.currPos = 0
 			}
-			return data
+			return resultKey, resultValue
 		}
 
 	//case 2:
@@ -105,7 +113,7 @@ func (i *AVLIterator) HasNext() bool {
 }
 
 // Return an iterator of the AVL tree.
-func (t *AVLTree) Iterator() IIterator {
+func (t *AVLTree) Iterator() ISortedMapIterator {
 
 	iter := &AVLIterator{paths: []*AVLNode{}, currNode: t.root, currPos: 0}
 
@@ -168,20 +176,21 @@ func (root *AVLNode) putBalance(dir int) *AVLNode {
 	return root.double(opp(dir))
 }
 
-func (root *AVLNode) putR(data IComparable) (*AVLNode, bool) {
+func (root *AVLNode) putR(key IComparable, value IObject) (*AVLNode, bool) {
 	if root == nil {
-		return &AVLNode{data: data}, false
+		return &AVLNode{key: key, value: value}, false
 	}
-	if root.data.Equal(data) {
-		root.data = data
+	if root.key.Equal(key) {
+		root.key = key
+		root.value = value
 		return root, true
 	}
 	dir := 0
-	if root.data.Compare(data) < 0 {
+	if root.key.Compare(key) < 0 {
 		dir = 1
 	}
 	var done bool
-	root.link[dir], done = root.link[dir].putR(data)
+	root.link[dir], done = root.link[dir].putR(key, value)
 	if done {
 		return root, true
 	}
@@ -212,55 +221,65 @@ func (root *AVLNode) removeBalance(dir int) (*AVLNode, bool) {
 	return root.single(dir), true
 }
 
-func (root *AVLNode) removeR(data IComparable) (*AVLNode, bool) {
+func (root *AVLNode) removeR(key IComparable) (*AVLNode, IObject, bool) {
 	if root == nil {
 		//return nil, false
-		return nil, true
+		return nil, nil, true
 	}
-	if root.data.Equal(data) {
+	if root.key.Equal(key) {
 		switch {
 		case root.link[0] == nil:
-			return root.link[1], false
+			if root.link[1] != nil {
+				return root.link[1], root.link[1].value, false
+			} else {
+				return nil, nil, true
+			}
 		case root.link[1] == nil:
-			return root.link[0], false
+			if root.link[0] != nil {
+				return root.link[0], root.link[0].value, false
+			} else {
+				return nil, nil, true
+			}
 		}
 		heir := root.link[0]
 		for heir.link[1] != nil {
 			heir = heir.link[1]
 		}
-		root.data = heir.data
-		data = heir.data
+		root.key = heir.key
+		root.value = heir.value
+		key = heir.key
 	}
 	dir := 0
-	if root.data.Compare(data) < 0 {
+	if root.key.Compare(key) < 0 {
 		dir = 1
 	}
 	var done bool
-	root.link[dir], done = root.link[dir].removeR(data)
+	var value IObject
+	root.link[dir], value, done = root.link[dir].removeR(key)
 	if done {
-		return root, true
+		return root, value, true
 	}
 	root.balance += 1 - 2*dir
 	switch root.balance {
 	case 1, -1:
-		return root, true
+		return root, value, true
 	case 0:
-		return root, false
+		return root, value, false
 	}
-	return root.removeBalance(dir)
+	resultRoot, resultDone := root.removeBalance(dir)
+	return resultRoot, value, resultDone
 }
 
-func (root *AVLNode) getR(data IComparable) *AVLNode {
-	if root.data.Equal(data) {
-		root.data = data
+func (root *AVLNode) getR(key IComparable) *AVLNode {
+	if root.key.Equal(key) {
 		return root
 	}
 	dir := 0
-	if root.data.Compare(data) < 0 {
+	if root.key.Compare(key) < 0 {
 		dir = 1
 	}
 	if root.link[dir] != nil {
-		return root.link[dir].getR(data)
+		return root.link[dir].getR(key)
 	} else {
 		return nil
 	}
