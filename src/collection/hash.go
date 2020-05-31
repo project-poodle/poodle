@@ -29,8 +29,11 @@
 package collection
 
 import (
+	"fmt"
+	"io"
 	"math"
 	"reflect"
+	"strconv"
 	"unsafe"
 )
 
@@ -119,7 +122,7 @@ func (h *Hash) Put(k IHashable, v IObject) *HashNode {
 	hashValue := k.HashUint32(h.seed.Hash) % uint32(len(h.array))
 
 	// iterate linked list
-	for currNode := h.array[hashValue]; currNode != nil; currNode = currNode.link {
+	for currNode := h.array[hashValue]; currNode != nil; {
 		if currNode.key.Equal(k) {
 			// return previous key/value
 			returnNode := &HashNode{key: currNode.key, value: currNode.value}
@@ -127,6 +130,7 @@ func (h *Hash) Put(k IHashable, v IObject) *HashNode {
 			currNode.value = v
 			return returnNode
 		}
+		currNode = currNode.link
 	}
 
 	// if not found, create new HashNode and insert to the head
@@ -143,18 +147,19 @@ func (h *Hash) Put(k IHashable, v IObject) *HashNode {
 	return nil
 }
 
-func (h *Hash) Remove(k IHashable, v IObject) *HashNode {
+func (h *Hash) Remove(k IHashable) *HashNode {
 
 	// compute hash value
 	hashValue := k.HashUint32(h.seed.Hash) % uint32(len(h.array))
 
 	// iterate linked list
 	prevNode := (*HashNode)(nil)
-	for currNode := h.array[hashValue]; currNode != nil; prevNode, currNode = currNode, currNode.link {
+	currNode := h.array[hashValue]
+	for currNode != nil {
 		if currNode.key.Equal(k) {
 			// return previous key/value
 			if prevNode == nil {
-				h.array[hashValue] = nil // clear currNode
+				h.array[hashValue] = currNode.link // clear currNode
 			} else {
 				prevNode.link = currNode.link // skip currNode
 				currNode.link = nil
@@ -169,6 +174,9 @@ func (h *Hash) Remove(k IHashable, v IObject) *HashNode {
 
 			return currNode
 		}
+
+		prevNode = currNode
+		currNode = currNode.link
 	}
 
 	// if not found
@@ -191,11 +199,14 @@ func (h *Hash) resize(newCapacity int) {
 	}
 
 	newArray := make([]*HashNode, newCapacity)
-	for iter := h.Iterator(); iter.HasNext(); {
-		node := iter.Next().(*HashNode)
-		hashValue := node.key.HashUint32(h.seed.Hash) % uint32(len(newArray))
-		prevNode := newArray[hashValue]
-		newArray[hashValue] = &HashNode{key: node.key, value: node.value, link: prevNode}
+	for _, node := range h.array {
+		currNode := node
+		for currNode != nil {
+			hashValue := currNode.key.HashUint32(h.seed.Hash) % uint32(len(newArray))
+			prevNode := newArray[hashValue]
+			newArray[hashValue] = &HashNode{key: currNode.key, value: currNode.value, link: prevNode}
+			currNode = currNode.link
+		}
 	}
 
 	// we have complect resize successfully, just
@@ -214,7 +225,7 @@ func (i *HashIterator) Next() IObject {
 
 func (i *HashIterator) HasNext() bool {
 	i.advance()
-	return i.pos >= len(i.hash.array) || i.currNode == nil
+	return i.pos < len(i.hash.array) && i.currNode != nil
 }
 
 func (i *HashIterator) advance() {
@@ -224,12 +235,47 @@ func (i *HashIterator) advance() {
 			return
 		}
 		i.pos += 1
+	}
+	if i.pos < len(i.hash.array) {
 		i.currNode = i.hash.array[i.pos]
 	}
 }
 
 func (h *Hash) Iterator() IIterator {
 	return &HashIterator{hash: h, pos: 0, currNode: nil}
+}
+
+func (h *Hash) Print(w io.Writer, indent int) {
+	fmt.Fprintf(w, "%"+strconv.Itoa(indent)+"s%s\n", "", h.ToString())
+	for _, hn := range h.array {
+		if !IsNil(hn) {
+			hn.Print(w, indent+4)
+		}
+	}
+}
+
+func (h *Hash) ToString() string {
+	return fmt.Sprintf("Hash: size=%d, capacity=%d, seed=%d, lf=%.2f, m=%.2f, ",
+		h.size,
+		len(h.array),
+		h.seed,
+		h.loadFactor,
+		h.multiplier)
+}
+
+func (h *HashNode) Print(w io.Writer, indent int) {
+	fmt.Fprintf(w, "%"+strconv.Itoa(indent)+"s%s\n", "", h.ToString())
+	if !IsNil(h.link) {
+		h.link.Print(w, indent+4)
+	}
+}
+
+func (h *HashNode) ToString() string {
+	if IsNil(h.link) {
+		return fmt.Sprintf("k=%v, v=%v, l=[%v]", h.key, h.value, nil)
+	} else {
+		return fmt.Sprintf("k=%v, v=%v, l=[%v]", h.key, h.value, h.link.key)
+	}
 }
 
 // Below code contains an optimized murmur3 32-bit implementation tailored for

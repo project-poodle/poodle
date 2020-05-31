@@ -26,6 +26,11 @@ type AVLIterator struct {
 	currPos  int
 }
 
+// create new AVL tree
+func NewAVLTree() *AVLTree {
+	return &AVLTree{}
+}
+
 // Get a node from the AVL tree.
 func (t *AVLTree) Get(data IComparable) *AVLNode {
 	if t.root == nil {

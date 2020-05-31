@@ -11,6 +11,10 @@ type intKey struct {
 	int
 }
 
+func (k *intKey) HashUint32(f func([]byte) uint32) uint32 {
+	return f([]byte{byte(k.int), byte(k.int >> 8), byte(k.int >> 16), byte(k.int >> 24)})
+}
+
 func (k *intKey) Compare(k2 IComparable) int {
 	if k.int == k2.(*intKey).int {
 		return 0
@@ -64,10 +68,9 @@ var avlRemoveCases = []struct {
 }
 
 func TestAVL(t *testing.T) {
-	tree := &AVLTree{}
+	tree := NewAVLTree()
 	fmt.Println("Empty Tree:")
-	//avl, _ := json.MarshalIndent(tree, "", "   ")
-	//fmt.Println(string(avl))
+	tree.Print(os.Stdout, 0)
 	for iter := tree.Iterator(); iter.HasNext(); {
 		time.Sleep(50 * time.Millisecond)
 		fmt.Println(iter.Next().(*AVLNode).ToString())
@@ -123,7 +126,7 @@ func TestAVL(t *testing.T) {
 
 	// put random
 	fmt.Println("\nPut Tree Random:")
-	putRandSize := int(randUint32() % 1000)
+	putRandSize := int(randUint32() % 500)
 	for i := 0; i < putRandSize; i++ {
 		value := int(randUint32() % 100)
 		tree.Put(&intKey{value}, &intKey{value * 5})
@@ -135,7 +138,7 @@ func TestAVL(t *testing.T) {
 
 	// remove random
 	fmt.Println("\nRemove Tree Random:")
-	removeRandSize := int(randUint32() % 100)
+	removeRandSize := int(randUint32() % 400)
 	for i := 0; i < removeRandSize; i++ {
 		value := int(randUint32() % 100)
 		tree.Remove(&intKey{value})
