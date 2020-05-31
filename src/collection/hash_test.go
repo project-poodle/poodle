@@ -23,8 +23,8 @@ var hashPutCases = []struct {
 	{&intKey{9}, &intKey{9 * 2}, nil, nil, 6},
 	{&intKey{3}, &intKey{3 * 2}, nil, nil, 7},
 	{&intKey{5}, &intKey{5 * 2}, nil, nil, 8},
+	{&intKey{3}, &intKey{3 * 3}, &intKey{3}, &intKey{3 * 2}, 8},
 	{&intKey{8}, &intKey{8 * 2}, nil, nil, 9},
-	{&intKey{3}, &intKey{3 * 3}, &intKey{3}, &intKey{3 * 2}, 9},
 	{&intKey{1}, &intKey{1 * 3}, &intKey{1}, &intKey{1 * 2}, 9},
 }
 
