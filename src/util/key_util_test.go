@@ -2,7 +2,8 @@ package util
 
 import (
 	"testing"
-	//"strconv"
+
+	"../collection"
 )
 
 var keyTestCases = []struct {
@@ -24,7 +25,7 @@ func TestKey(t *testing.T) {
 			t.Errorf("error occurred: %s", err)
 		}
 		gotData := tt.input.Buf()
-		if !EqualByteArray(gotData, tt.wantData) {
+		if !collection.EqualByteArray(gotData, tt.wantData) {
 			t.Errorf("(%v): got %v; want %v",
 				tt.input, gotData, tt.wantData)
 		}

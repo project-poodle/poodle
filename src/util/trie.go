@@ -144,7 +144,7 @@ func (t *MappedTrie) Iterator(k IKey) func() (IKey, IData) {
 			for _, subKey := range k.Key() {
 				childNode := currNode.ChildAt(subKey)
 				if childNode == nil {
-					return nil // if not found, return nil
+					return nil, nil // if not found, return nil
 				} else {
 					currNode = childNode // traverse down
 				}
@@ -152,7 +152,7 @@ func (t *MappedTrie) Iterator(k IKey) func() (IKey, IData) {
 		}
 
 		if currNode == nil {
-			return nil
+			return nil, nil
 		}
 
 		result := []IKey{}

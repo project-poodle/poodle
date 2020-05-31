@@ -3,6 +3,7 @@ package util
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
 	"reflect"
 
 	"../collection"
@@ -96,6 +97,10 @@ func (k *EmptyKey) Equal(o collection.IObject) bool {
 func (k *EmptyKey) HashUint32(f func([]byte) uint32) uint32 {
 	hashValue := uint32(0)
 	return hashValue
+}
+
+func (k *EmptyKey) Print(w io.Writer, indent int) {
+	fmt.Fprintf(w, "EmptyKey")
 }
 
 func (k *EmptyKey) ToString() string {
@@ -280,6 +285,16 @@ func (k *MappedKey) HashUint32(f func([]byte) uint32) uint32 {
 	return hashValue
 }
 
+func (k *MappedKey) Print(w io.Writer, indent int) {
+	fmt.Fprintf(w, "MappedKey:\n")
+	if k.decoded {
+		for i, subKey := range k.keys {
+			fmt.Fprintf(w, "    subKey[%d] = %v\n", i, subKey)
+		}
+	}
+	fmt.Fprintf(w, "    buf = %v\n", k.buf[:collection.MinInt(len(k.buf), 32)])
+}
+
 func (k *MappedKey) ToString() string {
 	str := fmt.Sprintf("MappedKey")
 	if k.decoded {
@@ -444,6 +459,15 @@ func (k *Key) Equal(o collection.IObject) bool {
 	}
 
 	return true
+}
+
+func (k *Key) Print(w io.Writer, indent int) {
+	fmt.Fprintf(w, "Key:\n")
+	for i, subKey := range k.keys {
+		fmt.Fprintf(w, "    subKey[%d] = %v\n", i, subKey)
+	}
+	fmt.Fprintf(w, "    buf = %v\n", k.buf[:collection.MinInt(len(k.buf), 32)])
+
 }
 
 func (k *Key) ToString() string {

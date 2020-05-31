@@ -2,6 +2,7 @@ package collection
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/binary"
 	"fmt"
 	"math/big"
@@ -502,5 +503,27 @@ func ByteArrayToUint32(buf []byte) uint32 {
 	if err != nil {
 		return 0
 	}
+	return data
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// utilities
+////////////////////////////////////////////////////////////////////////////////
+
+func randUint32() uint32 {
+	buf := make([]byte, 4)
+	_, err := rand.Read(buf)
+	if err != nil {
+		// this should not happen
+		panic(fmt.Sprintf("randUint32 - %s", err))
+	}
+
+	var data uint32
+	err = binary.Read(bytes.NewReader(buf), binary.BigEndian, &data)
+	if err != nil {
+		// this should not happen
+		panic(fmt.Sprintf("randUint32 - %s", err))
+	}
+
 	return data
 }

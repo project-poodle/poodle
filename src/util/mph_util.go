@@ -36,9 +36,9 @@ package util
 import (
 	"encoding/binary"
 	"fmt"
-	"reflect"
 	"sort"
-	"unsafe"
+
+	"../collection"
 )
 
 // A Table is an immutable hash table that provides constant-time lookups of key
@@ -274,13 +274,13 @@ func MPHBuild(keys []IKey, verify_by_key bool) *MPHTable {
 		level1        = make([]uint32, nextPow2(len(keys)))
 		level1Mask    = len(level1) - 1
 		sparseBuckets = make([][]int, len(level0))
-		zeroSeed      = MurmurSeed(0)
+		zeroSeed      = collection.MurmurSeed(0)
 		keyArray      = make([]IKey, len(keys))
 		verifySeed    = uint32(RandUint64Range(2^16, 2^32-1))
 	)
 	for i, s := range keys {
 		keyArray[i] = s
-		n := int(keyArray[i].HashUint32(zeroSeed.hash)) & level0Mask
+		n := int(keyArray[i].HashUint32(zeroSeed.Hash)) & level0Mask
 		sparseBuckets[n] = append(sparseBuckets[n], i)
 	}
 	var buckets []indexBucket
@@ -294,11 +294,11 @@ func MPHBuild(keys []IKey, verify_by_key bool) *MPHTable {
 	occ := make([]bool, len(level1))
 	var tmpOcc []int
 	for _, bucket := range buckets {
-		var seed MurmurSeed
+		var seed collection.MurmurSeed
 	trySeed:
 		tmpOcc = tmpOcc[:0]
 		for _, i := range bucket.vals {
-			n := int(keyArray[i].HashUint32(seed.hash)) & level1Mask
+			n := int(keyArray[i].HashUint32(seed.Hash)) & level1Mask
 			if occ[n] {
 				for _, n := range tmpOcc {
 					occ[n] = false
@@ -329,7 +329,7 @@ func MPHBuild(keys []IKey, verify_by_key bool) *MPHTable {
 			// verify by bloom filter key
 			// bloom filter key needs to be consistent for a given key, and can be different from actual key bytes
 			// different bloom key is a security measure, and is not required
-			verifyHash[i] = keys[i].HashUint32((MurmurSeed)(verifySeed).hash)
+			verifyHash[i] = keys[i].HashUint32((collection.MurmurSeed)(verifySeed).Hash)
 		}
 
 		return &MPHTable{
@@ -353,9 +353,9 @@ func nextPow2(n int) int {
 
 // Lookup searches for s in t and returns its index and whether it was found.
 func (t *MPHTable) Lookup(s IKey) (n uint32, ok bool) {
-	i0 := int(s.HashUint32(MurmurSeed(0).hash)) & t.level0Mask
+	i0 := int(s.HashUint32(collection.MurmurSeed(0).Hash)) & t.level0Mask
 	seed := t.level0[i0]
-	i1 := int(s.HashUint32(MurmurSeed(seed).hash)) & t.level1Mask
+	i1 := int(s.HashUint32(collection.MurmurSeed(seed).Hash)) & t.level1Mask
 	n = t.level1[i1]
 	if t.verifyKey != nil {
 		return n, s.Equal(t.verifyKey[int(n)])
@@ -363,7 +363,7 @@ func (t *MPHTable) Lookup(s IKey) (n uint32, ok bool) {
 		// verify by bloom filter key
 		// bloom filter key needs to be consistent for a given key, and can be different from actual key bytes
 		// different bloom key is a security measure, and is not required
-		verify_hash := s.HashUint32((MurmurSeed)(t.verifySeed).hash)
+		verify_hash := s.HashUint32((collection.MurmurSeed)(t.verifySeed).Hash)
 		return n, verify_hash == t.verifyHash[int(n)]
 	}
 }
@@ -378,66 +378,3 @@ type bySize []indexBucket
 func (s bySize) Len() int           { return len(s) }
 func (s bySize) Less(i, j int) bool { return len(s[i].vals) > len(s[j].vals) }
 func (s bySize) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
-
-// Below code contains an optimized murmur3 32-bit implementation tailored for
-// our specific use case. See https://en.wikipedia.org/wiki/MurmurHash.
-
-// A murmurSeed is the initial state of a Murmur3 hash.
-type MurmurSeed uint32
-
-const (
-	c1      = 0xcc9e2d51
-	c2      = 0x1b873593
-	r1Left  = 15
-	r1Right = 32 - r1Left
-	r2Left  = 13
-	r2Right = 32 - r2Left
-	m       = 5
-	n       = 0xe6546b64
-)
-
-// hash computes the 32-bit Murmur3 hash of s using ms as the seed.
-func (ms MurmurSeed) hash(b []byte) uint32 {
-	h := uint32(ms)
-	l := len(b)
-	numBlocks := l / 4
-	var blocks []uint32
-	header := (*reflect.SliceHeader)(unsafe.Pointer(&blocks))
-	header.Data = (*reflect.SliceHeader)(unsafe.Pointer(&b)).Data
-	header.Len = numBlocks
-	header.Cap = numBlocks
-	for _, k := range blocks {
-		k *= c1
-		k = (k << r1Left) | (k >> r1Right)
-		k *= c2
-		h ^= k
-		h = (h << r2Left) | (h >> r2Right)
-		h = h*m + n
-	}
-
-	var k uint32
-	ntail := l & 3
-	itail := l - ntail
-	switch ntail {
-	case 3:
-		k ^= uint32(b[itail+2]) << 16
-		fallthrough
-	case 2:
-		k ^= uint32(b[itail+1]) << 8
-		fallthrough
-	case 1:
-		k ^= uint32(b[itail])
-		k *= c1
-		k = (k << r1Left) | (k >> r1Right)
-		k *= c2
-		h ^= k
-	}
-
-	h ^= uint32(l)
-	h ^= h >> 16
-	h *= 0x85ebca6b
-	h ^= h >> 13
-	h *= 0xc2b2ae35
-	h ^= h >> 16
-	return h
-}

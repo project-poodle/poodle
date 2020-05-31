@@ -37,11 +37,13 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"../collection"
 )
 
 var murmurTestCases = []struct {
 	input IKey
-	seed  MurmurSeed
+	seed  collection.MurmurSeed
 	want  uint32
 }{
 	{NewStringKey(""), 0, 0},
@@ -66,7 +68,7 @@ var murmurTestCases = []struct {
 
 func TestMurmur(t *testing.T) {
 	for _, tt := range murmurTestCases {
-		got := tt.input.HashUint32(tt.seed.hash)
+		got := tt.input.HashUint32(tt.seed.Hash)
 		if got != tt.want {
 			t.Errorf("hash(%q, seed=0x%x): got 0x%x; want %x",
 				tt.input, tt.seed, got, tt.want)
@@ -79,10 +81,10 @@ func BenchmarkMurmur(b *testing.B) {
 		b.Run(fmt.Sprint(size), func(b *testing.B) {
 			s := []byte(strings.Repeat("a", size))
 			b.SetBytes(int64(size))
-			var seed MurmurSeed
+			var seed collection.MurmurSeed
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				seed.hash(s)
+				seed.Hash(s)
 			}
 		})
 	}
@@ -167,7 +169,7 @@ func TestSerializeKey(t *testing.T) {
 	}
 
 	// test level 0
-	if !EqualUint32Array(table.level0, loaded_table.level0) {
+	if !collection.EqualUint32Array(table.level0, loaded_table.level0) {
 		t.Errorf("Level 0 data mismatch")
 	}
 	if table.level0Mask != loaded_table.level0Mask {
@@ -175,7 +177,7 @@ func TestSerializeKey(t *testing.T) {
 	}
 
 	// test level 1
-	if !EqualUint32Array(table.level1, loaded_table.level1) {
+	if !collection.EqualUint32Array(table.level1, loaded_table.level1) {
 		//table.Print()
 		//loaded_table.Print()
 		t.Errorf("Level 1 data mismatch")
@@ -234,7 +236,7 @@ func TestSerializeHash(t *testing.T) {
 	}
 
 	// test level 0
-	if !EqualUint32Array(table.level0, loaded_table.level0) {
+	if !collection.EqualUint32Array(table.level0, loaded_table.level0) {
 		t.Errorf("Level 0 data mismatch")
 	}
 	if table.level0Mask != loaded_table.level0Mask {
@@ -242,7 +244,7 @@ func TestSerializeHash(t *testing.T) {
 	}
 
 	// test level 1
-	if !EqualUint32Array(table.level1, loaded_table.level1) {
+	if !collection.EqualUint32Array(table.level1, loaded_table.level1) {
 		t.Errorf("Level 1 data mismatch")
 	}
 	if table.level1Mask != loaded_table.level1Mask {

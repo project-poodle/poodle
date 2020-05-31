@@ -69,10 +69,11 @@ func TestAVL(t *testing.T) {
 	//avl, _ := json.MarshalIndent(tree, "", "   ")
 	//fmt.Println(string(avl))
 	for iter := tree.Iterator(); iter.HasNext(); {
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 		fmt.Println(iter.Next().(*AVLNode).ToString())
 	}
 
+	// put predefined test cases
 	fmt.Println("\nPut Cases:")
 	for _, c := range avlPutCases {
 		node := tree.Put(c.k, c.v)
@@ -92,10 +93,11 @@ func TestAVL(t *testing.T) {
 	fmt.Println("Put Completed!")
 	tree.Print(os.Stdout, 0)
 	for iter := tree.Iterator(); iter.HasNext(); {
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 		fmt.Println(iter.Next().(*AVLNode).ToString())
 	}
 
+	// remove predefined test cases
 	fmt.Println("\nRemove Cases:")
 	for _, c := range avlRemoveCases {
 		node := tree.Remove(c.k)
@@ -115,25 +117,31 @@ func TestAVL(t *testing.T) {
 	fmt.Println("Remove Completed!")
 	tree.Print(os.Stdout, 0)
 	for iter := tree.Iterator(); iter.HasNext(); {
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 		fmt.Println(iter.Next().(*AVLNode).ToString())
 	}
 
-	fmt.Println("\nInsert Tree:")
-	tree.Put(&intKey{6}, &intKey{6 * 5})
-	tree.Put(&intKey{9}, &intKey{9 * 5})
-	tree.Put(&intKey{5}, &intKey{5 * 5})
-	tree.Put(&intKey{3}, &intKey{3 * 5})
-	tree.Put(&intKey{8}, &intKey{8 * 5})
-	tree.Put(&intKey{4}, &intKey{4 * 5})
-	tree.Put(&intKey{2}, &intKey{2 * 5})
-	tree.Put(&intKey{7}, &intKey{7 * 5})
-	tree.Put(&intKey{6}, &intKey{6 * 5})
-	tree.Put(&intKey{3}, &intKey{3 * 5})
-	tree.Put(&intKey{1}, &intKey{1 * 5})
+	// put random
+	fmt.Println("\nPut Tree Random:")
+	putRandSize := int(randUint32() % 1000)
+	for i := 0; i < putRandSize; i++ {
+		value := int(randUint32() % 100)
+		tree.Put(&intKey{value}, &intKey{value * 5})
+	}
 	tree.Print(os.Stdout, 0)
 	for iter := tree.Iterator(); iter.HasNext(); {
-		time.Sleep(100 * time.Millisecond)
+		fmt.Println(iter.Next().(*AVLNode).ToString())
+	}
+
+	// remove random
+	fmt.Println("\nRemove Tree Random:")
+	removeRandSize := int(randUint32() % 100)
+	for i := 0; i < removeRandSize; i++ {
+		value := int(randUint32() % 100)
+		tree.Remove(&intKey{value})
+	}
+	tree.Print(os.Stdout, 0)
+	for iter := tree.Iterator(); iter.HasNext(); {
 		fmt.Println(iter.Next().(*AVLNode).ToString())
 	}
 
