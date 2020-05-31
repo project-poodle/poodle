@@ -13,6 +13,11 @@ func NewHashSet() *HashSet {
 	return result
 }
 
+func NewCustomHashSet(initialCapacity int, loadFactor, multiplier float32) *HashSet {
+	result := &HashSet{hash: NewCustomHash(initialCapacity, loadFactor, multiplier)}
+	return result
+}
+
 func (m *HashSet) Exist(k IHashable) bool {
 	node := m.hash.Get(k)
 	if !IsNil(node) {

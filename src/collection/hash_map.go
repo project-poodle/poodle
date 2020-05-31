@@ -13,6 +13,11 @@ func NewHashMap() *HashMap {
 	return result
 }
 
+func NewCustomHashMap(initialCapacity int, loadFactor, multiplier float32) *HashMap {
+	result := &HashMap{hash: NewCustomHash(initialCapacity, loadFactor, multiplier)}
+	return result
+}
+
 func (m *HashMap) Get(k IHashable) IObject {
 	node := m.hash.Get(k)
 	if !IsNil(node) {
