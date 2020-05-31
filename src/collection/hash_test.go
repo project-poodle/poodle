@@ -112,7 +112,7 @@ func TestHash(t *testing.T) {
 
 	// put random
 	fmt.Println("\nPut Hash Random:")
-	putRandSize := int(randUint32() % 1000)
+	putRandSize := 400
 	for i := 0; i < putRandSize; i++ {
 		value := int(randUint32() % 100)
 		hash.Put(&intKey{value}, &intKey{value * 5})
@@ -124,7 +124,7 @@ func TestHash(t *testing.T) {
 
 	// remove random
 	fmt.Println("\nRemove Hash Random:")
-	removeRandSize := int(randUint32() % 400)
+	removeRandSize := 200
 	for i := 0; i < removeRandSize; i++ {
 		value := int(randUint32() % 100)
 		hash.Remove(&intKey{value})

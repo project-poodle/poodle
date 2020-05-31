@@ -126,7 +126,7 @@ func TestAVL(t *testing.T) {
 
 	// put random
 	fmt.Println("\nPut Tree Random:")
-	putRandSize := int(randUint32() % 500)
+	putRandSize := 400
 	for i := 0; i < putRandSize; i++ {
 		value := int(randUint32() % 100)
 		tree.Put(&intKey{value}, &intKey{value * 5})
@@ -138,7 +138,7 @@ func TestAVL(t *testing.T) {
 
 	// remove random
 	fmt.Println("\nRemove Tree Random:")
-	removeRandSize := int(randUint32() % 400)
+	removeRandSize := 200
 	for i := 0; i < removeRandSize; i++ {
 		value := int(randUint32() % 100)
 		tree.Remove(&intKey{value})

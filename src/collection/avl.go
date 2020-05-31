@@ -11,6 +11,7 @@ import (
 
 type AVLTree struct {
 	root *AVLNode
+	size int
 }
 
 type AVLNode struct {
@@ -46,10 +47,14 @@ func (t *AVLTree) Put(key IComparable, value IObject) *AVLNode {
 		panic("AVLTree::Put - key is nil")
 	} else if t.root == nil {
 		t.root = &AVLNode{key: key, value: value}
+		t.size += 1
 		return nil
 	} else {
 		var node *AVLNode
 		t.root, node, _ = t.root.putR(key, value)
+		if IsNil(node) {
+			t.size += 1
+		}
 		return node
 	}
 }
@@ -61,8 +66,15 @@ func (t *AVLTree) Remove(key IComparable) *AVLNode {
 	} else {
 		var node *AVLNode
 		t.root, node, _ = t.root.removeR(key)
+		if !IsNil(node) {
+			t.size -= 1
+		}
 		return node
 	}
+}
+
+func (t *AVLTree) Size() int {
+	return t.size
 }
 
 func (i *AVLIterator) Next() IObject {
@@ -127,14 +139,18 @@ func (t *AVLTree) Iterator() IIterator {
 }
 
 func (t *AVLTree) Print(w io.Writer, indent int) {
-	fmt.Fprintf(w, "%"+strconv.Itoa(indent)+"vAVLTree:\n", "")
-	if t.root != nil {
+	fmt.Fprintf(w, "%"+strconv.Itoa(indent)+"v%s\n", "", t.ToString())
+	if !IsNil(t.root) {
 		t.root.Print(w, indent+4)
 	}
 }
 
 func (t *AVLTree) ToString() string {
-	return fmt.Sprintf("AVLTree: %s", Ternary(t.root == nil, nil, t.root.ToString()))
+	if t.root == nil {
+		return fmt.Sprintf("AVLTree: s=%d, %v", t.size, nil)
+	} else {
+		return fmt.Sprintf("AVLTree: s=%d, %v", t.size, t.root.ToString())
+	}
 }
 
 func opp(dir int) int {
