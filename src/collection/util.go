@@ -14,16 +14,16 @@ import (
 // utilities
 ////////////////////////////////////////////////////////////////////////////////
 
-func µ(a ...interface{}) []interface{} {
-	return a
-}
+//func µ(a ...interface{}) []interface{} {
+//	return a
+//}
 
-func Ternary(statement bool, a, b interface{}) interface{} {
-	if statement {
-		return a
-	}
-	return b
-}
+//func Ternary(statement bool, a, b interface{}) interface{} {
+//	if statement {
+//		return a
+//	}
+//	return b
+//}
 
 func IsNil(i interface{}) bool {
 	if i == nil {
