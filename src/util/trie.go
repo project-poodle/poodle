@@ -63,6 +63,7 @@ type ITrieNode interface {
 type ITrieIterator interface {
 	Next() (IKey, IData)
 	HasNext() bool
+	Peek() (IKey, IData)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -595,6 +596,35 @@ func (i *TrieIterator) HasNext() bool {
 	i.advance()
 
 	return collection.IsNil(i.rootNode) && (collection.IsNil(i.paths) || len(i.paths) == 0)
+}
+
+func (i *TrieIterator) Peek() (IKey, IData) {
+
+	i.advance()
+
+	var returnNode ITrieNode
+
+	// if rootNode has not been iterated
+	if i.rootNode != nil {
+		returnNode = i.rootNode
+		return returnNode.FullKey(), returnNode.Data()
+	}
+
+	// we are here if root node has been iterated
+	// check iterator paths
+	for i.paths != nil && len(i.paths) != 0 {
+		lastIter := i.paths[len(i.paths)-1]
+		if lastIter.HasNext() {
+			_, data := lastIter.Peek()
+			returnNode = data.(ITrieNode)
+			return returnNode.FullKey(), returnNode.Data()
+		} else {
+			i.paths = i.paths[:len(i.paths)-1]
+		}
+	}
+
+	// we are here if no more paths left
+	return nil, nil
 }
 
 func (i *TrieIterator) advance() {
