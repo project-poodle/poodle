@@ -204,7 +204,7 @@ func MaxUint64(a, b uint64) uint64 {
 // Equal of primitive array
 ////////////////////////////////////////////////////////////////////////////////
 
-func EqualByteArray(a, b []byte) bool {
+func EqualByteSlice(a, b []byte) bool {
 
 	// If one is nil, the other must also be nil.
 	if (a == nil) != (b == nil) {
@@ -228,7 +228,7 @@ func EqualByteArray(a, b []byte) bool {
 	return true
 }
 
-func EqualInt8Array(a, b []int8) bool {
+func EqualInt8Slice(a, b []int8) bool {
 
 	// If one is nil, the other must also be nil.
 	if (a == nil) != (b == nil) {
@@ -252,7 +252,7 @@ func EqualInt8Array(a, b []int8) bool {
 	return true
 }
 
-func EqualInt16Array(a, b []int16) bool {
+func EqualInt16Slice(a, b []int16) bool {
 
 	// If one is nil, the other must also be nil.
 	if (a == nil) != (b == nil) {
@@ -276,7 +276,7 @@ func EqualInt16Array(a, b []int16) bool {
 	return true
 }
 
-func EqualUint16Array(a, b []uint16) bool {
+func EqualUint16Slice(a, b []uint16) bool {
 
 	// If one is nil, the other must also be nil.
 	if (a == nil) != (b == nil) {
@@ -300,7 +300,7 @@ func EqualUint16Array(a, b []uint16) bool {
 	return true
 }
 
-func EqualInt32Array(a, b []int32) bool {
+func EqualInt32Slice(a, b []int32) bool {
 
 	// If one is nil, the other must also be nil.
 	if (a == nil) != (b == nil) {
@@ -324,7 +324,7 @@ func EqualInt32Array(a, b []int32) bool {
 	return true
 }
 
-func EqualUint32Array(a, b []uint32) bool {
+func EqualUint32Slice(a, b []uint32) bool {
 
 	// If one is nil, the other must also be nil.
 	if (a == nil) != (b == nil) {
@@ -348,7 +348,7 @@ func EqualUint32Array(a, b []uint32) bool {
 	return true
 }
 
-func EqualInt64Array(a, b []int64) bool {
+func EqualInt64Slice(a, b []int64) bool {
 
 	// If one is nil, the other must also be nil.
 	if (a == nil) != (b == nil) {
@@ -372,7 +372,7 @@ func EqualInt64Array(a, b []int64) bool {
 	return true
 }
 
-func EqualUint64Array(a, b []uint64) bool {
+func EqualUint64Slice(a, b []uint64) bool {
 
 	// If one is nil, the other must also be nil.
 	if (a == nil) != (b == nil) {
@@ -396,7 +396,7 @@ func EqualUint64Array(a, b []uint64) bool {
 	return true
 }
 
-func EqualIntArray(a, b []int) bool {
+func EqualIntSlice(a, b []int) bool {
 
 	// If one is nil, the other must also be nil.
 	if (a == nil) != (b == nil) {
@@ -418,6 +418,349 @@ func EqualIntArray(a, b []int) bool {
 	}
 
 	return true
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Compare Slices
+////////////////////////////////////////////////////////////////////////////////
+
+func CompareSlice(s1, s2 []IComparable) int {
+
+	if IsNil(s1) && IsNil(s2) {
+		return 0
+	} else if IsNil(s1) {
+		return -1
+	} else if IsNil(s2) {
+		return 1
+	}
+
+	// we are here if both s1 and s2 are not nil
+	for i, _ := range s1 {
+
+		if len(s1) < i {
+			return 1
+		}
+
+		compare := s1[i].Compare(s2[i])
+		if compare != 0 {
+			return compare
+		} else {
+			continue
+		}
+	}
+
+	// we are here if all the previous elements in the slice are equal
+	if len(s2) > len(s1) {
+		return -1
+	} else {
+		return 0
+	}
+}
+
+func CompareByteSlice(s1, s2 []byte) int {
+
+	if IsNil(s1) && IsNil(s2) {
+		return 0
+	} else if IsNil(s1) {
+		return -1
+	} else if IsNil(s2) {
+		return 1
+	}
+
+	// we are here if both s1 and s2 are not nil
+	for i, _ := range s1 {
+
+		if len(s1) < i {
+			return 1
+		}
+
+		if s1[i] < s2[i] {
+			return -1
+		} else if s1[i] > s2[i] {
+			return 1
+		} else {
+			continue
+		}
+	}
+
+	// we are here if all the previous elements in the slice are equal
+	if len(s2) > len(s1) {
+		return -1
+	} else {
+		return 0
+	}
+}
+
+func CompareInt8Slice(s1, s2 []int8) int {
+
+	if IsNil(s1) && IsNil(s2) {
+		return 0
+	} else if IsNil(s1) {
+		return -1
+	} else if IsNil(s2) {
+		return 1
+	}
+
+	// we are here if both s1 and s2 are not nil
+	for i, _ := range s1 {
+
+		if len(s1) < i {
+			return 1
+		}
+
+		if s1[i] < s2[i] {
+			return -1
+		} else if s1[i] > s2[i] {
+			return 1
+		} else {
+			continue
+		}
+	}
+
+	// we are here if all the previous elements in the slice are equal
+	if len(s2) > len(s1) {
+		return -1
+	} else {
+		return 0
+	}
+}
+
+func CompareInt16Slice(s1, s2 []int16) int {
+
+	if IsNil(s1) && IsNil(s2) {
+		return 0
+	} else if IsNil(s1) {
+		return -1
+	} else if IsNil(s2) {
+		return 1
+	}
+
+	// we are here if both s1 and s2 are not nil
+	for i, _ := range s1 {
+
+		if len(s1) < i {
+			return 1
+		}
+
+		if s1[i] < s2[i] {
+			return -1
+		} else if s1[i] > s2[i] {
+			return 1
+		} else {
+			continue
+		}
+	}
+
+	// we are here if all the previous elements in the slice are equal
+	if len(s2) > len(s1) {
+		return -1
+	} else {
+		return 0
+	}
+}
+
+func CompareUint16Slice(s1, s2 []uint16) int {
+
+	if IsNil(s1) && IsNil(s2) {
+		return 0
+	} else if IsNil(s1) {
+		return -1
+	} else if IsNil(s2) {
+		return 1
+	}
+
+	// we are here if both s1 and s2 are not nil
+	for i, _ := range s1 {
+
+		if len(s1) < i {
+			return 1
+		}
+
+		if s1[i] < s2[i] {
+			return -1
+		} else if s1[i] > s2[i] {
+			return 1
+		} else {
+			continue
+		}
+	}
+
+	// we are here if all the previous elements in the slice are equal
+	if len(s2) > len(s1) {
+		return -1
+	} else {
+		return 0
+	}
+}
+
+func CompareInt32Slice(s1, s2 []int32) int {
+
+	if IsNil(s1) && IsNil(s2) {
+		return 0
+	} else if IsNil(s1) {
+		return -1
+	} else if IsNil(s2) {
+		return 1
+	}
+
+	// we are here if both s1 and s2 are not nil
+	for i, _ := range s1 {
+
+		if len(s1) < i {
+			return 1
+		}
+
+		if s1[i] < s2[i] {
+			return -1
+		} else if s1[i] > s2[i] {
+			return 1
+		} else {
+			continue
+		}
+	}
+
+	// we are here if all the previous elements in the slice are equal
+	if len(s2) > len(s1) {
+		return -1
+	} else {
+		return 0
+	}
+}
+
+func CompareUint32Slice(s1, s2 []uint32) int {
+
+	if IsNil(s1) && IsNil(s2) {
+		return 0
+	} else if IsNil(s1) {
+		return -1
+	} else if IsNil(s2) {
+		return 1
+	}
+
+	// we are here if both s1 and s2 are not nil
+	for i, _ := range s1 {
+
+		if len(s1) < i {
+			return 1
+		}
+
+		if s1[i] < s2[i] {
+			return -1
+		} else if s1[i] > s2[i] {
+			return 1
+		} else {
+			continue
+		}
+	}
+
+	// we are here if all the previous elements in the slice are equal
+	if len(s2) > len(s1) {
+		return -1
+	} else {
+		return 0
+	}
+}
+
+func CompareInt64Slice(s1, s2 []int64) int {
+
+	if IsNil(s1) && IsNil(s2) {
+		return 0
+	} else if IsNil(s1) {
+		return -1
+	} else if IsNil(s2) {
+		return 1
+	}
+
+	// we are here if both s1 and s2 are not nil
+	for i, _ := range s1 {
+
+		if len(s1) < i {
+			return 1
+		}
+
+		if s1[i] < s2[i] {
+			return -1
+		} else if s1[i] > s2[i] {
+			return 1
+		} else {
+			continue
+		}
+	}
+
+	// we are here if all the previous elements in the slice are equal
+	if len(s2) > len(s1) {
+		return -1
+	} else {
+		return 0
+	}
+}
+
+func CompareUint64Slice(s1, s2 []uint64) int {
+
+	if IsNil(s1) && IsNil(s2) {
+		return 0
+	} else if IsNil(s1) {
+		return -1
+	} else if IsNil(s2) {
+		return 1
+	}
+
+	// we are here if both s1 and s2 are not nil
+	for i, _ := range s1 {
+
+		if len(s1) < i {
+			return 1
+		}
+
+		if s1[i] < s2[i] {
+			return -1
+		} else if s1[i] > s2[i] {
+			return 1
+		} else {
+			continue
+		}
+	}
+
+	// we are here if all the previous elements in the slice are equal
+	if len(s2) > len(s1) {
+		return -1
+	} else {
+		return 0
+	}
+}
+
+func CompareIntSlice(s1, s2 []int) int {
+
+	if IsNil(s1) && IsNil(s2) {
+		return 0
+	} else if IsNil(s1) {
+		return -1
+	} else if IsNil(s2) {
+		return 1
+	}
+
+	// we are here if both s1 and s2 are not nil
+	for i, _ := range s1 {
+
+		if len(s1) < i {
+			return 1
+		}
+
+		if s1[i] < s2[i] {
+			return -1
+		} else if s1[i] > s2[i] {
+			return 1
+		} else {
+			continue
+		}
+	}
+
+	// we are here if all the previous elements in the slice are equal
+	if len(s2) > len(s1) {
+		return -1
+	} else {
+		return 0
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////

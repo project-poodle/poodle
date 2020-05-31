@@ -96,27 +96,7 @@ func (s *ComparableSlice) Compare(c IComparable) int {
 	}
 
 	t := c.(*ComparableSlice)
-
-	for i, _ := range s.slice {
-
-		if len(t.slice) < i {
-			return 1
-		}
-
-		compare := s.slice[i].Compare(t.slice[i])
-		if compare != 0 {
-			return compare
-		} else {
-			continue
-		}
-	}
-
-	// we are here if all the previous elements in the slice are equal
-	if len(t.slice) > len(s.slice) {
-		return -1
-	}
-
-	return 0
+	return CompareSlice(s.slice, t.slice)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -153,7 +133,7 @@ func (s *ComparableByteSlice) Equal(t IObject) bool {
 		return false
 	}
 
-	return EqualByteArray(s.slice, th.slice)
+	return EqualByteSlice(s.slice, th.slice)
 }
 
 // compare each element in the slice
@@ -173,28 +153,64 @@ func (s *ComparableByteSlice) Compare(c IComparable) int {
 	}
 
 	t := c.(*ComparableByteSlice)
+	return CompareByteSlice(s.slice, t.slice)
+}
 
-	for i, _ := range s.slice {
+////////////////////////////////////////////////////////////////////////////////
+// ComparableInt16Slice
+////////////////////////////////////////////////////////////////////////////////
 
-		if len(t.slice) < i {
-			return 1
-		}
+// Make slice hashable
+type ComparableInt8Slice struct {
+	slice []int8
+}
 
-		if s.slice[i] < t.slice[i] {
-			return -1
-		} else if s.slice[i] > t.slice[i] {
-			return 1
-		} else {
-			continue
-		}
+func NewComparableInt8Slice(s []int8) *ComparableInt8Slice {
+	return &ComparableInt8Slice{slice: s}
+}
+
+// return if two hashable byte array equals
+func (s *ComparableInt8Slice) Equal(t IObject) bool {
+	if (s == nil) != (t == nil) {
+		return false
 	}
 
-	// we are here if all the previous elements in the slice are equal
-	if len(t.slice) > len(s.slice) {
+	if s == nil {
+		return true
+	}
+
+	if reflect.TypeOf(t) != reflect.TypeOf((*ComparableInt8Slice)(nil)) {
+		return false
+	}
+
+	// convert to ComparableInt16Slice
+	th := t.(*ComparableInt8Slice)
+
+	if len(s.slice) != len(th.slice) {
+		return false
+	}
+
+	return EqualInt8Slice(s.slice, th.slice)
+}
+
+// compare each element in the slice
+func (s *ComparableInt8Slice) Compare(c IComparable) int {
+
+	if IsNil(s.slice) && IsNil(c) {
+		return 0
+	} else if IsNil(s.slice) {
 		return -1
+	} else if IsNil(c) {
+		return 1
 	}
 
-	return 0
+	// we are here if both s.slice and c are not nil
+	if reflect.TypeOf(s) != reflect.TypeOf(c) {
+		panic(fmt.Sprintf("ComparableSlice::Compare - target is not ComparableInt8Slice [%v]", reflect.TypeOf(c)))
+	}
+
+	t := c.(*ComparableInt8Slice)
+	return CompareInt8Slice(s.slice, t.slice)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -231,7 +247,7 @@ func (s *ComparableInt16Slice) Equal(t IObject) bool {
 		return false
 	}
 
-	return EqualInt16Array(s.slice, th.slice)
+	return EqualInt16Slice(s.slice, th.slice)
 }
 
 // compare each element in the slice
@@ -251,28 +267,7 @@ func (s *ComparableInt16Slice) Compare(c IComparable) int {
 	}
 
 	t := c.(*ComparableInt16Slice)
-
-	for i, _ := range s.slice {
-
-		if len(t.slice) < i {
-			return 1
-		}
-
-		if s.slice[i] < t.slice[i] {
-			return -1
-		} else if s.slice[i] > t.slice[i] {
-			return 1
-		} else {
-			continue
-		}
-	}
-
-	// we are here if all the previous elements in the slice are equal
-	if len(t.slice) > len(s.slice) {
-		return -1
-	}
-
-	return 0
+	return CompareInt16Slice(s.slice, t.slice)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -309,7 +304,7 @@ func (s *ComparableUint16Slice) Equal(t IObject) bool {
 		return false
 	}
 
-	return EqualUint16Array(s.slice, th.slice)
+	return EqualUint16Slice(s.slice, th.slice)
 }
 
 // compare each element in the slice
@@ -329,28 +324,7 @@ func (s *ComparableUint16Slice) Compare(c IComparable) int {
 	}
 
 	t := c.(*ComparableUint16Slice)
-
-	for i, _ := range s.slice {
-
-		if len(t.slice) < i {
-			return 1
-		}
-
-		if s.slice[i] < t.slice[i] {
-			return -1
-		} else if s.slice[i] > t.slice[i] {
-			return 1
-		} else {
-			continue
-		}
-	}
-
-	// we are here if all the previous elements in the slice are equal
-	if len(t.slice) > len(s.slice) {
-		return -1
-	}
-
-	return 0
+	return CompareUint16Slice(s.slice, t.slice)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -387,7 +361,7 @@ func (s *ComparableInt32Slice) Equal(t IObject) bool {
 		return false
 	}
 
-	return EqualInt32Array(s.slice, th.slice)
+	return EqualInt32Slice(s.slice, th.slice)
 }
 
 // compare each element in the slice
@@ -407,28 +381,7 @@ func (s *ComparableInt32Slice) Compare(c IComparable) int {
 	}
 
 	t := c.(*ComparableInt32Slice)
-
-	for i, _ := range s.slice {
-
-		if len(t.slice) < i {
-			return 1
-		}
-
-		if s.slice[i] < t.slice[i] {
-			return -1
-		} else if s.slice[i] > t.slice[i] {
-			return 1
-		} else {
-			continue
-		}
-	}
-
-	// we are here if all the previous elements in the slice are equal
-	if len(t.slice) > len(s.slice) {
-		return -1
-	}
-
-	return 0
+	return CompareInt32Slice(s.slice, t.slice)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -465,7 +418,7 @@ func (s *ComparableUint32Slice) Equal(t IObject) bool {
 		return false
 	}
 
-	return EqualUint32Array(s.slice, th.slice)
+	return EqualUint32Slice(s.slice, th.slice)
 }
 
 // compare each element in the slice
@@ -485,28 +438,7 @@ func (s *ComparableUint32Slice) Compare(c IComparable) int {
 	}
 
 	t := c.(*ComparableUint32Slice)
-
-	for i, _ := range s.slice {
-
-		if len(t.slice) < i {
-			return 1
-		}
-
-		if s.slice[i] < t.slice[i] {
-			return -1
-		} else if s.slice[i] > t.slice[i] {
-			return 1
-		} else {
-			continue
-		}
-	}
-
-	// we are here if all the previous elements in the slice are equal
-	if len(t.slice) > len(s.slice) {
-		return -1
-	}
-
-	return 0
+	return CompareUint32Slice(s.slice, t.slice)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -543,7 +475,7 @@ func (s *ComparableInt64Slice) Equal(t IObject) bool {
 		return false
 	}
 
-	return EqualInt64Array(s.slice, th.slice)
+	return EqualInt64Slice(s.slice, th.slice)
 }
 
 // compare each element in the slice
@@ -563,28 +495,7 @@ func (s *ComparableInt64Slice) Compare(c IComparable) int {
 	}
 
 	t := c.(*ComparableInt64Slice)
-
-	for i, _ := range s.slice {
-
-		if len(t.slice) < i {
-			return 1
-		}
-
-		if s.slice[i] < t.slice[i] {
-			return -1
-		} else if s.slice[i] > t.slice[i] {
-			return 1
-		} else {
-			continue
-		}
-	}
-
-	// we are here if all the previous elements in the slice are equal
-	if len(t.slice) > len(s.slice) {
-		return -1
-	}
-
-	return 0
+	return CompareInt64Slice(s.slice, t.slice)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -602,6 +513,7 @@ func NewComparableUint64Slice(s []uint64) *ComparableUint64Slice {
 
 // return if two hashable byte array equals
 func (s *ComparableUint64Slice) Equal(t IObject) bool {
+
 	if (s == nil) != (t == nil) {
 		return false
 	}
@@ -621,7 +533,7 @@ func (s *ComparableUint64Slice) Equal(t IObject) bool {
 		return false
 	}
 
-	return EqualUint64Array(s.slice, th.slice)
+	return EqualUint64Slice(s.slice, th.slice)
 }
 
 // compare each element in the slice
@@ -641,26 +553,5 @@ func (s *ComparableUint64Slice) Compare(c IComparable) int {
 	}
 
 	t := c.(*ComparableUint64Slice)
-
-	for i, _ := range s.slice {
-
-		if len(t.slice) < i {
-			return 1
-		}
-
-		if s.slice[i] < t.slice[i] {
-			return -1
-		} else if s.slice[i] > t.slice[i] {
-			return 1
-		} else {
-			continue
-		}
-	}
-
-	// we are here if all the previous elements in the slice are equal
-	if len(t.slice) > len(s.slice) {
-		return -1
-	}
-
-	return 0
+	return CompareUint64Slice(s.slice, t.slice)
 }

@@ -142,7 +142,7 @@ func (s *HashableByteSlice) Equal(t IObject) bool {
 		return false
 	}
 
-	return EqualByteArray(s.slice, th.slice)
+	return EqualByteSlice(s.slice, th.slice)
 }
 
 // return hash of byte slice
@@ -189,7 +189,7 @@ func (s *HashableInt16Slice) Equal(t IObject) bool {
 		return false
 	}
 
-	return EqualInt16Array(s.slice, th.slice)
+	return EqualInt16Slice(s.slice, th.slice)
 }
 
 // return hash of byte slice
@@ -238,7 +238,7 @@ func (s *HashableUint16Slice) Equal(t IObject) bool {
 		return false
 	}
 
-	return EqualUint16Array(s.slice, th.slice)
+	return EqualUint16Slice(s.slice, th.slice)
 }
 
 // return hash of byte slice
@@ -287,7 +287,7 @@ func (s *HashableInt32Slice) Equal(t IObject) bool {
 		return false
 	}
 
-	return EqualInt32Array(s.slice, th.slice)
+	return EqualInt32Slice(s.slice, th.slice)
 }
 
 // return hash of byte slice
@@ -336,7 +336,7 @@ func (s *HashableUint32Slice) Equal(t IObject) bool {
 		return false
 	}
 
-	return EqualUint32Array(s.slice, th.slice)
+	return EqualUint32Slice(s.slice, th.slice)
 }
 
 // return hash of byte slice
@@ -385,7 +385,7 @@ func (s *HashableInt64Slice) Equal(t IObject) bool {
 		return false
 	}
 
-	return EqualInt64Array(s.slice, th.slice)
+	return EqualInt64Slice(s.slice, th.slice)
 }
 
 // return hash of byte slice
@@ -434,7 +434,7 @@ func (s *HashableUint64Slice) Equal(t IObject) bool {
 		return false
 	}
 
-	return EqualUint64Array(s.slice, th.slice)
+	return EqualUint64Slice(s.slice, th.slice)
 }
 
 // return hash of byte slice
