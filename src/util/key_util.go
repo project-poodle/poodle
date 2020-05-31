@@ -17,9 +17,10 @@ type IKey interface {
 
 	////////////////////////////////////////
 	// embeded interfaces
-	IEncodable
+	collection.IComparable
 	collection.IHashable
 	collection.IPrintable
+	IEncodable
 
 	////////////////////////////////////////
 	// accessor to elements
@@ -83,6 +84,7 @@ func (k *EmptyKey) CopyConstruct() (IEncodable, error) {
 }
 
 func (k *EmptyKey) Equal(o collection.IObject) bool {
+
 	if o == nil {
 		return false
 	}
@@ -92,6 +94,24 @@ func (k *EmptyKey) Equal(o collection.IObject) bool {
 	}
 
 	return len(o.(IKey).Key()) == 0
+}
+
+func (k *EmptyKey) Compare(c collection.IComparable) int {
+
+	if collection.IsNil(c) {
+		return 1
+	}
+
+	if !reflect.TypeOf(c).Implements(reflect.TypeOf((*IKey)(nil)).Elem()) {
+		panic(fmt.Sprintf("EmptyKey::Compare - target is not IKey [%v]", reflect.TypeOf(c)))
+	}
+
+	t := c.(IKey)
+	if len(t.Key()) == 0 {
+		return 0
+	} else {
+		return -1
+	}
 }
 
 func (k *EmptyKey) HashUint32(f func([]byte) uint32) uint32 {
@@ -146,6 +166,7 @@ func (k *MappedKey) IsNil() bool {
 }
 
 func (k *MappedKey) Key() [][]byte {
+
 	if !k.decoded {
 		panic(fmt.Sprintf("MappedKey::Key - not decoded"))
 	}
@@ -154,6 +175,7 @@ func (k *MappedKey) Key() [][]byte {
 }
 
 func (k *MappedKey) SubKeyAt(idx int) []byte {
+
 	if !k.decoded {
 		panic(fmt.Sprintf("MappedKey::SubKeyAt - not decoded"))
 	}
@@ -269,12 +291,43 @@ func (k *MappedKey) Equal(o collection.IObject) bool {
 	}
 
 	for i, key := range k.keys {
-		if !collection.EqualByteArray(key, obj.SubKeyAt(i)) {
+		if !collection.EqualByteSlice(key, obj.SubKeyAt(i)) {
 			return false
 		}
 	}
 
 	return true
+}
+
+func (k *MappedKey) Compare(c collection.IComparable) int {
+
+	if collection.IsNil(c) {
+		return 1
+	}
+
+	if !reflect.TypeOf(c).Implements(reflect.TypeOf((*IKey)(nil)).Elem()) {
+		panic(fmt.Sprintf("MappedKey::Compare - target is not IKey [%v]", reflect.TypeOf(c)))
+	}
+
+	t := c.(IKey)
+	for idx, subKey := range k.Key() {
+		if len(t.Key()) < idx {
+			return 1
+		}
+		r := collection.CompareByteSlice(subKey, t.SubKeyAt(idx))
+		if r != 0 {
+			return r
+		} else {
+			continue
+		}
+	}
+
+	// we are here if all subKey matches
+	if len(t.Key()) > len(k.Key()) {
+		return -1
+	} else {
+		return 0
+	}
 }
 
 func (k *MappedKey) HashUint32(f func([]byte) uint32) uint32 {
@@ -453,12 +506,43 @@ func (k *Key) Equal(o collection.IObject) bool {
 	}
 
 	for i, key := range k.keys {
-		if !collection.EqualByteArray(key, obj.SubKeyAt(i)) {
+		if !collection.EqualByteSlice(key, obj.SubKeyAt(i)) {
 			return false
 		}
 	}
 
 	return true
+}
+
+func (k *Key) Compare(c collection.IComparable) int {
+
+	if collection.IsNil(c) {
+		return 1
+	}
+
+	if !reflect.TypeOf(c).Implements(reflect.TypeOf((*IKey)(nil)).Elem()) {
+		panic(fmt.Sprintf("Key::Compare - target is not IKey [%v]", reflect.TypeOf(c)))
+	}
+
+	t := c.(IKey)
+	for idx, subKey := range k.Key() {
+		if len(t.Key()) < idx {
+			return 1
+		}
+		r := collection.CompareByteSlice(subKey, t.SubKeyAt(idx))
+		if r != 0 {
+			return r
+		} else {
+			continue
+		}
+	}
+
+	// we are here if all subKey matches
+	if len(t.Key()) > len(k.Key()) {
+		return -1
+	} else {
+		return 0
+	}
 }
 
 func (k *Key) Print(w io.Writer, indent int) {

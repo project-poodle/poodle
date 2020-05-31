@@ -169,7 +169,7 @@ func TestSerializeKey(t *testing.T) {
 	}
 
 	// test level 0
-	if !collection.EqualUint32Array(table.level0, loaded_table.level0) {
+	if !collection.EqualUint32Slice(table.level0, loaded_table.level0) {
 		t.Errorf("Level 0 data mismatch")
 	}
 	if table.level0Mask != loaded_table.level0Mask {
@@ -177,7 +177,7 @@ func TestSerializeKey(t *testing.T) {
 	}
 
 	// test level 1
-	if !collection.EqualUint32Array(table.level1, loaded_table.level1) {
+	if !collection.EqualUint32Slice(table.level1, loaded_table.level1) {
 		//table.Print()
 		//loaded_table.Print()
 		t.Errorf("Level 1 data mismatch")
@@ -236,7 +236,7 @@ func TestSerializeHash(t *testing.T) {
 	}
 
 	// test level 0
-	if !collection.EqualUint32Array(table.level0, loaded_table.level0) {
+	if !collection.EqualUint32Slice(table.level0, loaded_table.level0) {
 		t.Errorf("Level 0 data mismatch")
 	}
 	if table.level0Mask != loaded_table.level0Mask {
@@ -244,7 +244,7 @@ func TestSerializeHash(t *testing.T) {
 	}
 
 	// test level 1
-	if !collection.EqualUint32Array(table.level1, loaded_table.level1) {
+	if !collection.EqualUint32Slice(table.level1, loaded_table.level1) {
 		t.Errorf("Level 1 data mismatch")
 	}
 	if table.level1Mask != loaded_table.level1Mask {
@@ -263,7 +263,7 @@ func TestSerializeHash(t *testing.T) {
 	if table.verifySeed != loaded_table.verifySeed {
 		t.Errorf("Verify Seed mismatch")
 	}
-	if !collection.EqualUint32Array(table.verifyHash, loaded_table.verifyHash) {
+	if !collection.EqualUint32Slice(table.verifyHash, loaded_table.verifyHash) {
 		t.Errorf("Verify Hash mismatch")
 	}
 }

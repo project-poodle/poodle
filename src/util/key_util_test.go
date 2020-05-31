@@ -25,7 +25,7 @@ func TestKey(t *testing.T) {
 			t.Errorf("error occurred: %s", err)
 		}
 		gotData := tt.input.Buf()
-		if !collection.EqualByteArray(gotData, tt.wantData) {
+		if !collection.EqualByteSlice(gotData, tt.wantData) {
 			t.Errorf("(%v): got %v; want %v",
 				tt.input, gotData, tt.wantData)
 		}

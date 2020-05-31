@@ -2,6 +2,8 @@ package util
 
 import (
 	"fmt"
+	"io"
+	"strconv"
 
 	"../collection"
 )
@@ -19,12 +21,14 @@ type ITrie interface {
 
 	////////////////////////////////////////
 	// accessor to elements
-	Get(IKey) (IData, error) // get
-	Set(IKey, IData) error   // set
+	Get(IKey) IData        // get
+	Put(IKey, IData) IData // put
+	Remove(IKey) IData     // remove
+	Size() int             // total size
 
 	// Iterators
-	Iterator(key IKey) func() (IKey, IData)             // nil key param returns iterator for all keys, otherwise return iterator for specified key and children
-	RangeIterator(start, end IKey) func() (IKey, IData) // return iterator for keys within given range
+	Iterator(key IKey) ITrieIterator             // nil key param returns iterator for all keys, otherwise return iterator for specified key and children
+	RangeIterator(start, end IKey) ITrieIterator // return iterator for keys within given range
 }
 
 type ITrieNode interface {
@@ -39,9 +43,9 @@ type ITrieNode interface {
 	FullKey() IKey                              // return full key
 	NodeKey() []byte                            // trie node key is a sub key of IKey
 	Parent() ITrieNode                          // link to parent
-	Children() map[string]ITrieNode             // a list of children
+	Children() *collection.SortedMap            // a list of children
 	ChildSize() int                             // child size
-	ChildAt(nodeKey []byte) ITrieNode           // get i-th child
+	GetChild(nodeKey []byte) ITrieNode          // get child by specified child key
 	PutChild(nodeKey []byte, n ITrieNode) error // add child (automatically sort)
 	RemoveChild(nodeKey []byte) error           // remote child
 
@@ -56,13 +60,9 @@ type ITrieNode interface {
 	SetOffset(uint32) error // set offset when this TrieNode is encoded to
 }
 
-func newEven() func() int {
-	n := 0
-	// closure captures variable n
-	return func() int {
-		n += 2
-		return n
-	}
+type ITrieIterator interface {
+	Next() (IKey, IData)
+	HasNext() bool
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -75,6 +75,7 @@ type MappedTrie struct {
 	buf     []byte
 	// elements
 	root ITrieNode
+	size int
 	// hidden field
 	known_nodes map[uint32]ITrieNode
 }
@@ -97,7 +98,7 @@ func NewMappedTrie(buf []byte) (*MappedTrie, int, error) {
 ////////////////////////////////////////
 // accessor to elements
 
-func (t *MappedTrie) Get(k IKey) (IData, error) {
+func (t *MappedTrie) Get(k IKey) IData {
 
 	if !t.decoded {
 		panic(fmt.Sprintf("MappedTrie::Get - not decoded"))
@@ -105,83 +106,55 @@ func (t *MappedTrie) Get(k IKey) (IData, error) {
 
 	// return root data is key is nil
 	if k.IsNil() {
-		return t.root.Data(), nil
+		return t.root.Data()
 	}
 
 	currNode := t.root
 	for _, subKey := range k.Key() {
-		childNode := currNode.ChildAt(subKey)
+		childNode := currNode.GetChild(subKey)
 		if childNode == nil {
-			return nil, nil // if not found, return nil
+			return nil // if not found, return nil
 		} else {
 			currNode = childNode // traverse down
 		}
 	}
 
 	if currNode != nil {
-		return currNode.Data(), nil
+		return currNode.Data()
 	} else {
-		return nil, nil
+		return nil
 	}
 }
 
-func (t *MappedTrie) Set(IKey, IData) error {
-	return fmt.Errorf("MappedTrie::Set - set not supported")
+func (t *MappedTrie) Set(IKey, IData) IData {
+	panic(fmt.Sprintf("MappedTrie::Set - set not supported"))
 }
 
-func (t *MappedTrie) Iterator(k IKey) func() (IKey, IData) {
+func (t *MappedTrie) Iterator(k IKey) ITrieIterator {
 
 	if !t.decoded {
-		panic(fmt.Sprintf("MappedTrie::KeyIterator - not decoded"))
+		panic(fmt.Sprintf("MappedTrie::Iterator - not decoded"))
 	}
 
-	// return root data is key is nil
-	currNode := t.root
-	f := func() (IKey, IData) {
-		result_k, result_d := t.root.FullKey(), t.root.Data()
-
-		if !k.IsNil() {
-			for _, subKey := range k.Key() {
-				childNode := currNode.ChildAt(subKey)
-				if childNode == nil {
-					return nil, nil // if not found, return nil
-				} else {
-					currNode = childNode // traverse down
-				}
-			}
-		}
-
-		if currNode == nil {
-			return nil, nil
-		}
-
-		result := []IKey{}
-
-		// traverse children
-		traverse_stack := []ITrieNode{currNode}
-		for len(traverse_stack) != 0 {
-
-			currNode := traverse_stack[0]
-			if currNode.NodeType() == TRIE_NODE_TYPE_KEY {
-
-				// add to result
-				result = append(result, currNode.FullKey())
-				for _, child := range currNode.Children() {
-					if child.NodeType() == TRIE_NODE_TYPE_KEY {
-						traverse_stack = append(traverse_stack, child)
-					}
-				}
-			}
-
-			traverse_stack = traverse_stack[1:]
+	if collection.IsNil(k) {
+		return &TrieIterator{rootNode: t.root}
+	} else {
+		node := t.Get(k)
+		if collection.IsNil(node) {
+			return &TrieIterator{} // return an empty iterator
+		} else {
+			rootNode := node.(ITrieNode)
+			return &TrieIterator{rootNode: rootNode} // return an iterator starting with given node
 		}
 	}
-
-	// TODO:
-	return f
 }
 
-func (t *MappedTrie) KeyRangeIterator(start, end IKey) func() IKey {
+func (t *MappedTrie) RangeIterator(start, end IKey) func() IKey {
+
+	if !t.decoded {
+		panic(fmt.Sprintf("MappedTrie::RangeIterator - not decoded"))
+	}
+
 	// TODO:
 	return nil
 }
@@ -214,7 +187,7 @@ func (t *MappedTrie) Decode(IContext) (int, error) {
 
 	pos, err := t.root.Decode(nil)
 	if err != nil {
-		return 0, fmt.Errorf("MappedTrie::Decode - decode %s", err)
+		return 0, fmt.Errorf("MappedTrie::Decode - %s", err)
 	}
 
 	currNode := (t.root).(*MappedTrieNode)
@@ -222,7 +195,7 @@ func (t *MappedTrie) Decode(IContext) (int, error) {
 		node := &MappedTrieNode{parent: currNode, buf: t.buf[pos:], offset: uint32(pos), known_nodes: t.known_nodes}
 		length, err := node.Decode(nil)
 		if err != nil {
-			return 0, fmt.Errorf("MappedTrie::Decode - decode [%d] %s", pos, err)
+			return 0, fmt.Errorf("MappedTrie::Decode - pos [%d] %s", pos, err)
 		}
 		pos += length
 		if node.dummy {
@@ -265,14 +238,18 @@ func (t *MappedTrie) CopyConstruct() (IEncodable, error) {
 ////////////////////////////////////////
 // return in readable format
 
+func (t *MappedTrie) Print(w io.Writer, indent int) {
+	fmt.Fprintf(w, "%"+strconv.Itoa(indent)+"%s\n", "", t.ToString())
+	if t.root != nil {
+		t.root.Print(w, indent+4)
+	}
+}
+
 func (t *MappedTrie) ToString() string {
 
-	str := fmt.Sprintf("MappedTrie")
-
-	str += fmt.Sprintf("\n    root = %s", t.root.ToString())
-	str += fmt.Sprintf("\n    buf = %v", t.buf[:collection.MinInt(len(t.buf), 32)])
-
-	return str
+	return fmt.Sprintf("MappedTrie: r=%s, buf=%v",
+		t.root.ToString(),
+		t.buf[:collection.MinInt(len(t.buf), 32)])
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -285,12 +262,12 @@ type MappedTrieNode struct {
 	buf     []byte
 	offset  uint32
 	// elements
-	nodeKey   []byte
-	nodeType  byte
+	nodeKey  []byte
+	nodeData IData
+	// parent and children
 	parent    ITrieNode
-	children  map[string]ITrieNode
+	children  *collection.SortedMap
 	childSize int // for verification only
-	data      IData
 	// hidden fields
 	dummy       bool
 	known_nodes map[uint32]ITrieNode
@@ -301,7 +278,7 @@ type MappedTrieNode struct {
 
 func NewMappedTrieNode(parent ITrieNode, buf []byte, offset uint32, known_nodes map[uint32]ITrieNode) (*MappedTrieNode, int, error) {
 
-	result := &MappedTrieNode{parent: parent, buf: buf, offset: offset, children: map[string]ITrieNode{}, known_nodes: known_nodes}
+	result := &MappedTrieNode{parent: parent, buf: buf, offset: offset, children: collection.NewSortedMap(), known_nodes: known_nodes}
 
 	length, err := result.Decode(nil)
 	if err != nil {
@@ -342,15 +319,6 @@ func (tn *MappedTrieNode) NodeKey() []byte {
 	return tn.nodeKey
 }
 
-func (tn *MappedTrieNode) NodeType() byte {
-
-	if !tn.decoded {
-		panic(fmt.Sprintf("MappedTrieNode::NodeType - not decoded"))
-	}
-
-	return tn.nodeType
-}
-
 func (tn *MappedTrieNode) Parent() ITrieNode {
 
 	if !tn.decoded {
@@ -360,7 +328,7 @@ func (tn *MappedTrieNode) Parent() ITrieNode {
 	return tn.parent
 }
 
-func (tn *MappedTrieNode) Children() map[string]ITrieNode {
+func (tn *MappedTrieNode) Children() *collection.SortedMap {
 
 	if !tn.decoded {
 		panic(fmt.Sprintf("MappedTrieNode::Children - not decoded"))
@@ -379,10 +347,10 @@ func (tn *MappedTrieNode) ChildSize() int {
 		return 0
 	}
 
-	return len(tn.children)
+	return tn.children.Size()
 }
 
-func (tn *MappedTrieNode) ChildAt(nodeKey []byte) ITrieNode {
+func (tn *MappedTrieNode) GetChild(nodeKey []byte) ITrieNode {
 
 	if !tn.decoded {
 		panic(fmt.Sprintf("MappedTrieNode::ChildAt - not decoded"))
@@ -392,7 +360,7 @@ func (tn *MappedTrieNode) ChildAt(nodeKey []byte) ITrieNode {
 		return nil
 	}
 
-	return tn.children[string(nodeKey)]
+	return tn.children.Get(collection.NewComparableByteSlice(nodeKey)).(ITrieNode)
 }
 
 func (tn *MappedTrieNode) PutChild(nodeKey []byte, n ITrieNode) error {
@@ -409,7 +377,7 @@ func (tn *MappedTrieNode) Data() IData {
 		panic(fmt.Sprintf("MappedTrieNode::Data - not decoded"))
 	}
 
-	return tn.data
+	return tn.nodeData
 }
 
 func (tn *MappedTrieNode) SetData(IData) error {
@@ -461,20 +429,6 @@ func (tn *MappedTrieNode) Decode(IContext) (int, error) {
 	tn.nodeKey = nodeKey
 	pos += nodeKeyN
 
-	nodeType, nodeTypeN, err := DecodeUvarint(tn.buf[pos:])
-	if err != nil {
-		return 0, fmt.Errorf("MappedTrieNode::Decode - nodeType - %s", err)
-	}
-	switch byte(nodeType) {
-	case TRIE_NODE_TYPE_KEY:
-		tn.nodeType = TRIE_NODE_TYPE_KEY
-	case TRIE_NODE_TYPE_ATTR_GROUP:
-		tn.nodeType = TRIE_NODE_TYPE_ATTR_GROUP
-	default:
-		return 0, fmt.Errorf("MappedTrieNode::Decode - invalid nodeType %d", nodeType)
-	}
-	pos += nodeTypeN
-
 	// parent
 	parentOffset, parentN, err := DecodeUvarint(tn.buf[pos:])
 	if err != nil {
@@ -489,14 +443,14 @@ func (tn *MappedTrieNode) Decode(IContext) (int, error) {
 	}
 
 	// data
-	data, dataN, err := NewSimpleMappedData(0xff, tn.buf[pos:])
+	nodeData, nodeDataN, err := NewSimpleMappedData(0xff, tn.buf[pos:])
 	if err != nil {
 		return 0, fmt.Errorf("MappedTrieNode::Decode - data - %s", err)
 	}
-	tn.data = data
-	pos += dataN
+	tn.nodeData = nodeData
+	pos += nodeDataN
 
-	// child size
+	// children size
 	childSize, childSizeN, err := DecodeUvarint(tn.buf)
 	if err != nil {
 		return 0, fmt.Errorf("MappedTrieNode::Decode - child size - %s", err)
@@ -505,8 +459,8 @@ func (tn *MappedTrieNode) Decode(IContext) (int, error) {
 	pos += childSizeN
 
 	// we are here if parsing has completed successfully
-	parent.(*MappedTrieNode).children[string(nodeKey)] = tn // update pointer in parent
-	tn.known_nodes[tn.offset] = tn                          // update known nodes
+	parent.(*MappedTrieNode).children.Put(collection.NewComparableByteSlice(nodeKey), tn) // update pointer in parent
+	tn.known_nodes[tn.offset] = tn                                                        // update known nodes
 
 	return pos, nil
 }
@@ -543,19 +497,22 @@ func (tn *MappedTrieNode) CopyConstruct() (IEncodable, error) {
 ////////////////////////////////////////
 // return in readable format
 
+func (tn *MappedTrieNode) Print(w io.Writer, indent int) {
+	fmt.Fprintf(w, "%"+strconv.Itoa(indent)+"s%s", "", tn.ToString())
+	for iter := tn.children.Iterator(); iter.HasNext(); {
+		_, v := iter.Next()
+		v.(ITrieNode).Print(w, indent+4)
+	}
+}
+
 func (tn *MappedTrieNode) ToString() string {
 
-	str := fmt.Sprintf("MappedTrieNode")
-
-	str += fmt.Sprintf("\n    parent = %x", tn.parent)
-	for childKey, child := range tn.children {
-		str += fmt.Sprintf("\n    child[%v] = %x", childKey, child)
-	}
-	str += fmt.Sprintf("\n    data = %v", tn.data)
-	str += fmt.Sprintf("\n    offset = %d", tn.offset)
-	str += fmt.Sprintf("\n    buf = %v", tn.buf[:collection.MinInt(len(tn.buf), 32)])
-
-	return str
+	return fmt.Sprintf("MappedTrieNode: k=%x, child=[%d], data=%v, off=%d, buf=%v ",
+		tn.nodeKey,
+		tn.children.Size(),
+		tn.nodeData,
+		tn.offset,
+		tn.buf[:collection.MinInt(len(tn.buf), 16)])
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -579,4 +536,95 @@ type TrieNode struct {
 	encoded bool
 	buf     []byte
 	offset  uint32
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// TrieIterator
+////////////////////////////////////////////////////////////////////////////////
+
+type TrieIterator struct {
+	paths    []collection.ISortedMapIterator
+	rootNode ITrieNode
+	start    IKey
+	end      IKey
+}
+
+func (i *TrieIterator) Next() (IKey, IData) {
+
+	i.advance()
+
+	var returnNode ITrieNode
+
+	// if rootNode has not been iterated
+	if i.rootNode != nil {
+		returnNode = i.rootNode
+		iter := i.rootNode.Children().Iterator()
+		if returnNode.ChildSize() != 0 {
+			if i.paths == nil {
+				i.paths = []collection.ISortedMapIterator{iter}
+			} else {
+				i.paths = append(i.paths, iter)
+			}
+		}
+		i.rootNode = nil
+		return returnNode.FullKey(), returnNode.Data()
+	}
+
+	// we are here if root node has been iterated
+	// check iterator paths
+	for i.paths != nil && len(i.paths) != 0 {
+		lastIter := i.paths[len(i.paths)-1]
+		if lastIter.HasNext() {
+			_, data := lastIter.Next()
+			returnNode = data.(ITrieNode)
+			if returnNode.ChildSize() != 0 {
+				i.paths = append(i.paths, returnNode.Children().Iterator())
+			}
+			return returnNode.FullKey(), returnNode.Data()
+		} else {
+			i.paths = i.paths[:len(i.paths)-1]
+		}
+	}
+
+	// we are here if no more paths left
+	return nil, nil
+}
+
+func (i *TrieIterator) HasNext() bool {
+
+	i.advance()
+
+	return collection.IsNil(i.rootNode) && (collection.IsNil(i.paths) || len(i.paths) == 0)
+}
+
+func (i *TrieIterator) advance() {
+
+	if i.rootNode != nil {
+		if !collection.IsNil(i.start) {
+			if i.rootNode.FullKey().Compare(i.start) < 0 { // TODO
+				// if root node is not within range of start key
+				//return nil
+			}
+		}
+		if !collection.IsNil(i.end) {
+			if i.rootNode.FullKey().Compare(i.end) > 0 { // TODO
+				// if root node is not within range of end key
+				//return nil
+			}
+		}
+		return
+	}
+
+	if i.paths == nil {
+		return
+	}
+
+	for len(i.paths) != 0 {
+		lastIter := i.paths[len(i.paths)-1]
+		if lastIter.HasNext() {
+			return
+		} else {
+			i.paths = i.paths[:len(i.paths)-1]
+		}
+	}
 }
