@@ -40,6 +40,10 @@ func (m *SortedMap) Remove(k IComparable) IObject {
 	}
 }
 
+func (m *SortedMap) Size() int {
+	return m.tree.Size()
+}
+
 func (i *SortedMapIterator) Next() (IComparable, IObject) {
 	node := i.iter.Next().(*AVLNode)
 	if !IsNil(node) {

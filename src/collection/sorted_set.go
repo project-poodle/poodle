@@ -40,6 +40,10 @@ func (m *SortedSet) Remove(k IComparable) IComparable {
 	}
 }
 
+func (m *SortedSet) Size() int {
+	return m.tree.Size()
+}
+
 func (i *SortedSetIterator) Next() IObject {
 	node := i.iter.Next().(*AVLNode)
 	if !IsNil(node) {
