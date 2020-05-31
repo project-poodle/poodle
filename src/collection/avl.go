@@ -90,7 +90,7 @@ func (i *AVLIterator) Next() IObject {
 			i.paths = append(i.paths, i.currNode)
 			i.currNode = i.currNode.link[0]
 		}
-		resultNode := i.currNode
+		resultNode := &AVLNode{key: i.currNode.key, value: i.currNode.value}
 		i.currPos = 1
 		if i.currNode.link[1] != nil {
 			i.currNode = i.currNode.link[1]
@@ -108,7 +108,7 @@ func (i *AVLIterator) Next() IObject {
 			i.currNode = nil
 			return nil
 		} else {
-			resultNode := i.currNode
+			resultNode := &AVLNode{key: i.currNode.key, value: i.currNode.value}
 			i.currPos = 1
 			if i.currNode.link[1] != nil {
 				i.currNode = i.currNode.link[1]
@@ -128,6 +128,42 @@ func (i *AVLIterator) HasNext() bool {
 	isEmpty := len(i.paths) == 0 && (i.currNode == nil || i.currPos == 1)
 
 	return !isEmpty
+}
+
+func (i *AVLIterator) Peek() IObject {
+
+	if len(i.paths) == 0 && i.currNode == nil {
+		return nil
+	}
+
+	switch i.currPos {
+
+	case 0:
+		for i.currNode.link[0] != nil {
+			i.paths = append(i.paths, i.currNode)
+			i.currNode = i.currNode.link[0]
+		}
+		resultNode := &AVLNode{key: i.currNode.key, value: i.currNode.value}
+		return resultNode
+
+	case 1:
+		if len(i.paths) != 0 {
+			i.currNode = i.paths[len(i.paths)-1]
+			i.currPos = 0
+			i.paths = i.paths[:len(i.paths)-1]
+		}
+		if len(i.paths) == 0 && i.currPos == 1 {
+			i.currNode = nil
+			return nil
+		} else {
+			resultNode := &AVLNode{key: i.currNode.key, value: i.currNode.value}
+			return resultNode
+		}
+
+	//case 2:
+	default:
+		panic(fmt.Sprintf("AVLIterator::Peek - unknown currPos %d", i.currPos))
+	}
 }
 
 // Return an iterator of the AVL tree.

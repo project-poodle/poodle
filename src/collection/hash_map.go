@@ -62,6 +62,15 @@ func (i *HashMapIterator) HasNext() bool {
 	return i.iter.HasNext()
 }
 
+func (i *HashMapIterator) Peek() (IHashable, IObject) {
+	node := i.iter.Peek().(*HashNode)
+	if !IsNil(node) {
+		return node.key, node.value
+	} else {
+		return nil, nil
+	}
+}
+
 func (m *HashMap) Iterator() IHashMapIterator {
 	return &HashMapIterator{iter: m.hash.Iterator()}
 }

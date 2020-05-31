@@ -57,6 +57,15 @@ func (i *SortedMapIterator) HasNext() bool {
 	return i.iter.HasNext()
 }
 
+func (i *SortedMapIterator) Peek() (IComparable, IObject) {
+	node := i.iter.Peek().(*AVLNode)
+	if !IsNil(node) {
+		return node.key, node.value
+	} else {
+		return nil, nil
+	}
+}
+
 func (m *SortedMap) Iterator() ISortedMapIterator {
 	return &SortedMapIterator{iter: m.tree.Iterator()}
 }

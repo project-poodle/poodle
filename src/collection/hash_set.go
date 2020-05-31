@@ -62,6 +62,15 @@ func (i *HashSetIterator) HasNext() bool {
 	return i.iter.HasNext()
 }
 
+func (i *HashSetIterator) Peek() IObject {
+	node := i.iter.Peek().(*HashNode)
+	if !IsNil(node) {
+		return node.key
+	} else {
+		return nil
+	}
+}
+
 func (m *HashSet) Iterator() IIterator {
 	return &HashSetIterator{iter: m.hash.Iterator()}
 }

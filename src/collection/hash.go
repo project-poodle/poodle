@@ -228,6 +228,15 @@ func (i *HashIterator) HasNext() bool {
 	return i.pos < len(i.hash.array) && i.currNode != nil
 }
 
+func (i *HashIterator) Peek() IObject {
+	i.advance()
+	if i.pos >= len(i.hash.array) || i.currNode == nil {
+		return nil
+	}
+	resultNode := &HashNode{key: i.currNode.key, value: i.currNode.value}
+	return resultNode
+}
+
 func (i *HashIterator) advance() {
 	// advance to the next non-nil node
 	for i.pos < len(i.hash.array) {

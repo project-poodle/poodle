@@ -57,6 +57,15 @@ func (i *SortedSetIterator) HasNext() bool {
 	return i.iter.HasNext()
 }
 
+func (i *SortedSetIterator) Peek() IObject {
+	node := i.iter.Peek().(*AVLNode)
+	if !IsNil(node) {
+		return node.key
+	} else {
+		return nil
+	}
+}
+
 func (m *SortedSet) Iterator() IIterator {
 	return &SortedSetIterator{iter: m.tree.Iterator()}
 }
