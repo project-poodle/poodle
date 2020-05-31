@@ -263,7 +263,7 @@ func TestSerializeHash(t *testing.T) {
 	if table.verifySeed != loaded_table.verifySeed {
 		t.Errorf("Verify Seed mismatch")
 	}
-	if !EqualUint32Array(table.verifyHash, loaded_table.verifyHash) {
+	if !collection.EqualUint32Array(table.verifyHash, loaded_table.verifyHash) {
 		t.Errorf("Verify Hash mismatch")
 	}
 }
