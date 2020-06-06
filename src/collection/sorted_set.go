@@ -69,3 +69,7 @@ func (i *SortedSetIterator) Peek() IObject {
 func (m *SortedSet) Iterator() IIterator {
 	return &SortedSetIterator{iter: m.tree.Iterator()}
 }
+
+func (m *SortedSet) RangeIterator(start, end IComparable) IIterator {
+	return &SortedSetIterator{iter: m.tree.RangeIterator(start, end)}
+}

@@ -122,6 +122,22 @@ func TestHash(t *testing.T) {
 		fmt.Println(iter.Next().(*HashNode).ToString())
 	}
 
+	// get random
+	fmt.Println("\nGet Hash Random:")
+	getRandSize := 500
+	for i := 0; i < getRandSize; i++ {
+		value := int(randUint32() % 100)
+		hash.Get(&intKey{value})
+	}
+	hash.Print(os.Stdout, 0)
+	for iter := hash.Iterator(); iter.HasNext(); {
+		peek := iter.Peek().(*AVLNode)
+		next := iter.Next().(*AVLNode)
+		if peek.key.Compare(next.key) != 0 {
+			t.Errorf("Peak/Next Failed: peek key %v, next key %v", peek.key, next.key)
+		}
+	}
+
 	// remove random
 	fmt.Println("\nRemove Hash Random:")
 	removeRandSize := 200

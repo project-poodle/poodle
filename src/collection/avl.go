@@ -9,22 +9,13 @@ import (
 // This code is an adoption of the original implementation at:
 // https://www.golangprograms.com/golang-program-for-implementation-of-avl-trees.html
 
+////////////////////////////////////////////////////////////////////////////////
+// AVLTree
+////////////////////////////////////////////////////////////////////////////////
+
 type AVLTree struct {
 	root *AVLNode
 	size int
-}
-
-type AVLNode struct {
-	key     IComparable
-	value   IObject
-	balance int
-	link    [2]*AVLNode
-}
-
-type AVLIterator struct {
-	paths    []*AVLNode
-	currNode *AVLNode
-	currPos  int
 }
 
 // create new AVL tree
@@ -77,101 +68,14 @@ func (t *AVLTree) Size() int {
 	return t.size
 }
 
-func (i *AVLIterator) Next() IObject {
-
-	if len(i.paths) == 0 && i.currNode == nil {
-		return nil
-	}
-
-	switch i.currPos {
-
-	case 0:
-		for i.currNode.link[0] != nil {
-			i.paths = append(i.paths, i.currNode)
-			i.currNode = i.currNode.link[0]
-		}
-		resultNode := &AVLNode{key: i.currNode.key, value: i.currNode.value}
-		i.currPos = 1
-		if i.currNode.link[1] != nil {
-			i.currNode = i.currNode.link[1]
-			i.currPos = 0
-		}
-		return resultNode
-
-	case 1:
-		if len(i.paths) != 0 {
-			i.currNode = i.paths[len(i.paths)-1]
-			i.currPos = 0
-			i.paths = i.paths[:len(i.paths)-1]
-		}
-		if len(i.paths) == 0 && i.currPos == 1 {
-			i.currNode = nil
-			return nil
-		} else {
-			resultNode := &AVLNode{key: i.currNode.key, value: i.currNode.value}
-			i.currPos = 1
-			if i.currNode.link[1] != nil {
-				i.currNode = i.currNode.link[1]
-				i.currPos = 0
-			}
-			return resultNode
-		}
-
-	//case 2:
-	default:
-		panic(fmt.Sprintf("AVLIterator::Next - unknown currPos %d", i.currPos))
-	}
-}
-
-func (i *AVLIterator) HasNext() bool {
-
-	isEmpty := len(i.paths) == 0 && (i.currNode == nil || i.currPos == 1)
-
-	return !isEmpty
-}
-
-func (i *AVLIterator) Peek() IObject {
-
-	if len(i.paths) == 0 && i.currNode == nil {
-		return nil
-	}
-
-	switch i.currPos {
-
-	case 0:
-		for i.currNode.link[0] != nil {
-			i.paths = append(i.paths, i.currNode)
-			i.currNode = i.currNode.link[0]
-		}
-		resultNode := &AVLNode{key: i.currNode.key, value: i.currNode.value}
-		return resultNode
-
-	case 1:
-		if len(i.paths) != 0 {
-			i.currNode = i.paths[len(i.paths)-1]
-			i.currPos = 0
-			i.paths = i.paths[:len(i.paths)-1]
-		}
-		if len(i.paths) == 0 && i.currPos == 1 {
-			i.currNode = nil
-			return nil
-		} else {
-			resultNode := &AVLNode{key: i.currNode.key, value: i.currNode.value}
-			return resultNode
-		}
-
-	//case 2:
-	default:
-		panic(fmt.Sprintf("AVLIterator::Peek - unknown currPos %d", i.currPos))
-	}
-}
-
 // Return an iterator of the AVL tree.
 func (t *AVLTree) Iterator() IIterator {
+	return NewAVLIterator(t.root, nil, nil)
+}
 
-	iter := &AVLIterator{paths: []*AVLNode{}, currNode: t.root, currPos: 0}
-
-	return iter
+// Return a range iterator of the AVL tree.
+func (t *AVLTree) RangeIterator(start, end IComparable) IIterator {
+	return NewAVLIterator(t.root, start, end)
 }
 
 func (t *AVLTree) Print(w io.Writer, indent int) {
@@ -187,6 +91,17 @@ func (t *AVLTree) ToString() string {
 	} else {
 		return fmt.Sprintf("AVLTree: s=%d, %v", t.size, t.root.ToString())
 	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// AVLNode
+////////////////////////////////////////////////////////////////////////////////
+
+type AVLNode struct {
+	key     IComparable
+	value   IObject
+	balance int
+	link    [2]*AVLNode
 }
 
 func opp(dir int) int {
@@ -399,4 +314,187 @@ func (root *AVLNode) ToString() string {
 		root.balance,
 		l1,
 		l2)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// AVLIterator
+////////////////////////////////////////////////////////////////////////////////
+
+type AVLIterator struct {
+	initialized bool
+	paths       []*AVLNode
+	currNode    *AVLNode
+	currPos     int
+	start       IComparable
+	end         IComparable
+}
+
+func NewAVLIterator(root *AVLNode, start, end IComparable) *AVLIterator {
+
+	iter := &AVLIterator{initialized: false, paths: []*AVLNode{}}
+	iter.currNode = root
+	iter.currPos = 0
+
+	for iter.currNode != nil && iter.currNode.link[0] != nil {
+		iter.paths = append(iter.paths, iter.currNode)
+		iter.currNode = iter.currNode.link[0]
+		iter.currPos = 0
+	}
+
+	if start == nil && end == nil {
+		return iter
+	}
+
+	if start != nil && end != nil && start.Compare(end) > 0 {
+		panic(fmt.Sprintf("NewAVLIterator - start [%v] is larger than end [%v]", start, end))
+	}
+
+	iter.start = start
+	iter.end = end
+
+	return iter
+}
+
+func (i *AVLIterator) Next() IObject {
+
+	i.advance()
+
+	if len(i.paths) == 0 && i.currNode == nil {
+		return nil
+	}
+
+	resultNode := &AVLNode{key: i.currNode.key, value: i.currNode.value}
+	i.currPos = 1
+
+	return resultNode
+}
+
+func (i *AVLIterator) HasNext() bool {
+
+	i.advance()
+
+	isEmpty := len(i.paths) == 0 && i.currNode == nil
+
+	return !isEmpty
+}
+
+func (i *AVLIterator) Peek() IObject {
+
+	i.advance()
+
+	if len(i.paths) == 0 && i.currNode == nil {
+		return nil
+	}
+
+	if i.currNode != nil {
+
+		resultNode := &AVLNode{key: i.currNode.key, value: i.currNode.value}
+		return resultNode
+
+	} else {
+
+		return nil
+	}
+}
+
+func (i *AVLIterator) advance() {
+
+	if i.currNode == nil {
+
+		if len(i.paths) == 0 {
+
+			return
+
+		} else {
+
+			i.currNode = i.paths[len(i.paths)-1]
+			i.currPos = 0
+			i.paths = i.paths[:len(i.paths)-1]
+		}
+	}
+
+	switch i.currPos {
+
+	case 0:
+		break
+
+	case 1:
+		if i.currNode.link[1] != nil {
+			i.currNode = i.currNode.link[1]
+			i.currPos = 0
+			for i.currNode.link[0] != nil {
+				i.paths = append(i.paths, i.currNode)
+				i.currNode = i.currNode.link[0]
+				i.currPos = 0
+			}
+		} else {
+			if len(i.paths) != 0 {
+				i.currNode = i.paths[len(i.paths)-1]
+				i.currPos = 0
+				i.paths = i.paths[:len(i.paths)-1]
+			} else {
+				// no more left
+				i.currNode = nil
+				i.start = nil
+				i.end = nil
+				return
+			}
+		}
+
+	//case 2:
+	default:
+		panic(fmt.Sprintf("AVLIterator::advance - unknown currPos %d", i.currPos))
+	}
+
+	if i.start != nil {
+
+		for comp := i.start.Compare(i.currNode.key); comp < 0; {
+
+			if i.currNode.link[1] != nil {
+
+				i.currNode = i.currNode.link[1]
+				comp = i.start.Compare(i.currNode.key)
+
+			} else {
+
+				if len(i.paths) == 0 {
+
+					i.currNode = nil
+					return
+
+				} else {
+
+					i.currNode = i.paths[len(i.paths)-1]
+					i.currPos = 0
+					i.paths = i.paths[:len(i.paths)-1]
+					comp = i.start.Compare(i.currNode.key)
+				}
+			}
+		}
+
+		// we are here as i.CurrNode is no less than i.start
+		i.start = nil
+	}
+
+	if i.end != nil {
+
+		for comp := i.currNode.key.Compare(i.end); comp >= 0; {
+
+			if len(i.paths) == 0 {
+
+				i.currNode = nil
+				i.end = nil // no more left
+				return
+
+			} else {
+
+				i.currNode = i.paths[len(i.paths)-1]
+				i.currPos = 0
+				i.paths = i.paths[:len(i.paths)-1]
+				comp = i.currNode.key.Compare(i.end)
+			}
+		}
+	}
+
+	return
 }

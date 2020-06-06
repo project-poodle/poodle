@@ -136,6 +136,22 @@ func TestAVL(t *testing.T) {
 		fmt.Println(iter.Next().(*AVLNode).ToString())
 	}
 
+	// get random
+	fmt.Println("\nGet Tree Random:")
+	getRandSize := 500
+	for i := 0; i < getRandSize; i++ {
+		value := int(randUint32() % 100)
+		tree.Get(&intKey{value})
+	}
+	tree.Print(os.Stdout, 0)
+	for iter := tree.Iterator(); iter.HasNext(); {
+		peek := iter.Peek().(*AVLNode)
+		next := iter.Next().(*AVLNode)
+		if peek.key.Compare(next.key) != 0 {
+			t.Errorf("Peak/Next Failed: peek key %v, next key %v", peek.key, next.key)
+		}
+	}
+
 	// remove random
 	fmt.Println("\nRemove Tree Random:")
 	removeRandSize := 200

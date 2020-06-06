@@ -69,3 +69,7 @@ func (i *SortedMapIterator) Peek() (IComparable, IObject) {
 func (m *SortedMap) Iterator() ISortedMapIterator {
 	return &SortedMapIterator{iter: m.tree.Iterator()}
 }
+
+func (m *SortedMap) RangeIterator(start, end IComparable) ISortedMapIterator {
+	return &SortedMapIterator{iter: m.tree.RangeIterator(start, end)}
+}
