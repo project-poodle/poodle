@@ -86,8 +86,8 @@ func testKeyEqual(k1, k2 IKey, t *testing.T) bool {
 		}
 	}
 
-	if k1.IsNil() {
-		return k2.IsNil()
+	if k1.IsEmpty() {
+		return k2.IsEmpty()
 	}
 
 	return k1.Equal(k2)

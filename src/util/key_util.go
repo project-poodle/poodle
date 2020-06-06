@@ -24,7 +24,7 @@ type IKey interface {
 
 	////////////////////////////////////////
 	// accessor to elements
-	IsNil() bool // whether Key is nil
+	IsEmpty() bool // whether Key is nil
 	Key() [][]byte
 	SubKeyAt(idx int) []byte
 }
@@ -40,7 +40,7 @@ func NewEmptyKey() *EmptyKey {
 	return &EmptyKey{}
 }
 
-func (k *EmptyKey) IsNil() bool {
+func (k *EmptyKey) IsEmpty() bool {
 	return true
 }
 
@@ -153,13 +153,13 @@ func NewMappedKey(buf []byte) (*MappedKey, int, error) {
 	return result, keyN, nil
 }
 
-func (k *MappedKey) IsNil() bool {
+func (k *MappedKey) IsEmpty() bool {
 	if k.buf == nil || len(k.buf) == 0 {
 		return true
 	}
 
 	if !k.decoded {
-		panic(fmt.Sprintf("MappedKey::IsNil - not decoded"))
+		panic(fmt.Sprintf("MappedKey::IsEmpty - not decoded"))
 	}
 
 	return k.keys == nil || len(k.keys) == 0
@@ -188,7 +188,7 @@ func (k *MappedKey) SubKeyAt(idx int) []byte {
 }
 
 func (k *MappedKey) Buf() []byte {
-	if k.IsNil() {
+	if k.IsEmpty() {
 		return []byte{0x00}
 	}
 	return k.buf
@@ -381,7 +381,7 @@ func NewStringKey(stringKey string) *Key {
 	return &Key{keys: []([]byte){[]byte(stringKey)}, buf: nil}
 }
 
-func (k *Key) IsNil() bool {
+func (k *Key) IsEmpty() bool {
 	return k.keys == nil || len(k.keys) == 0
 }
 
