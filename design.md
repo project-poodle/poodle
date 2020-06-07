@@ -9,12 +9,12 @@ Poodle objects (e.g. Clusters, Nodes, Services, etc.) are identified by
   ECDSA key.
 
 A Poodle Node is added to a Poodle Cluster by a message containing the
-__cluster:node__ scheme, the Poodle node public key, a 'UPDATE' flag,
-and a timestamp, signed by the Poodle cluster private key.
+__Consensus ID__, __cluster:node__ scheme, the Poodle node public key,
+a 'UPDATE' flag, and a timestamp, signed by the Poodle cluster private key.
 
 A Poodle Node is removed from a Poodle Cluster by a message containing
-the __cluster:node__ scheme, the Poodle node public key, a 'CLEAR' flag,
-and a timestamp, signed by the Poodle cluster private key.
+the __Consensus ID__, __cluster:node__ scheme, the Poodle node public key,
+a 'CLEAR' flag, and a timestamp, signed by the Poodle cluster private key.
 
 
 
