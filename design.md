@@ -408,7 +408,7 @@ The first byte is a __magic__.
   - source content of the signature include binary consensus ID, concatenated
     with Record content, including Record Magic, Key, Value, Scheme, and
     Timestamp
-  - If signature is present, the content of data are in raw format, and
+  - If signature is present, the content of record are in raw format, and
     cannot be encoded with lookup scheme, or compression scheme
 
 
@@ -516,13 +516,8 @@ A full record is encoded as following:
 
 ### Value Encode Magic ###
 
-Value encoding can significantly reduce size of the data by representing
-data as a lookup, or in compressed format.
-
-When the record encoding bits are __11__ for key, value, or scheme, this
-indicates the data follows __data encoding__. In this case, the first byte
-of the data encoding is another magic that represents __data encoding
-magic__.
+Value encoding can significantly reduce size of the value by representing
+value as a lookup, or in compressed format.
 
              Compression
                 |
@@ -558,9 +553,9 @@ magic__.
   - 0 means no compression scheme
   - 1 means 2 bytes off compression scheme
 
-- Bit 1 and 0 are length of data length
-  - When lookup bit is 1, this 2 bits represent lookup data length, not
-    length of data length
+- Bit 1 and 0 are length of value length
+  - When lookup bit is 1, this 2 bits represent lookup value length, not
+    length of value length
   - 00 means 0 length
   - 01 means 1 byte length
   - 10 means 2 bytes length
@@ -584,7 +579,7 @@ Note:
 
 ### Value Encoding ###
 
-A full __data encoding__ is as following:
+A full __value encoding__ is as following:
 
     Value
     Magic         Length
@@ -601,21 +596,21 @@ A full __data encoding__ is as following:
       List
       Count
 
-When data size is relatively small (less than ~1k), and when possible
-enumeration of data content is limited, lookup can be an effective
-way of reducing the data size.
+When value size is relatively small (less than ~1k), and when possible
+enumeration of value content is limited, lookup can be an effective
+way of reducing the value size.
 
 A poodle consensus keeps a list of cluster wide lookup schemes.
 The list of lookup schemes are registered across the cluster, and is
 specific to a consensus.  The cluster wide lookup scheme and can be
-used to encode data.  E.g.
+used to encode value.  E.g.
 
 - A 256 bits ECDSA public key is 32 bytes long.  Sending 32 bytes
   over the wire, or store on disk can represent a significant overhead.
 
-- Instead, if we have a lookup scheme that will lookup the encoded data
-  for original content of the data, this can significantly reduce the
-  data size to represent an ECDSA public key.
+- Instead, if we have a lookup scheme that will lookup the encoded value
+  for original content of the value, this can significantly reduce the
+  value size to represent an ECDSA public key.
 
 - Assume there are total 10k nodes (10k possible public keys), a perfect
   hash and 2 bytes lookup key will be enough to represent an ECDSA public
@@ -625,18 +620,18 @@ used to encode data.  E.g.
   when new nodes are added, and old removed, the lookup scheme will need
   to be updated), we will need to record a list of actively used schemes.
 
-- Assume 1 byte to represent scheme, and 2 bytes to represent data content,
+- Assume 1 byte to represent scheme, and 2 bytes to represent value content,
   total encoding length of a 32 bytes ECDSA public key is: 1 magic byte +
   1 lookup scheme byte + 0 compression scheme byte + 0 length byte + 2
-  content bytes = 4 bytes.  This is 87.5% reduction of data size.
+  content bytes = 4 bytes.  This is 87.5% reduction of value size.
 
-When data size is relatively large (larger than ~1k), and when data is not
+When value size is relatively large (larger than ~1k), and when value is not
 already compressed, compression can be an effective way to reduce the
-data size.
+value size.
 
 A poodle consensus keeps a list of cluster wide compression schemes.
 The list of schemes are registered across the cluster, and can be
-used to encode data.
+used to encode value.
 
 
 
