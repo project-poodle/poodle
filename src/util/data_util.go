@@ -5,6 +5,8 @@ import (
 	//"time"
 	//"math/big"
 	"encoding/binary"
+
+	"../collection"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -28,8 +30,9 @@ type IData interface {
 
 	////////////////////////////////////////
 	// encoding, decoding, and buf
-	DataMagic() byte // 1 byte Data Magic            - return 0xff if not encoded
-	Buf() []byte     // full Data buffer             - return nil if not encoded
+	DataMagic() byte    // 1 byte Data Magic            - return 0xff if not encoded
+	Buf() []byte        // full Data buffer             - return nil if not encoded
+	EstBufSize() uint32 // estimated buf size
 	// whether Data is encoded      - always return true for Mapped Data
 	//                                  - return true for Constructed Data if encoded buf cache exists
 	//                                  - return false for Constructed Data if no encoded buf cache
@@ -144,6 +147,10 @@ func (d *SimpleMappedData) DataMagic() byte {
 
 func (d *SimpleMappedData) Buf() []byte {
 	return d.buf
+}
+
+func (d *SimpleMappedData) EstBufSize() uint32 {
+	return uint32(len(d.buf))
 }
 
 func (d *SimpleMappedData) IsEncoded() bool {
@@ -418,6 +425,10 @@ func (d *StandardMappedData) DataMagic() byte {
 
 func (d *StandardMappedData) Buf() []byte {
 	return d.buf
+}
+
+func (d *StandardMappedData) EstBufSize() uint32 {
+	return uint32(len(d.buf))
 }
 
 func (d *StandardMappedData) IsEncoded() bool {
@@ -714,6 +725,18 @@ func (d *Primitive) Buf() []byte {
 	return d.buf
 }
 
+func (d *Primitive) EstBufSize() uint32 {
+	if len(d.data) < 1<<7 {
+		return 1 + uint32(len(d.data))
+	} else if len(d.data) < 1<<15 {
+		return 2 + uint32(len(d.data))
+	} else if len(d.data) < 1<<23 {
+		return 3 + uint32(len(d.data))
+	} else {
+		return 4 + uint32(len(d.data))
+	}
+}
+
 func (d *Primitive) IsEncoded() bool {
 	return d.encoded
 }
@@ -826,8 +849,9 @@ func (d *Primitive) CopyConstruct() (IData, error) {
 
 type DataArray struct {
 	// buf
-	encoded bool
-	buf     []byte
+	encoded    bool
+	buf        []byte
+	estBufSize uint32
 	// data array
 	data_array []IData
 }
@@ -836,7 +860,7 @@ type DataArray struct {
 // constructor
 
 func NewDataArray() *DataArray {
-	return &DataArray{encoded: false, data_array: []IData{}}
+	return &DataArray{encoded: false, data_array: []IData{}, estBufSize: 1}
 }
 
 ////////////////////////////////////////
@@ -909,6 +933,10 @@ func (d *DataArray) Buf() []byte {
 	return d.buf
 }
 
+func (d *DataArray) EstBufSize() uint32 {
+	return d.estBufSize
+}
+
 func (d *DataArray) IsEncoded() bool {
 	return d.encoded
 }
@@ -916,6 +944,7 @@ func (d *DataArray) IsEncoded() bool {
 func (d *DataArray) Encode(parent bool) ([]byte, byte, error) {
 
 	if d.data_array == nil {
+		d.estBufSize = 1
 		return nil, 0x00, nil
 	}
 
@@ -950,6 +979,7 @@ func (d *DataArray) Encode(parent bool) ([]byte, byte, error) {
 
 		d.buf = buf
 		d.encoded = true
+		d.estBufSize = uint32(len(d.buf))
 		return buf, 0xff, nil
 
 	} else if content_len < 256 {
@@ -959,6 +989,7 @@ func (d *DataArray) Encode(parent bool) ([]byte, byte, error) {
 		buf = append(buf, content_buf...)
 		d.buf = buf
 		d.encoded = true
+		d.estBufSize = uint32(len(d.buf))
 		return buf, 0xff, nil
 
 	} else if content_len < 65536 {
@@ -968,6 +999,7 @@ func (d *DataArray) Encode(parent bool) ([]byte, byte, error) {
 		buf = append(buf, content_buf...)
 		d.buf = buf
 		d.encoded = true
+		d.estBufSize = uint32(len(d.buf))
 		return buf, 0xff, nil
 
 	} else {
@@ -1031,6 +1063,7 @@ func (d *DataArray) CopyConstruct() (IData, error) {
 func (d *DataArray) Append(data IData) *DataArray {
 	d.data_array = append(d.data_array, data)
 	d.encoded = false
+	d.estBufSize += data.EstBufSize()
 	return d
 }
 
@@ -1040,6 +1073,7 @@ func (d *DataArray) DeleteAt(idx uint16) *DataArray {
 		panic(fmt.Sprintf("DataArray::DataAt - idx [%d] bigger than size [%d]", idx, len(d.data_array)))
 	}
 
+	d.estBufSize -= d.data_array[idx].EstBufSize()
 	d.data_array = append(d.data_array[:idx], d.data_array[idx+1:]...)
 	d.encoded = false
 	return d
@@ -1050,8 +1084,9 @@ func (d *DataArray) DeleteAt(idx uint16) *DataArray {
 
 type RecordList struct {
 	// buf
-	encoded bool
-	buf     []byte
+	encoded    bool
+	buf        []byte
+	estBufSize uint32
 	// record list
 	record_list []IRecord
 }
@@ -1060,7 +1095,7 @@ type RecordList struct {
 // constructor
 
 func NewRecordList() *RecordList {
-	return &RecordList{encoded: false, record_list: []IRecord{}}
+	return &RecordList{encoded: false, record_list: []IRecord{}, estBufSize: 1}
 }
 
 ////////////////////////////////////////
@@ -1131,6 +1166,10 @@ func (d *RecordList) Buf() []byte {
 	}
 
 	return d.buf
+}
+
+func (d *RecordList) EstBufSize() uint32 {
+	return d.estBufSize
 }
 
 func (d *RecordList) IsEncoded() bool {
@@ -1256,6 +1295,7 @@ func (d *RecordList) CopyConstruct() (IData, error) {
 func (d *RecordList) Append(record IRecord) *RecordList {
 	d.record_list = append(d.record_list, record)
 	d.encoded = false
+	d.estBufSize += record.EstBufSize()
 	return d
 }
 
@@ -1265,7 +1305,20 @@ func (d *RecordList) DeleteAt(idx uint16) *RecordList {
 		panic(fmt.Sprintf("DataArray::DeleteAt - idx [%d] bigger than size [%d]", idx, len(d.record_list)))
 	}
 
+	d.estBufSize -= d.record_list[idx].EstBufSize()
 	d.record_list = append(d.record_list[:idx], d.record_list[idx+1:]...)
 	d.encoded = false
 	return d
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// utilities
+////////////////////////////////////////////////////////////////////////////////
+
+func estimateDataBufSize(d IData) uint32 {
+	if collection.IsNil(d) {
+		return 1
+	} else {
+		return d.EstBufSize()
+	}
 }

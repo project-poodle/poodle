@@ -23,8 +23,9 @@ type IRecord interface {
 
 	////////////////////////////////////////
 	// encoding, decoding, and buf
-	RecordMagic() byte // 1 byte Record Magic          - return 0xff if not encoded
-	Buf() []byte       // full Record buffer           - return nil if not encoded
+	RecordMagic() byte  // 1 byte Record Magic          - return 0xff if not encoded
+	Buf() []byte        // full Record buffer           - return nil if not encoded
+	EstBufSize() uint32 // estimated buf size
 	// whether Record is encoded    - always return true for Mapped Record
 	//                                  - return true for Constructed Record if encoded buf cache exists
 	//                                  - return false for Constructed Record if no encoded buf cache
@@ -151,6 +152,10 @@ func (r *MappedRecord) RecordMagic() byte {
 
 func (r *MappedRecord) Buf() []byte {
 	return r.buf
+}
+
+func (r *MappedRecord) EstBufSize() uint32 {
+	return uint32(len(r.buf))
 }
 
 func (r *MappedRecord) IsEncoded() bool {
@@ -327,8 +332,11 @@ func (r *MappedRecord) CopyConstruct() (IRecord, error) {
 
 type Record struct {
 	// buf
-	encoded bool
-	buf     []byte
+	encoded       bool
+	buf           []byte
+	estKeySize    uint32
+	estDataSize   uint32
+	estSchemeSize uint32
 	// elements
 	key         IData
 	value       IData
@@ -387,6 +395,18 @@ func (r *Record) Buf() []byte {
 	}
 
 	return r.buf
+}
+
+func (r *Record) EstBufSize() uint32 {
+	estTimestampSize := uint32(0)
+	if r.timestamp != nil {
+		estTimestampSize += 8
+	}
+	estSignatureSize := uint32(0)
+	if r.signature_r != nil && r.signature_s != nil {
+		estSignatureSize += 32 * 2
+	}
+	return r.estKeySize + r.estDataSize + r.estSchemeSize + estTimestampSize + estSignatureSize
 }
 
 func (r *Record) IsEncoded() bool {
@@ -525,36 +545,42 @@ func (r *Record) CopyConstruct() (IRecord, error) {
 func (r *Record) SetKey(key IData) *Record {
 	r.key = key
 	r.encoded = false
+	r.estKeySize = r.key.EstBufSize()
 	return r
 }
 
 func (r *Record) SetK(key []byte) *Record {
 	r.key = NewPrimitive(key)
 	r.encoded = false
+	r.estKeySize = r.key.EstBufSize()
 	return r
 }
 
 func (r *Record) SetValue(value IData) *Record {
 	r.value = value
 	r.encoded = false
+	r.estDataSize = r.value.EstBufSize()
 	return r
 }
 
 func (r *Record) SetV(value []byte) *Record {
 	r.value = NewPrimitive(value)
 	r.encoded = false
+	r.estDataSize = r.value.EstBufSize()
 	return r
 }
 
 func (r *Record) SetScheme(scheme IData) *Record {
 	r.scheme = scheme
 	r.encoded = false
+	r.estSchemeSize = r.scheme.EstBufSize()
 	return r
 }
 
 func (r *Record) SetS(scheme []byte) *Record {
 	r.scheme = NewPrimitive(scheme)
 	r.encoded = false
+	r.estSchemeSize = r.scheme.EstBufSize()
 	return r
 }
 

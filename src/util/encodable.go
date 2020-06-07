@@ -43,6 +43,9 @@ type IEncodable interface {
 	Copy() IEncodable
 	// make a constructed (modifiable) copy of the object
 	CopyConstruct() (IEncodable, error)
+
 	// return encoded buf (byte array)
 	Buf() []byte
+	// estimated buf size
+	EstBufSize() uint32
 }
