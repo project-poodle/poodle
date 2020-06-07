@@ -433,15 +433,15 @@ following components:
   - Tablet name is an alpha-numeric string separated by '.'
   - Tablet name is required as part of the standard Scheme
 
-- Groups
+- Buckets
   - This is similar to column group in a NoSQL table
-  - Group name is an alpha-numeric string separated by '/'
-  - Group name is optional part of a Scheme
+  - Bucket name is an alpha-numeric string separated by '/'
+  - Bucket name is optional part of a Scheme
 
 A full Scheme ID includes Consensus ID, Domain, Tablet, and optional
-Groups. E.g.
+Buckets. E.g.
 
-    <consensus_id>, <domain>:<tablet>[/<groups>]
+    <consensus_id>, <domain>:<tablet>[/<buckets>]
 
 Scheme in Record encoding is encoded differently when transmitted via network,
 or when stored on disk.  Not all Scheme components are stored in the Record
@@ -462,20 +462,20 @@ in all format.
 
 Examples below:
 
-| Scheme | Consensus ID | Domain | Tablet | Group |
+| Scheme | Consensus ID | Domain | Tablet | Bucket |
 | :--- | :--- | :--- | :--- | :--- |
-| \<C\>, cluster:conf                           | Cluster ID | cluster consensus | cluster conf tablet | base attribute group |
-| \<C\>, cluster:node                           | Cluster ID | cluster consensus | node tablet | base attribute group for membership |
-| \<C\>, cluster:node/conf                      | Cluster ID | cluster consensus | node tablet | conf attribute group |
-| \<C\>, cluster:spaceport                      | Cluster ID | cluster consensus | space port tablet | base attribute group for membership |
-| \<C\>, cluster:spaceport/conf                 | Cluster ID | cluster consensus | space port tablet | conf attribute group |
-| \<C\>, cluster.status:node                    | Cluster ID | cluster status | node tablet | base attribute group for status |
-| \<C\>, cluster.status:node/stats              | Cluster ID | cluster status | node tablet | stats attribute group |
-| \<C\>, cluster.status:spaceport               | Cluster ID | cluster status | space port tablet | base attribute group for status |
-| \<C\>, cluster.status:spaceport/stats         | Cluster ID | cluster status | space port tablet | stats attribute group |
-| \<C\>, \<S\>, \<E\>, raft:poodle              | Cluster ID, Shard Start, Shard End | Raft consensus | poodle tablet | base attribute group for poodle metadata service |
-| \<C\>, \<S\>, \<E\>, raft:poodle.status       | Cluster ID, Shard Start, Shard End | Raft consensus | poodle status tablet | status attribute group |
-| \<C\>, \<S\>, \<E\>, raft:poodle.status/stats | Cluster ID, Shard Start, Shard End | Raft consensus | poodle status tablet | stats attribute group |
+| \<C\>, cluster:conf                           | Cluster ID | cluster consensus | cluster conf tablet | base bucket |
+| \<C\>, cluster:node                           | Cluster ID | cluster consensus | node tablet | base bucket for membership |
+| \<C\>, cluster:node/conf                      | Cluster ID | cluster consensus | node tablet | conf bucket |
+| \<C\>, cluster:spaceport                      | Cluster ID | cluster consensus | space port tablet | base bucket for membership |
+| \<C\>, cluster:spaceport/conf                 | Cluster ID | cluster consensus | space port tablet | conf bucket |
+| \<C\>, cluster.status:node                    | Cluster ID | cluster status | node tablet | base bucket for status |
+| \<C\>, cluster.status:node/stats              | Cluster ID | cluster status | node tablet | stats bucket |
+| \<C\>, cluster.status:spaceport               | Cluster ID | cluster status | space port tablet | base bucket for status |
+| \<C\>, cluster.status:spaceport/stats         | Cluster ID | cluster status | space port tablet | stats bucket |
+| \<C\>, \<S\>, \<E\>, raft:poodle              | Cluster ID, Shard Start, Shard End | Raft consensus | poodle tablet | base bucket for poodle metadata service |
+| \<C\>, \<S\>, \<E\>, raft:poodle.status       | Cluster ID, Shard Start, Shard End | Raft consensus | poodle status tablet | status bucket |
+| \<C\>, \<S\>, \<E\>, raft:poodle.status/stats | Cluster ID, Shard Start, Shard End | Raft consensus | poodle status tablet | stats bucket |
 
 
 ### Record Encoding ###
@@ -827,13 +827,13 @@ A Tablet Block is encoded as:
 - Bit 5 and 4 are ops bits
   - 00 means GET
     - this gets the specified key of specific Consensus ID, Domain,
-      Tablet, and Group
+      Tablet, and Bucket
   - 01 means SET
     - this sets value of the specified key of specific Consensus ID,
-      Domain, Tablet, and Group. Both UPDATE and CLEAR Records
+      Domain, Tablet, and Bucket. Both UPDATE and CLEAR Records
       are considered SET
   - 10 means GROUPS
-    - this retrieves a list of Groups under the specified Key
+    - this retrieves a list of Buckets under the specified Key
       of specific Consensus ID, Domain and Tablet
   - 11 means KEYS
     - this retrieves a list of Keys with the specified Key as prefix,
@@ -952,10 +952,10 @@ Poodle treats different portion of the Record Scheme separately:
   - Tablet information is removed from Scheme when the Record is
     stored in SSTable
 
-- Group
-  - All Groups of the same Consensus ID, same Domain, and same
+- Bucket
+  - All Buckets of the same Consensus ID, same Domain, and same
     Tablet are stored in the same groups of SSTable
-  - Group information is stored in the Scheme field of a Record
+  - Bucket information is stored in the Scheme field of a Record
     in SSTable
 
 
@@ -979,15 +979,15 @@ A SSTable consists of:
   - followed by the Record offset and length table
   - followed by crc32 of the offset lookup (one per file)
 
-- followed by a list of Record Groups
-  - each Record Group share the same Key, with one or more Groups
-  - Record Groups are sorted by Key and are stored in sorted order
-  - a crc32 is at the end of all the Record Groups (one per file)
+- followed by a list of Record Buckets
+  - each Record Bucket share the same Key, with one or more Buckets
+  - Record Buckets are sorted by Key and are stored in sorted order
+  - a crc32 is at the end of all the Record Buckets (one per file)
 
-- Groups for Key
-  - Default Group has empty name, and is always stored as the
+- Buckets for Key
+  - Default Bucket has empty name, and is always stored as the
     first record.
-  - Other Groups (if exist), are stored in sorted order
+  - Other Buckets (if exist), are stored in sorted order
 
 
 ### Record Offset Lookup ###
@@ -997,7 +997,7 @@ of Record in the file.
 
 The Hash Key is composed by:
 
-    <key_bytes> + 0x00 + <attribute_group_bytes>
+    <key_bytes> + 0x00 + <bucket_bytes>
 
 Each SSTable file is less than 4GB, the record offset can be represented as
 an uint32.  A 256 KB (64k * 4 bytes) offset table is enough to keep the offset
@@ -1009,7 +1009,7 @@ of all Records in an SSTable file.
 SSTable uses Sort Key (same as Hash Key) to sort all the Records in a SSTable
 and store the sorted Records in the file:
 
-    <key_bytes> + 0x00 + <attribute_group_bytes>
+    <key_bytes> + 0x00 + <bucket_bytes>
 
 
 ### Compaction ###
@@ -1078,12 +1078,12 @@ with millions of direct child files, a design as follows:
    - considering filename commonly less than 48 bytes,
      this data structure is commonly less than 96 bytes
 
-- each attribute group stores metadata for up to 64 inode entries
+- each bucket stores metadata for up to 64 inode entries
   - max size: 320 * 64 = 20KB
   - common size: 96 * 64 = 6KB
 
 - base Tablet key is 8 bytes inode id for the directory
-  - maximum 256 attribute groups from 0x00 to 0xff under each key
+  - maximum 256 buckets from 0x00 to 0xff under each key
   - each shard can store metadata for up to 64 * 256 = __16K files__
   - max size: 320 * 64 * 256 = 5MB
   - common size: 96 * 64 * 256 = 1.5MB
@@ -1091,7 +1091,7 @@ with millions of direct child files, a design as follows:
 - __one__ byte extended key can be appended to the Tablet key
   - a bit map of 32 bytes (256 bits) is stored with base Tablet key
     to indicate which child key is used
-  - each extended key can have up to 256 attribute groups similar to
+  - each extended key can have up to 256 buckets similar to
     the base key
   - each extended key adds metadata for another 16K files
   - one byte key extension supports up to 4M files directly under one
@@ -1101,7 +1101,7 @@ with millions of direct child files, a design as follows:
   - this further extends number of files directly under a same directory
     to unlimited.
 
-By encoding with __keys__ and __attribute groups__, this file system can
+By encoding with __keys__ and __buckets__, this file system can
 support unlimited files directly under a directory.
 
 Characteristics with this design:
@@ -1127,12 +1127,12 @@ store all block level data:
 - __poodle.fs:file.blocklist__
   - this Tablet keeps all files to blocks mappings
   - file to block mapping is encoded to the block boundary
-  - block index information is encoded as part of the key and attribute groups
+  - block index information is encoded as part of the key and buckets
     - e.g. a 4KB block information will be stored in a Record with:
       - Key
         - 8 bytes file inode id + 5 bytes block prefix
-      - Group
-        - 6 bits block prefix as attribute group id (masked with 0xfc)
+      - Bucket
+        - 6 bits block prefix as bucket id (masked with 0xfc)
       - Record
         - 6 or 8 bits block prefix as in the
 
@@ -1146,12 +1146,12 @@ store all block level data:
     - total 24 bytes
   - blocklist Record size can be up to 24 * 256 = 6KB
 
-- each key stores up to 256 attribute groups
+- each key stores up to 256 attribute buckets
   - each key can have up to 256 * 256 = __64K blocks__
   - each key size can be up to 24 * 256 * 256 = 1.5MB
 
 
-| block size    | fraction size | key size  | attr group size   | block record bits |
+| block size    | fraction size | key size  | attr bucket size   | block record bits |
 | :---          | :---          | :---      | :---              | :---              |
 | 1KB           | 256B          | 5 bytes   | 8 bits            | 6 or 8 bits       |
 | 4KB           | 1KB           | 5 bytes   | 6 bits            | 6 or 8 bits       |
