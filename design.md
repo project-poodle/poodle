@@ -514,9 +514,9 @@ A full record is encoded as following:
     - Replication log for Raft
 
 
-### Data Encode Magic ###
+### Value Encode Magic ###
 
-Data encoding can significantly reduce size of the data by representing
+Value encoding can significantly reduce size of the data by representing
 data as a lookup, or in compressed format.
 
 When the record encoding bits are __11__ for key, value, or scheme, this
@@ -531,24 +531,24 @@ magic__.
           | |   |
       7 6 5 4 3 2 1 0
       | |     |   | |
-     Data     |   | |
+     Value    |   | |
      Array    |  Length
               |
             Lookup
 
-- Bit 7 and 6 are Data Array bits
-  - 00 means not a Data Array
+- Bit 7 and 6 are Value Array bits
+  - 00 means not a Value Array
   - 01 means 1 byte of array element count
   - 10 means 2 bytes of array element count
   - 11 is reserved
-  - The Data Array bits cannot be set when Record List bits are also set
+  - The Value Array bits cannot be set when Record List bits are also set
 
 - Bit 5 and 4 are Record List bits
   - 00 means not a Record List
   - 01 means 1 byte of list element count
   - 10 means 2 bytes of list element count
   - 11 is reserved
-  - The Record List bits cannot be set when Data Array bits are also set
+  - The Record List bits cannot be set when Value Array bits are also set
 
 - Bit 3 is lookup scheme bit
   - 0 means no lookup scheme
@@ -569,32 +569,32 @@ magic__.
 Note:
 
 - The following encoding schemes are mutually exclusive:
-  - Data Array
+  - Value Array
   - Record List
   - Lookup Scheme
   - Compression Scheme
 
-- A properly encoded Data can have only one of the encoding schemes from
+- A properly encoded Value can have only one of the encoding schemes from
   above.
 
-- If none of these encoding scheme are set, and if Data is encoded inside
-  a Record, then Data content will be normalized to become as part of
+- If none of these encoding scheme are set, and if Value is encoded inside
+  a Record, then Value content will be normalized to become as part of
   Record encoding.
 
 
-### Data Encoding ###
+### Value Encoding ###
 
 A full __data encoding__ is as following:
 
-    Data
+    Value
     Magic         Length
      |    Lookup   | |
      |     | |     | |
      |     | |     | |
      X X X X X X X X X X ... ... X
        | |     | |     |         |
-       | |     | |     Data Content
-      Data     | |
+       | |     | |     Value Content
+      Value    | |
       Array    | |
        or    Compression
       Record
