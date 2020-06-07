@@ -441,7 +441,7 @@ following components:
 A full Scheme ID includes Consensus ID, Domain, Tablet, and optional
 Groups. E.g.
 
-    <consensus_id>, <domain>:<tablet>[/<attribute-group>]
+    <consensus_id>, <domain>:<tablet>[/<groups>]
 
 Scheme in Record encoding is encoded differently when transmitted via network,
 or when stored on disk.  Not all Scheme components are stored in the Record
