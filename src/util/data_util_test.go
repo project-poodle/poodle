@@ -8,31 +8,27 @@ import (
 )
 
 var dataTestCases = []struct {
-	input    IData
-	parent   bool
-	wantData []byte
-	wantCode byte
+	input IData
+	want  []byte
 }{
-	{NewPrimitive(nil), true, nil, byte(0x00)},
-	{NewPrimitive(nil), false, nil, byte(0x00)},
-	{NewPrimitive([]byte("")), true, []byte{}, byte(0x00)},
-	{NewPrimitive([]byte("")), false, []byte{0x00}, byte(0xff)},
-	{NewPrimitive([]byte("a")), true, []byte{0x01, 'a'}, byte(0x01)},
-	{NewPrimitive([]byte("abc")), false, []byte{0x01, 0x03, 'a', 'b', 'c'}, byte(0xff)},
-	{NewDataArray().Append(NewPrimitive([]byte("abc"))), false, []byte{0x01<<6 | 0x01, 0x01, 0x05, 0x01, 0x03, 'a', 'b', 'c'}, byte(0xff)},
-	{NewRecordList().Append(NewRecord().SetK([]byte("abc"))), false, []byte{0x01<<4 | 0x01, 0x01, 0x05, 0x01 << 6, 0x03, 'a', 'b', 'c'}, byte(0xff)},
-	{NewRecordList().Append(NewRecord().SetK([]byte("ab")).SetV([]byte("cd")).SetS([]byte("ef"))), false, []byte{0x01<<4 | 0x01, 0x01, 0x0a, (0x01 << 6) | (0x01 << 4) | (0x01 << 2), 0x02, 'a', 'b', 0x02, 'c', 'd', 0x02, 'e', 'f'}, byte(0xff)},
+	{NewPrimitive(nil), []byte{0x00}},
+	{NewPrimitive([]byte("")), []byte{0x00, 0x00}},
+	{NewPrimitive([]byte("a")), []byte{0x01, 0x01, 'a'}},
+	{NewPrimitive([]byte("abc")), []byte{0x01, 0x03, 'a', 'b', 'c'}},
+	{NewDataArray().Append(NewPrimitive([]byte("abc"))), []byte{0x01<<6 | 0x01, 0x01, 0x05, 0x01, 0x03, 'a', 'b', 'c'}},
+	{NewRecordList().Append(NewRecord().SetK([]byte("abc"))), []byte{0x01<<4 | 0x01, 0x01, 0x05, 0x01 << 6, 0x03, 'a', 'b', 'c'}},
+	{NewRecordList().Append(NewRecord().SetK([]byte("ab")).SetV([]byte("cd")).SetS([]byte("ef"))), []byte{0x01<<4 | 0x01, 0x01, 0x0a, (0x01 << 6) | (0x01 << 4) | (0x01 << 2), 0x02, 'a', 'b', 0x02, 'c', 'd', 0x02, 'e', 'f'}},
 }
 
 func TestData(t *testing.T) {
 	for _, tt := range dataTestCases {
-		gotData, gotCode, err := tt.input.Encode(tt.parent)
+		err := tt.input.Encode(nil)
 		if err != nil {
 			t.Errorf("error occurred: %s", err)
 		}
-		if !collection.EqualByteSlice(gotData, tt.wantData) || gotCode != tt.wantCode {
-			t.Errorf("(%v, parent=%t): got %v (%x); want %v (%x)",
-				tt.input, tt.parent, gotData, gotCode, tt.wantData, tt.wantCode)
+		if !collection.EqualByteSlice(tt.input.Buf(), tt.want) {
+			t.Errorf("(%v): got %v; want %v",
+				tt.input, tt.input.Buf(), tt.want)
 		}
 	}
 }
@@ -76,7 +72,7 @@ func generateRandomData(depth, breadth, length int) IData {
 
 func generateRandomRecord(depth, breadth, length int) IRecord {
 	result := NewRecord()
-	result.SetKey(generateRandomPrimitive(length))
+	result.SetKey(generateRandomKey(depth, length))
 	result.SetValue(generateRandomData(depth-1, breadth, length))
 	result.SetScheme(generateRandomPrimitive(length))
 	return result
@@ -87,13 +83,13 @@ func TestDataRandom(t *testing.T) {
 	randRange := RandUint32()%500 + 100
 	for i := int(randStart); i < int(randStart+randRange); i++ {
 		d := generateRandomData(2, 15, 320)
-		buf, _, err := d.Encode(false)
+		err := d.Encode(nil)
 		if err != nil {
 			t.Errorf("error occurred: %s", err)
 			//fmt.Printf("    %#v\n", d)
 			continue
 		}
-		mapped, err := NewStandardMappedData(buf)
+		mapped, _, err := NewStandardMappedData(d.Buf())
 		if err != nil {
 			t.Errorf("error occurred: %s", err)
 			//fmt.Printf("    %#v\n", d)
@@ -109,14 +105,14 @@ func TestDataRandom(t *testing.T) {
 
 func testDataEqual(d1, d2 IData, t *testing.T) bool {
 	if !d1.IsDecoded() {
-		err := d1.Decode(0xff)
+		_, err := d1.Decode(nil)
 		if err != nil {
 			t.Errorf("cannot decode d1 - %s", err)
 		}
 	}
 
 	if !d2.IsDecoded() {
-		err := d2.Decode(0xff)
+		_, err := d2.Decode(nil)
 		if err != nil {
 			t.Errorf("cannot decode d2 - %s", err)
 		}
@@ -179,20 +175,20 @@ func testDataEqual(d1, d2 IData, t *testing.T) bool {
 
 func testRecordEqual(r1, r2 IRecord, t *testing.T) bool {
 	if !r1.IsDecoded() {
-		err := r1.Decode()
+		_, err := r1.Decode(nil)
 		if err != nil {
 			t.Errorf("cannot decode r1 - %s", err)
 		}
 	}
 
 	if !r2.IsDecoded() {
-		err := r2.Decode()
+		_, err := r2.Decode(nil)
 		if err != nil {
 			t.Errorf("cannot decode r2 - %s", err)
 		}
 	}
 
-	if !testDataEqual(r1.Key(), r2.Key(), t) {
+	if !testKeyEqual(r1.Key(), r2.Key(), t) {
 		t.Errorf("r1 r2 key mismatch")
 	}
 
