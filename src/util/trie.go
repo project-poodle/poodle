@@ -799,11 +799,9 @@ func (i *TrieRangeIterator) Next() (IKey, IData) {
 			i.paths = append(i.paths, iter)
 			i.isRoot = false
 
-			// check start and end
-			//i.checkStart()
-			i.checkEnd()
 		}
 
+		i.checkEnd() // this method by pass any unnessary last iterators if they passed end key
 		return returnNode.FullKey(), returnNode.Data()
 	}
 
@@ -823,7 +821,6 @@ func (i *TrieRangeIterator) Next() (IKey, IData) {
 				i.paths = append(i.paths, iter)
 			}
 
-			//i.checkStart() // this method returns with last iterator after proper start key
 			i.checkEnd() // this method by pass any unnessary last iterators if they passed end key
 			return returnNode.FullKey(), returnNode.Data()
 		}
