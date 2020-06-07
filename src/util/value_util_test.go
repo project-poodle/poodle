@@ -8,19 +8,19 @@ import (
 )
 
 var dataTestCases = []struct {
-	input IData
+	input IValue
 	want  []byte
 }{
 	{NewPrimitive(nil), []byte{0x00}},
 	{NewPrimitive([]byte("")), []byte{0x00, 0x00}},
 	{NewPrimitive([]byte("a")), []byte{0x01, 0x01, 'a'}},
 	{NewPrimitive([]byte("abc")), []byte{0x01, 0x03, 'a', 'b', 'c'}},
-	{NewDataArray().Append(NewPrimitive([]byte("abc"))), []byte{0x01<<6 | 0x01, 0x01, 0x05, 0x01, 0x03, 'a', 'b', 'c'}},
+	{NewValueArray().Append(NewPrimitive([]byte("abc"))), []byte{0x01<<6 | 0x01, 0x01, 0x05, 0x01, 0x03, 'a', 'b', 'c'}},
 	{NewRecordList().Append(NewRecord().SetK([]byte("abc"))), []byte{0x01<<4 | 0x01, 0x01, 0x05, 0x01 << 6, 0x03, 'a', 'b', 'c'}},
 	{NewRecordList().Append(NewRecord().SetK([]byte("ab")).SetV([]byte("cd")).SetS([]byte("ef"))), []byte{0x01<<4 | 0x01, 0x01, 0x0a, (0x01 << 6) | (0x01 << 4) | (0x01 << 2), 0x02, 'a', 'b', 0x02, 'c', 'd', 0x02, 'e', 'f'}},
 }
 
-func TestData(t *testing.T) {
+func TestValue(t *testing.T) {
 	for _, tt := range dataTestCases {
 		err := tt.input.Encode(nil)
 		if err != nil {
@@ -33,7 +33,7 @@ func TestData(t *testing.T) {
 	}
 }
 
-func generateRandomPrimitive(length int) IData {
+func generateRandomPrimitive(length int) IValue {
 	data := make([]byte, int(RandUint32Range(0, uint32(length))))
 	for i := range data {
 		data[i] = RandUint8()
@@ -41,7 +41,7 @@ func generateRandomPrimitive(length int) IData {
 	return NewPrimitive(data)
 }
 
-func generateRandomData(depth, breadth, length int) IData {
+func generateRandomValue(depth, breadth, length int) IValue {
 	if depth < 0 {
 		return nil
 	} else if depth == 0 {
@@ -52,10 +52,10 @@ func generateRandomData(depth, breadth, length int) IData {
 	case 1:
 		return generateRandomPrimitive(length)
 	case 2:
-		result := NewDataArray()
+		result := NewValueArray()
 		size := RandUint16Range(0, uint16(breadth))
 		for i := 0; i < int(size); i++ {
-			result.Append(generateRandomData(depth-int(RandUint32Range(1, 2)), breadth, length))
+			result.Append(generateRandomValue(depth-int(RandUint32Range(1, 2)), breadth, length))
 		}
 		return result
 	case 3:
@@ -73,23 +73,23 @@ func generateRandomData(depth, breadth, length int) IData {
 func generateRandomRecord(depth, breadth, length int) IRecord {
 	result := NewRecord()
 	result.SetKey(generateRandomKey(depth, length))
-	result.SetValue(generateRandomData(depth-1, breadth, length))
+	result.SetValue(generateRandomValue(depth-1, breadth, length))
 	result.SetScheme(generateRandomPrimitive(length))
 	return result
 }
 
-func TestDataRandom(t *testing.T) {
+func TestValueRandom(t *testing.T) {
 	randStart := RandUint32() % 1000000
 	randRange := RandUint32()%500 + 100
 	for i := int(randStart); i < int(randStart+randRange); i++ {
-		d := generateRandomData(2, 15, 320)
+		d := generateRandomValue(2, 15, 320)
 		err := d.Encode(nil)
 		if err != nil {
 			t.Errorf("error occurred: %s", err)
 			//fmt.Printf("    %#v\n", d)
 			continue
 		}
-		mapped, _, err := NewStandardMappedData(d.Buf())
+		mapped, _, err := NewStandardMappedValue(d.Buf())
 		if err != nil {
 			t.Errorf("error occurred: %s", err)
 			//fmt.Printf("    %#v\n", d)
@@ -97,13 +97,13 @@ func TestDataRandom(t *testing.T) {
 			continue
 		}
 		// fmt.Printf("    %#v\n", mapped)
-		if !testDataEqual(d, mapped, t) {
+		if !testValueEqual(d, mapped, t) {
 			t.Errorf("data not match: %#v, %#v", d, mapped)
 		}
 	}
 }
 
-func testDataEqual(d1, d2 IData, t *testing.T) bool {
+func testValueEqual(d1, d2 IValue, t *testing.T) bool {
 	if !d1.IsDecoded() {
 		_, err := d1.Decode(nil)
 		if err != nil {
@@ -118,7 +118,7 @@ func testDataEqual(d1, d2 IData, t *testing.T) bool {
 		}
 	}
 
-	if d1.DataMagic() != d2.DataMagic() {
+	if d1.ValueMagic() != d2.ValueMagic() {
 		t.Errorf("data magic not match %x vs %x", d1, d2)
 		return false
 	}
@@ -128,24 +128,24 @@ func testDataEqual(d1, d2 IData, t *testing.T) bool {
 	}
 
 	if d1.IsPrimitive() {
-		return d2.IsPrimitive() && collection.EqualByteSlice(d1.Data(), d2.Data())
+		return d2.IsPrimitive() && collection.EqualByteSlice(d1.Value(), d2.Value())
 	}
 
-	if d1.IsDataArray() {
+	if d1.IsValueArray() {
 		if d1.Size() != d2.Size() {
 			t.Errorf("data array size mismatch: %d vs %d", d1, d2)
 		}
 
 		for i := uint16(0); i < d1.Size(); i++ {
-			d1i, err := d1.DataAt(i)
+			d1i, err := d1.ValueAt(i)
 			if err != nil {
 				t.Errorf("cannot decode d1 [%d]", i)
 			}
-			d2i, err := d2.DataAt(i)
+			d2i, err := d2.ValueAt(i)
 			if err != nil {
 				t.Errorf("cannot decode d2 [%d]", i)
 			}
-			if !testDataEqual(d1i, d2i, t) {
+			if !testValueEqual(d1i, d2i, t) {
 				t.Errorf("data mismatch at idx %d", i)
 			}
 		}
@@ -192,11 +192,11 @@ func testRecordEqual(r1, r2 IRecord, t *testing.T) bool {
 		t.Errorf("r1 r2 key mismatch")
 	}
 
-	if !testDataEqual(r1.Value(), r2.Value(), t) {
+	if !testValueEqual(r1.Value(), r2.Value(), t) {
 		t.Errorf("r1 r2 value mismatch")
 	}
 
-	if !testDataEqual(r1.Scheme(), r2.Scheme(), t) {
+	if !testValueEqual(r1.Scheme(), r2.Scheme(), t) {
 		t.Errorf("r1 r2 scheme mismatch")
 	}
 

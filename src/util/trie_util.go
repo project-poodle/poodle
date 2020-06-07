@@ -21,10 +21,10 @@ type ITrie interface {
 
 	////////////////////////////////////////
 	// accessor to elements
-	Get(IKey) IData        // get
-	Put(IKey, IData) IData // put
-	Remove(IKey) IData     // remove
-	Entries() int          // total size
+	Get(IKey) IValue         // get
+	Put(IKey, IValue) IValue // put
+	Remove(IKey) IValue      // remove
+	Entries() int            // total size
 
 	// Iterators
 	Iterator() ITrieIterator                     // this is same as nil key that iterates all keys
@@ -52,8 +52,8 @@ type ITrieNode interface {
 
 	////////////////////////////////////////
 	// data
-	Data() IData         // get associated data
-	SetData(IData) error // set associated data
+	Value() IValue         // get associated data
+	SetValue(IValue) error // set associated data
 
 	////////////////////////////////////////
 	// offset
@@ -62,9 +62,9 @@ type ITrieNode interface {
 }
 
 type ITrieIterator interface {
-	Next() (IKey, IData)
+	Next() (IKey, IValue)
 	HasNext() bool
-	Peek() (IKey, IData)
+	Peek() (IKey, IValue)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -100,7 +100,7 @@ func NewMappedTrie(buf []byte) (*MappedTrie, int, error) {
 ////////////////////////////////////////
 // accessor to elements
 
-func (t *MappedTrie) Get(k IKey) IData {
+func (t *MappedTrie) Get(k IKey) IValue {
 
 	if !t.decoded {
 		panic(fmt.Sprintf("MappedTrie::Get - not decoded"))
@@ -108,7 +108,7 @@ func (t *MappedTrie) Get(k IKey) IData {
 
 	// return root data is key is nil
 	if k.IsEmpty() {
-		return t.root.Data()
+		return t.root.Value()
 	}
 
 	currNode := t.root
@@ -122,13 +122,13 @@ func (t *MappedTrie) Get(k IKey) IData {
 	}
 
 	if currNode != nil {
-		return currNode.Data()
+		return currNode.Value()
 	} else {
 		return nil
 	}
 }
 
-func (t *MappedTrie) Set(IKey, IData) IData {
+func (t *MappedTrie) Set(IKey, IValue) IValue {
 	panic(fmt.Sprintf("MappedTrie::Set - set not supported"))
 }
 
@@ -271,8 +271,8 @@ type MappedTrieNode struct {
 	buf     []byte
 	offset  uint32
 	// elements
-	nodeKey  []byte
-	nodeData IData
+	nodeKey   []byte
+	nodeValue IValue
 	// parent and children
 	parent    ITrieNode
 	children  *collection.SortedMap
@@ -380,17 +380,17 @@ func (tn *MappedTrieNode) RemoveChild(nodeKey []byte) error {
 	return fmt.Errorf("MappedTrieNode::RemoteChild - not supported")
 }
 
-func (tn *MappedTrieNode) Data() IData {
+func (tn *MappedTrieNode) Value() IValue {
 
 	if !tn.decoded {
-		panic(fmt.Sprintf("MappedTrieNode::Data - not decoded"))
+		panic(fmt.Sprintf("MappedTrieNode::Value - not decoded"))
 	}
 
-	return tn.nodeData
+	return tn.nodeValue
 }
 
-func (tn *MappedTrieNode) SetData(IData) error {
-	return fmt.Errorf("MappedTrieNode::SetData - not supported")
+func (tn *MappedTrieNode) SetValue(IValue) error {
+	return fmt.Errorf("MappedTrieNode::SetValue - not supported")
 }
 
 ////////////////////////////////////////
@@ -456,12 +456,12 @@ func (tn *MappedTrieNode) Decode(IContext) (int, error) {
 	}
 
 	// data
-	nodeData, nodeDataN, err := NewSimpleMappedData(tn.buf[pos:])
+	nodeValue, nodeValueN, err := NewSimpleMappedValue(tn.buf[pos:])
 	if err != nil {
 		return 0, fmt.Errorf("MappedTrieNode::Decode - data - %s", err)
 	}
-	tn.nodeData = nodeData
-	pos += nodeDataN
+	tn.nodeValue = nodeValue
+	pos += nodeValueN
 
 	// child size
 	childSize, childSizeN, err := DecodeUvarint(tn.buf)
@@ -523,7 +523,7 @@ func (tn *MappedTrieNode) ToString() string {
 	return fmt.Sprintf("MappedTrieNode: k=%x, child=[%d], data=%v, off=%d, buf=%v ",
 		tn.nodeKey,
 		tn.children.Size(),
-		tn.nodeData,
+		tn.nodeValue,
 		tn.offset,
 		tn.buf[:collection.MinInt(len(tn.buf), 16)])
 }
@@ -551,11 +551,11 @@ func NewTrie() *Trie {
 ////////////////////////////////////////
 // accessor to elements
 
-func (t *Trie) Get(k IKey) IData {
+func (t *Trie) Get(k IKey) IValue {
 
 	// return root data is key is nil
 	if k.IsEmpty() {
-		return t.root.Data()
+		return t.root.Value()
 	}
 
 	currNode := t.root
@@ -569,19 +569,19 @@ func (t *Trie) Get(k IKey) IData {
 	}
 
 	if currNode != nil {
-		return currNode.Data()
+		return currNode.Value()
 	} else {
 		return nil
 	}
 }
 
-func (t *Trie) Set(k IKey, d IData) IData {
+func (t *Trie) Set(k IKey, d IValue) IValue {
 
 	// set root data is key is nil
 	if k.IsEmpty() {
-		resultData := t.root.Data()
-		t.root.SetData(d)
-		return resultData
+		resultValue := t.root.Value()
+		t.root.SetValue(d)
+		return resultValue
 	}
 
 	currNode := t.root
@@ -601,20 +601,20 @@ func (t *Trie) Set(k IKey, d IData) IData {
 		panic("Trie::Set - unexpected empty currNode")
 	}
 
-	resultData := currNode.Data()
-	currNode.SetData(d)
-	t.estBufSize += estimateDataBufSize(d) - estimateDataBufSize(resultData)
+	resultValue := currNode.Value()
+	currNode.SetValue(d)
+	t.estBufSize += estimateValueBufSize(d) - estimateValueBufSize(resultValue)
 	// if d is nil, clean up unused nodes
 	if d == nil {
 		currNode.Parent().RemoveChild(currNode.NodeKey())
 		t.estBufSize -= currNode.EstBufSize()
-		for currNode = currNode.Parent(); currNode.ChildSize() == 0 && currNode.Data() == nil; {
+		for currNode = currNode.Parent(); currNode.ChildSize() == 0 && currNode.Value() == nil; {
 			currNode.Parent().RemoveChild(currNode.NodeKey())
 			t.estBufSize -= currNode.EstBufSize()
 			currNode = currNode.Parent()
 		}
 	}
-	return resultData
+	return resultValue
 }
 
 func (t *Trie) Iterator() ITrieIterator {
@@ -777,14 +777,14 @@ type TrieNode struct {
 	parent   ITrieNode
 	children *collection.SortedMap
 	nodeKey  []byte
-	data     IData
+	data     IValue
 	// buf
 	encoded bool
 	buf     []byte
 	offset  uint32
 }
 
-func NewTrieNode(parent ITrieNode, nodeKey []byte, data IData) *TrieNode {
+func NewTrieNode(parent ITrieNode, nodeKey []byte, data IValue) *TrieNode {
 	if collection.IsNil(parent) {
 		return &TrieNode{
 			parent:   nil,
@@ -850,11 +850,11 @@ func (tn *TrieNode) RemoveChild(nodeKey []byte) error {
 	return nil
 }
 
-func (tn *TrieNode) Data() IData {
+func (tn *TrieNode) Value() IValue {
 	return tn.data
 }
 
-func (tn *TrieNode) SetData(data IData) error {
+func (tn *TrieNode) SetValue(data IValue) error {
 	tn.data = data
 	return nil
 }
@@ -871,7 +871,7 @@ func (tn *TrieNode) Buf() []byte {
 }
 
 func (tn *TrieNode) EstBufSize() int {
-	return 4 + 1 + len(tn.nodeKey) + estimateDataBufSize(tn.data)
+	return 4 + 1 + len(tn.nodeKey) + estimateValueBufSize(tn.data)
 }
 
 func (tn *TrieNode) IsEncoded() bool {
@@ -1019,7 +1019,7 @@ func NewTrieKeyIterator(root, curr ITrieNode) *TrieKeyIterator {
 	return result
 }
 
-func (i *TrieKeyIterator) Next() (IKey, IData) {
+func (i *TrieKeyIterator) Next() (IKey, IValue) {
 
 	i.advance()
 
@@ -1037,7 +1037,7 @@ func (i *TrieKeyIterator) Next() (IKey, IData) {
 			}
 		}
 		i.currNode = nil
-		return returnNode.FullKey(), returnNode.Data()
+		return returnNode.FullKey(), returnNode.Value()
 	}
 
 	// we are here if root node has been iterated
@@ -1050,7 +1050,7 @@ func (i *TrieKeyIterator) Next() (IKey, IData) {
 			if returnNode.ChildSize() != 0 {
 				i.paths = append(i.paths, returnNode.Children().Iterator())
 			}
-			return returnNode.FullKey(), returnNode.Data()
+			return returnNode.FullKey(), returnNode.Value()
 		} else {
 			i.paths = i.paths[:len(i.paths)-1]
 		}
@@ -1067,7 +1067,7 @@ func (i *TrieKeyIterator) HasNext() bool {
 	return collection.IsNil(i.currNode) && (collection.IsNil(i.paths) || len(i.paths) == 0)
 }
 
-func (i *TrieKeyIterator) Peek() (IKey, IData) {
+func (i *TrieKeyIterator) Peek() (IKey, IValue) {
 
 	i.advance()
 
@@ -1076,7 +1076,7 @@ func (i *TrieKeyIterator) Peek() (IKey, IData) {
 	// if rootNode has not been iterated
 	if !collection.IsNil(i.currNode) {
 		returnNode = i.currNode
-		return returnNode.FullKey(), returnNode.Data()
+		return returnNode.FullKey(), returnNode.Value()
 	}
 
 	// we are here if root node has been iterated
@@ -1086,7 +1086,7 @@ func (i *TrieKeyIterator) Peek() (IKey, IData) {
 		if lastIter.HasNext() {
 			_, data := lastIter.Peek()
 			returnNode = data.(ITrieNode)
-			return returnNode.FullKey(), returnNode.Data()
+			return returnNode.FullKey(), returnNode.Value()
 		} else {
 			i.paths = i.paths[:len(i.paths)-1]
 		}
@@ -1210,7 +1210,7 @@ func NewTrieRangeIterator(root ITrieNode, start, end IKey) *TrieRangeIterator {
 	return result
 }
 
-func (i *TrieRangeIterator) Next() (IKey, IData) {
+func (i *TrieRangeIterator) Next() (IKey, IValue) {
 
 	i.checkStart() // this method returns with last iterator after proper start key
 	i.checkEnd()   // this method by pass any unnessary last iterators if they passed end key
@@ -1236,7 +1236,7 @@ func (i *TrieRangeIterator) Next() (IKey, IData) {
 		}
 
 		i.checkEnd() // this method by pass any unnessary last iterators if they passed end key
-		return returnNode.FullKey(), returnNode.Data()
+		return returnNode.FullKey(), returnNode.Value()
 	}
 
 	// we are here if root node has been iterated
@@ -1256,7 +1256,7 @@ func (i *TrieRangeIterator) Next() (IKey, IData) {
 			}
 
 			i.checkEnd() // this method by pass any unnessary last iterators if they passed end key
-			return returnNode.FullKey(), returnNode.Data()
+			return returnNode.FullKey(), returnNode.Value()
 		}
 	}
 
@@ -1271,7 +1271,7 @@ func (i *TrieRangeIterator) HasNext() bool {
 	return i.isRoot || len(i.paths) != 0
 }
 
-func (i *TrieRangeIterator) Peek() (IKey, IData) {
+func (i *TrieRangeIterator) Peek() (IKey, IValue) {
 
 	i.checkStart() // this method returns with last iterator after proper start key
 	i.checkEnd()   // this method by pass any unnessary last iterators if they passed end key
@@ -1287,7 +1287,7 @@ func (i *TrieRangeIterator) Peek() (IKey, IData) {
 		}
 
 		returnNode := i.rootNode
-		return returnNode.FullKey(), returnNode.Data()
+		return returnNode.FullKey(), returnNode.Value()
 	}
 
 	// we are here if root node has been iterated
@@ -1300,7 +1300,7 @@ func (i *TrieRangeIterator) Peek() (IKey, IData) {
 			_, data := lastIter.Peek()
 
 			returnNode := data.(ITrieNode)
-			return returnNode.FullKey(), returnNode.Data()
+			return returnNode.FullKey(), returnNode.Value()
 		}
 	}
 

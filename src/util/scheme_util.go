@@ -1,0 +1,41 @@
+package util
+
+////////////////////////////////////////////////////////////////////////////////
+// Interfaces
+////////////////////////////////////////////////////////////////////////////////
+
+type IScheme interface {
+
+	////////////////////////////////////////
+	// embeded interfaces
+	//collection.IPrintable
+	IEncodable
+
+	////////////////////////////////////////
+	// accessor to elements
+	Domain() []byte          // get Domain
+	DomainName() string      // get Domain name
+	Tablet() []byte          // get tablet
+	TabletName() string      // get tablet name
+	Buckets() [][]byte       // get buckets
+	BucketAt(idx int) []byte // get bucket at idx
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Scheme
+////////////////////////////////////////////////////////////////////////////////
+
+type Scheme struct {
+	// buf
+	encoded    bool
+	buf        []byte
+	estBufSize int
+	// attributes
+	domain  []byte
+	tablet  []byte
+	buckets [][]byte
+}
+
+func NewScheme() *Scheme {
+	return &Scheme{}
+}

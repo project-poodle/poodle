@@ -21,8 +21,8 @@ type IRecord interface {
 	////////////////////////////////////////
 	// accessor to elements
 	Key() IKey                       // key content
-	Value() IData                    // value content
-	Scheme() IData                   // scheme content
+	Value() IValue                   // value content
+	Scheme() IValue                  // scheme content
 	Timestamp() *time.Time           // 8 bytes unix nano timestamp
 	Signature() (*big.Int, *big.Int) // optional 2 * 32 bytes signature
 
@@ -41,8 +41,8 @@ type MappedRecord struct {
 	buf     []byte // original buf if not decoded, exact buf size if already decoded
 	// elements
 	key         IKey       // key
-	value       IData      // value
-	scheme      IData      // scheme
+	value       IValue     // value
+	scheme      IValue     // scheme
 	timestamp   *time.Time // timestamp
 	signature_r *big.Int   // signature r
 	signature_s *big.Int   // signature s
@@ -82,7 +82,7 @@ func (r *MappedRecord) Key() IKey {
 	return r.key
 }
 
-func (r *MappedRecord) Value() IData {
+func (r *MappedRecord) Value() IValue {
 
 	if !r.decoded {
 		// this should not happend
@@ -92,7 +92,7 @@ func (r *MappedRecord) Value() IData {
 	return r.value
 }
 
-func (r *MappedRecord) Scheme() IData {
+func (r *MappedRecord) Scheme() IValue {
 
 	if !r.decoded {
 		// this should not happend
@@ -160,8 +160,8 @@ func (r *MappedRecord) Decode(IContext) (length int, err error) {
 
 	var (
 		key    IKey
-		value  IData
-		scheme IData
+		value  IValue
+		scheme IValue
 	)
 	// key
 	hasKey := (r.buf[0] >> 6) & 0x01
@@ -183,7 +183,7 @@ func (r *MappedRecord) Decode(IContext) (length int, err error) {
 	}
 	hasValue := (r.buf[0] >> 5) & 0x01
 	if hasValue != 0 {
-		value, length, err = NewStandardMappedData(r.buf[pos:])
+		value, length, err = NewStandardMappedValue(r.buf[pos:])
 	}
 	if err != nil {
 		return 0, fmt.Errorf("MappedRecord::Decode - value error [%v]", err)
@@ -200,7 +200,7 @@ func (r *MappedRecord) Decode(IContext) (length int, err error) {
 	}
 	hasScheme := (r.buf[0] >> 4) & 0x01
 	if hasScheme != 0 {
-		scheme, length, err = NewStandardMappedData(r.buf[pos:])
+		scheme, length, err = NewStandardMappedValue(r.buf[pos:])
 	}
 	if err != nil {
 		return 0, fmt.Errorf("MappedRecord::Decode - scheme error [%v]", err)
@@ -275,13 +275,13 @@ func (r *MappedRecord) CopyConstruct() (IEncodable, error) {
 	}
 
 	value, err := r.Value().CopyConstruct()
-	result.value = value.(IData)
+	result.value = value.(IValue)
 	if err != nil {
 		return nil, fmt.Errorf("MappedRecord::CopyConstruct - value error [%v]", err)
 	}
 
 	scheme, err := r.Scheme().CopyConstruct()
-	result.scheme = scheme.(IData)
+	result.scheme = scheme.(IValue)
 	if err != nil {
 		return nil, fmt.Errorf("MappedRecord::CopyConstruct - scheme error [%v]", err)
 	}
@@ -305,8 +305,8 @@ type Record struct {
 	estSchemeSize int
 	// elements
 	key         IKey
-	value       IData
-	scheme      IData
+	value       IValue
+	scheme      IValue
 	timestamp   *time.Time
 	signature_r *big.Int
 	signature_s *big.Int
@@ -326,11 +326,11 @@ func (r *Record) Key() IKey {
 	return r.key
 }
 
-func (r *Record) Value() IData {
+func (r *Record) Value() IValue {
 	return r.value
 }
 
-func (r *Record) Scheme() IData {
+func (r *Record) Scheme() IValue {
 	return r.scheme
 }
 
@@ -488,12 +488,12 @@ func (r *Record) Copy() IEncodable {
 
 	if r.value != nil {
 		value := r.value.Copy()
-		result.value = value.(IData)
+		result.value = value.(IValue)
 	}
 
 	if r.scheme != nil {
 		scheme := r.scheme.Copy()
-		result.scheme = scheme.(IData)
+		result.scheme = scheme.(IValue)
 	}
 
 	result.timestamp = r.timestamp
@@ -520,7 +520,7 @@ func (r *Record) CopyConstruct() (IEncodable, error) {
 		if err != nil {
 			return nil, err
 		} else {
-			result.value = value.(IData)
+			result.value = value.(IValue)
 		}
 	}
 
@@ -529,7 +529,7 @@ func (r *Record) CopyConstruct() (IEncodable, error) {
 		if err != nil {
 			return nil, err
 		} else {
-			result.scheme = scheme.(IData)
+			result.scheme = scheme.(IValue)
 		}
 	}
 
@@ -557,7 +557,7 @@ func (r *Record) SetK(key []byte) *Record {
 	return r
 }
 
-func (r *Record) SetValue(value IData) *Record {
+func (r *Record) SetValue(value IValue) *Record {
 	r.value = value
 	r.encoded = false
 	r.estDataSize = r.value.EstBufSize()
@@ -571,7 +571,7 @@ func (r *Record) SetV(value []byte) *Record {
 	return r
 }
 
-func (r *Record) SetScheme(scheme IData) *Record {
+func (r *Record) SetScheme(scheme IValue) *Record {
 	r.scheme = scheme
 	r.encoded = false
 	r.estSchemeSize = r.scheme.EstBufSize()
