@@ -171,8 +171,8 @@ func (t *MappedTrie) Buf() []byte {
 	return t.buf
 }
 
-func (t *MappedTrie) EstBufSize() uint32 {
-	return uint32(len(t.buf))
+func (t *MappedTrie) EstBufSize() int {
+	return len(t.buf)
 }
 
 func (t *MappedTrie) IsEncoded() bool {
@@ -400,8 +400,8 @@ func (tn *MappedTrieNode) Buf() []byte {
 	return tn.buf
 }
 
-func (tn *MappedTrieNode) EstBufSize() uint32 {
-	return uint32(len(tn.buf))
+func (tn *MappedTrieNode) EstBufSize() int {
+	return len(tn.buf)
 }
 
 func (tn *MappedTrieNode) IsEncoded() bool {
@@ -538,7 +538,7 @@ type Trie struct {
 	// buf
 	encoded    bool
 	buf        []byte
-	estBufSize uint32
+	estBufSize int
 }
 
 func NewTrie() *Trie {
@@ -652,7 +652,7 @@ func (t *Trie) Buf() []byte {
 	return t.buf
 }
 
-func (t *Trie) EstBufSize() uint32 {
+func (t *Trie) EstBufSize() int {
 	if t.estBufSize > 0 {
 		return t.estBufSize
 	} else {
@@ -870,8 +870,8 @@ func (tn *TrieNode) Buf() []byte {
 	return tn.buf
 }
 
-func (tn *TrieNode) EstBufSize() uint32 {
-	return 4 + 1 + uint32(len(tn.nodeKey)) + estimateDataBufSize(tn.data)
+func (tn *TrieNode) EstBufSize() int {
+	return 4 + 1 + len(tn.nodeKey) + estimateDataBufSize(tn.data)
 }
 
 func (tn *TrieNode) IsEncoded() bool {

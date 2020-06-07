@@ -47,5 +47,5 @@ type IEncodable interface {
 	// return encoded buf (byte array)
 	Buf() []byte
 	// estimated buf size
-	EstBufSize() uint32
+	EstBufSize() int
 }

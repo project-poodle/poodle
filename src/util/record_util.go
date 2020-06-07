@@ -23,9 +23,9 @@ type IRecord interface {
 
 	////////////////////////////////////////
 	// encoding, decoding, and buf
-	RecordMagic() byte  // 1 byte Record Magic          - return 0xff if not encoded
-	Buf() []byte        // full Record buffer           - return nil if not encoded
-	EstBufSize() uint32 // estimated buf size
+	RecordMagic() byte // 1 byte Record Magic          - return 0xff if not encoded
+	Buf() []byte       // full Record buffer           - return nil if not encoded
+	EstBufSize() int   // estimated buf size
 	// whether Record is encoded    - always return true for Mapped Record
 	//                                  - return true for Constructed Record if encoded buf cache exists
 	//                                  - return false for Constructed Record if no encoded buf cache
@@ -154,8 +154,8 @@ func (r *MappedRecord) Buf() []byte {
 	return r.buf
 }
 
-func (r *MappedRecord) EstBufSize() uint32 {
-	return uint32(len(r.buf))
+func (r *MappedRecord) EstBufSize() int {
+	return len(r.buf)
 }
 
 func (r *MappedRecord) IsEncoded() bool {
@@ -334,9 +334,9 @@ type Record struct {
 	// buf
 	encoded       bool
 	buf           []byte
-	estKeySize    uint32
-	estDataSize   uint32
-	estSchemeSize uint32
+	estKeySize    int
+	estDataSize   int
+	estSchemeSize int
 	// elements
 	key         IData
 	value       IData
@@ -397,16 +397,43 @@ func (r *Record) Buf() []byte {
 	return r.buf
 }
 
-func (r *Record) EstBufSize() uint32 {
-	estTimestampSize := uint32(0)
+func (r *Record) EstBufSize() int {
+
+	// initialize
+	result := 1
+
+	// key size
+	if r.estKeySize <= 0 {
+		result += 1
+	} else {
+		result += r.estKeySize
+	}
+
+	// data size
+	if r.estDataSize <= 0 {
+		result += 1
+	} else {
+		result += r.estDataSize
+	}
+
+	// schema size
+	if r.estSchemeSize <= 0 {
+		result += 1
+	} else {
+		result += r.estSchemeSize
+	}
+
+	// timestamp
 	if r.timestamp != nil {
-		estTimestampSize += 8
+		result += 8
 	}
-	estSignatureSize := uint32(0)
+
+	// signature
 	if r.signature_r != nil && r.signature_s != nil {
-		estSignatureSize += 32 * 2
+		result += 32 * 2
 	}
-	return r.estKeySize + r.estDataSize + r.estSchemeSize + estTimestampSize + estSignatureSize
+
+	return result
 }
 
 func (r *Record) IsEncoded() bool {

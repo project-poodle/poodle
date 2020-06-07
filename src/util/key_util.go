@@ -59,7 +59,7 @@ func (k *EmptyKey) Buf() []byte {
 	return []byte{0x00}
 }
 
-func (k *EmptyKey) EstBufSize() uint32 {
+func (k *EmptyKey) EstBufSize() int {
 	return 1
 }
 
@@ -198,11 +198,11 @@ func (k *MappedKey) Buf() []byte {
 	return k.buf
 }
 
-func (k *MappedKey) EstBufSize() uint32 {
+func (k *MappedKey) EstBufSize() int {
 	if k.IsEmpty() {
 		return 1
 	}
-	return uint32(len(k.buf))
+	return len(k.buf)
 }
 
 func (k *MappedKey) IsEncoded() bool {
@@ -378,7 +378,7 @@ type Key struct {
 	encoded    bool
 	keys       [][]byte
 	buf        []byte
-	estBufSize uint32
+	estBufSize int
 }
 
 func NewKey() *Key {
@@ -386,11 +386,11 @@ func NewKey() *Key {
 }
 
 func NewSimpleKey(simpleKey []byte) *Key {
-	return &Key{keys: []([]byte){simpleKey}, buf: nil, estBufSize: uint32(2 + len(simpleKey))}
+	return &Key{keys: []([]byte){simpleKey}, buf: nil, estBufSize: 2 + len(simpleKey)}
 }
 
 func NewStringKey(stringKey string) *Key {
-	return &Key{keys: []([]byte){[]byte(stringKey)}, buf: nil, estBufSize: uint32(2 + len(stringKey))}
+	return &Key{keys: []([]byte){[]byte(stringKey)}, buf: nil, estBufSize: 2 + len(stringKey)}
 }
 
 func (k *Key) IsEmpty() bool {
@@ -418,7 +418,7 @@ func (k *Key) Buf() []byte {
 	return k.buf
 }
 
-func (k *Key) EstBufSize() uint32 {
+func (k *Key) EstBufSize() int {
 	return k.estBufSize
 }
 
@@ -464,7 +464,7 @@ func (k *Key) Encode(IContext) error {
 
 	// record encoded buf
 	k.buf = buf[:pos]
-	k.estBufSize = uint32(pos)
+	k.estBufSize = pos
 	k.encoded = true
 
 	return nil
@@ -590,6 +590,6 @@ func (k *Key) Add(subKey []byte) *Key {
 	}
 
 	k.keys = append(k.keys, subKey)
-	k.estBufSize += 1 + uint32(len(subKey))
+	k.estBufSize += 1 + len(subKey)
 	return k
 }
