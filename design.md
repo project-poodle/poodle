@@ -359,8 +359,8 @@ A Record cannot exceed 64 KB, with following constraints:
 The first byte is a __magic__.
 
           Timestamp
-              |   
-       Scheme |   
+              |
+       Scheme |
           |   |   Reserved
      Key  |   |   |
       |   |   |   |
@@ -372,11 +372,11 @@ The first byte is a __magic__.
     |           |
     |       Signature
     |
-    Reserved
+    Consensus ID
 
-- Bit 7 is reserved bit
-  - 0 means normal
-  - 1 is undefined
+- Bit 7 is consensus bit
+  - 0 means no consensus id
+  - 1 means consensus id exists, encoded with __consensus id encoding__
 
 - Bit 6 is the key bit
   - 0 means no key
@@ -384,7 +384,7 @@ The first byte is a __magic__.
 
 - Bit 5 is the value bit
   - 0 means no value
-  - 1 means value exists, encoded with __data encoding__
+  - 1 means value exists, encoded with __value encoding__
 
 - Bit 4 are the scheme bit
   - 0 means no scheme
@@ -412,9 +412,10 @@ The first byte is a __magic__.
     cannot be encoded with lookup scheme, or compression scheme
 
 
-### Scheme Format ###
+### Scheme ID Format ###
 
-Scheme consists of the following components:
+A Scheme ID consists of Consensus ID and Scheme, and consists of the
+following components:
 
 - Consensus ID
   - This is Consensus Identity
@@ -432,13 +433,13 @@ Scheme consists of the following components:
   - Tablet name is an alpha-numeric string separated by '.'
   - Tablet name is required as part of the standard Scheme
 
-- Attribute Group
+- Attribute Groups
   - This is similar to column group in a NoSQL table
   - Attribute Group name is an alpha-numeric string separated by '/'
-  - Attribute Group name is optional part of the Scheme
+  - Attribute Group name is optional part of a Scheme
 
-A full Scheme is joined by Consensus ID, with Domain, Tablet, and optional
-Attribute Group. E.g.
+A full Scheme ID includes Consensus ID, Domain, Tablet, and optional
+Attribute Groups. E.g.
 
     <consensus_id>, <domain>:<tablet>[/<attribute-group>]
 
@@ -450,9 +451,14 @@ in all format.
   Record.  Instead, Consensus ID is encoded as part of Consensus Block as
   defined in P-UDP Packet encoding.
 
-- When stored on disk, Consensus ID, Domain, and Tablet are NOT encoded as
-  part of the Record.  Instead, Consensus ID, Domain, and Tablet are encoded
-  as part of SSTable header as defined in SSTable encoding.
+- When stored in SSTable on disk, Consensus ID, Domain, and Tablet are NOT
+  encoded as part of the Record.  Instead, Consensus ID, Domain, and Tablet
+  are encoded as part of SSTable header as defined in SSTable encoding.
+
+- When stored in Consensus Block on disk, Consensus ID, and Domain are
+  NOT encoded as part of the Record.  Instead, Consensus ID, and Domain are
+  encoded as part of Consensus Block header as defined in distributed
+  Ledger encoding.
 
 Examples below:
 
@@ -476,27 +482,30 @@ Examples below:
 
 A full record is encoded as following:
 
-                                      Scheme Length
-                      Value Length     | |
-      Key Length       | |             | |             8 bytes timestamp
-       | |             | |             | |             |     |
-     X X X X ... ... X X X X ... ... X X X X ... ... X X ... X X ... ... X
-     |     |         |     |         |     |         |         |         |
-     |     Key Content     |         |     |         |         64 bytes signature
-     |                    Value Content    |         |
+                              Value Content
+       Consensus ID            |         |             8 bytes timestamp
+       |         |             |         |             |     |
+     X X ... ... X X ... ... X X ... ... X X ... ... X X ... X X ... ... X
+     |             |         |             |         |         |         |
+     |             Key Content             |         |         64 bytes signature
+     |                                     |         |
      |                                    Scheme Content
     Record
     Magic
 
 - Lead by a __magic__ byte
 
-- Followed by key length, then key content (if applicable)
+- Followed by consensus id (if applicable)
 
-- Followed by value length, then value content (if applicable)
+- Followed by key content (if applicable)
 
-- Followed by scheme length, then scheme content (if applicable)
+- Followed by value content (if applicable)
 
-- Followed by timestamp (8 bytes) and signature (32 bytes) (if applicable)
+- Followed by scheme content (if applicable)
+
+- Followed by timestamp (8 bytes) (if applicable)
+
+- Followed by signature (64 bytes) (if applicable)
   - The 64 bytes signature is a sizable data, and is present in:
     - Network traffic for Distributed Ledger Consensus
     - Consensus block data for Distributed Ledger Consensus
@@ -650,7 +659,7 @@ A P-UDP Packet is encoded below:
     |     |         |     |                  |     |
     X ... X X ... X X ... X ... ...  X ... X X ... X X ... ... X
             |     |                  |     |         |         |
-           Consensus                Consensus        32 bytes signature
+           Consensus                Consensus        64 bytes signature
              Block                    Block
 
 Poodle Packet is constructed as UDP packet, a Poodle packet must be less
@@ -861,7 +870,7 @@ A few properties of SSTable file:
   - SSTables can be removed once merged and not longer needed
   - SSTables content are never changed
 
-- Each SSTable is limited to no more than 1048576 (1M) Records
+- Each SSTable is limited to no more than 4194304 (4M) Records
 
 - Each SSTable is limited to maximum 1 GB size
 
@@ -990,7 +999,7 @@ Note a Poodle Record cannot exceed 64 KB, with following constraints:
 - Value
   - Maximum value length is 56 KB
 - Scheme
-  - Maximum scheme length is 2 KB
+  - Maximum scheme length is 1 KB
 
 Below are examples to support very large data size.
 

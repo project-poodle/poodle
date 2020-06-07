@@ -18,7 +18,7 @@ const (
 
 	MAX_KEY_LENGTH    = 4 * 1024    // Maximum  4 KB Key Length
 	MAX_VALUE_LENGTH  = 56 * 1024   // Maximum 56 KB Value Length
-	MAX_SCHEME_LENGTH = 2 * 1024    // Maximum  2 KB Scheme Length
+	MAX_SCHEME_LENGTH = 1 * 1024    // Maximum  1 KB Scheme Length
 	MAX_ATTR_GROUPS   = 256         // maximum 256 Attribute Groups per Key
 	MAX_DATA_LENGTH   = 64*1024 - 1 // Maximum 64 KB - 1 Data Length
 	MAX_PACKET_LENGTH = 64*1024 - 1 // Maximum 64 KB - 1 Packet Length
