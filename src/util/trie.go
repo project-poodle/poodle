@@ -456,7 +456,7 @@ func (tn *MappedTrieNode) Decode(IContext) (int, error) {
 	}
 
 	// data
-	nodeData, nodeDataN, err := NewSimpleMappedData(0xff, tn.buf[pos:])
+	nodeData, nodeDataN, err := NewSimpleMappedData(tn.buf[pos:])
 	if err != nil {
 		return 0, fmt.Errorf("MappedTrieNode::Decode - data - %s", err)
 	}
@@ -887,7 +887,7 @@ func (tn *TrieNode) Encode(IContext) error {
 	parentOffsetBuf := EncodeUvarint(uint64(tn.parent.Offset()))
 
 	// data
-	dataBuf, _, err := tn.data.Encode(false)
+	err := tn.data.Encode(false)
 	if err != nil {
 		return fmt.Errorf("TrieNode::Encode - data encode error %v", err)
 	}
@@ -895,15 +895,15 @@ func (tn *TrieNode) Encode(IContext) error {
 	// child size
 	childSizeBuf := EncodeUvarint(uint64(tn.children.Size()))
 
-	tn.buf = make([]byte, len(nodeKeyBuf)+len(parentOffsetBuf)+len(dataBuf)+len(childSizeBuf))
+	tn.buf = make([]byte, len(nodeKeyBuf)+len(parentOffsetBuf)+len(tn.data.Buf())+len(childSizeBuf))
 
 	pos := 0
 	copy(tn.buf[pos:], nodeKeyBuf)
 	pos += len(nodeKeyBuf)
 	copy(tn.buf[pos:], parentOffsetBuf)
 	pos += len(parentOffsetBuf)
-	copy(tn.buf[pos:], dataBuf)
-	pos += len(dataBuf)
+	copy(tn.buf[pos:], tn.data.Buf())
+	pos += len(tn.data.Buf())
 	copy(tn.buf[pos:], childSizeBuf)
 	pos += len(childSizeBuf)
 

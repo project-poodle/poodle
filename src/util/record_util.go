@@ -14,8 +14,13 @@ import (
 type IRecord interface {
 
 	////////////////////////////////////////
+	// embeded interfaces
+	//collection.IPrintable
+	IEncodable
+
+	////////////////////////////////////////
 	// accessor to elements
-	Key() IData                      // key content
+	Key() IKey                       // key content
 	Value() IData                    // value content
 	Scheme() IData                   // scheme content
 	Timestamp() *time.Time           // 8 bytes unix nano timestamp
@@ -24,27 +29,6 @@ type IRecord interface {
 	////////////////////////////////////////
 	// encoding, decoding, and buf
 	RecordMagic() byte // 1 byte Record Magic          - return 0xff if not encoded
-	Buf() []byte       // full Record buffer           - return nil if not encoded
-	EstBufSize() int   // estimated buf size
-	// whether Record is encoded    - always return true for Mapped Record
-	//                                  - return true for Constructed Record if encoded buf cache exists
-	//                                  - return false for Constructed Record if no encoded buf cache
-	IsEncoded() bool
-	// encode Record                - for Constructed Record only, return error for Mapped Record
-	//                                  - if successful, encoded buf is kept as part of Record object
-	Encode() ([]byte, error)
-	// whether Record is decoded    - always return true for Constructed Record
-	//                                  - return true for Mapped Record if record elements are decoded
-	//                                  - return false for Mapped Record if record elements are not decoded
-	IsDecoded() bool
-	// decode Record                - for Mapped Record only, return error for Constructed Record
-	//                                  - if successful, individual key, value, scheme, timestamp, and signature pointers are decoded as part of Record object
-	Decode() error
-
-	////////////////////////////////////////
-	// deep copy
-	Copy() IRecord                   // make a deep copy of the record with same composition
-	CopyConstruct() (IRecord, error) // copy from source record to constructed record recursively
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -56,7 +40,7 @@ type MappedRecord struct {
 	decoded bool   // whether this is decoded
 	buf     []byte // original buf if not decoded, exact buf size if already decoded
 	// elements
-	key         IData      // key
+	key         IKey       // key
 	value       IData      // value
 	scheme      IData      // scheme
 	timestamp   *time.Time // timestamp
@@ -67,28 +51,28 @@ type MappedRecord struct {
 ////////////////////////////////////////
 // constructor
 
-func NewMappedRecord(buf []byte) (*MappedRecord, error) {
+func NewMappedRecord(buf []byte) (*MappedRecord, int, error) {
 
 	if buf == nil || len(buf) < 1 {
-		return nil, fmt.Errorf("NewMappedRecord - empty buf")
+		return nil, 0, fmt.Errorf("NewMappedRecord - empty buf")
 	}
 
 	// initialize record
 	r := &MappedRecord{decoded: false, buf: buf}
 
 	// decode
-	err := r.Decode()
+	length, err := r.Decode(nil)
 	if err != nil {
-		return nil, err
+		return nil, length, err
 	}
 
-	return r, nil
+	return r, length, nil
 }
 
 ////////////////////////////////////////
 // accessor to elements
 
-func (r *MappedRecord) Key() IData {
+func (r *MappedRecord) Key() IKey {
 
 	if !r.decoded {
 		// this should not happend
@@ -162,39 +146,32 @@ func (r *MappedRecord) IsEncoded() bool {
 	return true
 }
 
-func (r *MappedRecord) Encode() ([]byte, error) {
-	return nil, fmt.Errorf("MappedRecord::Encode - cannot encode MappedRecord")
+func (r *MappedRecord) Encode(IContext) error {
+	return fmt.Errorf("MappedRecord::Encode - cannot encode MappedRecord")
 }
 
 func (r *MappedRecord) IsDecoded() bool {
 	return r.decoded
 }
 
-func (r *MappedRecord) Decode() (err error) {
+func (r *MappedRecord) Decode(IContext) (length int, err error) {
 
 	pos := 1
 
 	var (
-		key    IData
+		key    IKey
 		value  IData
 		scheme IData
 	)
 	// key
-	encode := (r.buf[0] >> 6) & 0x03
-	switch encode {
-	case 0x00:
-		key, _, err = NewSimpleMappedData(encode, r.buf[pos:])
-	case 0x01:
-		key, _, err = NewSimpleMappedData(encode, r.buf[pos:])
-	case 0x02:
-		key, _, err = NewSimpleMappedData(encode, r.buf[pos:])
-	default:
-		key, err = NewStandardMappedData(r.buf[pos:])
+	hasKey := (r.buf[0] >> 6) & 0x01
+	if hasKey != 0 {
+		key, length, err = NewMappedKey(r.buf[pos:])
 	}
 	if err != nil {
-		return err
-	} else if len(key.Data()) > MAX_KEY_LENGTH {
-		return fmt.Errorf("MappedRecord::Decode - key size %d larger than %d", len(key.Data()), MAX_KEY_LENGTH)
+		return 0, fmt.Errorf("MappedRecord::Decode - key error [%v]", err)
+	} else if len(key.Buf()) > MAX_KEY_LENGTH {
+		return 0, fmt.Errorf("MappedRecord::Decode - key size %d larger than %d", len(key.Buf()), MAX_KEY_LENGTH)
 	} else {
 		r.key = key
 		pos += len(r.key.Buf())
@@ -202,23 +179,16 @@ func (r *MappedRecord) Decode() (err error) {
 
 	// value
 	if len(r.buf) < pos {
-		return fmt.Errorf("MappedRecord::Decode - invalid buf, no value, %d, %x", len(r.buf), r.buf)
+		return 0, fmt.Errorf("MappedRecord::Decode - invalid buf, no value, %d, %x", len(r.buf), r.buf)
 	}
-	encode = (r.buf[0] >> 4) & 0x03
-	switch encode {
-	case 0x00:
-		value, _, err = NewSimpleMappedData(encode, r.buf[pos:])
-	case 0x01:
-		value, _, err = NewSimpleMappedData(encode, r.buf[pos:])
-	case 0x02:
-		value, _, err = NewSimpleMappedData(encode, r.buf[pos:])
-	default:
-		value, err = NewStandardMappedData(r.buf[pos:])
+	hasValue := (r.buf[0] >> 5) & 0x01
+	if hasValue != 0 {
+		value, length, err = NewStandardMappedData(r.buf[pos:])
 	}
 	if err != nil {
-		return err
-	} else if len(value.Data()) > MAX_VALUE_LENGTH {
-		return fmt.Errorf("MappedRecord::Decode - value size %d larger than %d", len(value.Data()), MAX_VALUE_LENGTH)
+		return 0, fmt.Errorf("MappedRecord::Decode - value error [%v]", err)
+	} else if len(value.Buf()) > MAX_VALUE_LENGTH {
+		return 0, fmt.Errorf("MappedRecord::Decode - value size %d larger than %d", len(value.Buf()), MAX_VALUE_LENGTH)
 	} else {
 		r.value = value
 		pos += len(r.value.Buf())
@@ -226,49 +196,42 @@ func (r *MappedRecord) Decode() (err error) {
 
 	// scheme
 	if len(r.buf) < pos {
-		return fmt.Errorf("MappedRecord::Decode - invalid buf, no scheme, %d, %x", len(r.buf), r.buf)
+		return 0, fmt.Errorf("MappedRecord::Decode - invalid buf, no scheme, %d, %x", len(r.buf), r.buf)
 	}
-	encode = (r.buf[0] >> 2) & 0x03
-	switch encode {
-	case 0x00:
-		scheme, _, err = NewSimpleMappedData(encode, r.buf[pos:])
-	case 0x01:
-		scheme, _, err = NewSimpleMappedData(encode, r.buf[pos:])
-	case 0x02:
-		scheme, _, err = NewSimpleMappedData(encode, r.buf[pos:])
-	default:
-		scheme, err = NewStandardMappedData(r.buf[pos:])
+	hasScheme := (r.buf[0] >> 4) & 0x01
+	if hasScheme != 0 {
+		scheme, length, err = NewStandardMappedData(r.buf[pos:])
 	}
 	if err != nil {
-		return err
-	} else if len(scheme.Data()) > MAX_SCHEME_LENGTH {
-		return fmt.Errorf("MappedRecord::Decode - scheme size %d larger than %d", len(scheme.Data()), MAX_SCHEME_LENGTH)
+		return 0, fmt.Errorf("MappedRecord::Decode - scheme error [%v]", err)
+	} else if len(scheme.Buf()) > MAX_SCHEME_LENGTH {
+		return 0, fmt.Errorf("MappedRecord::Decode - scheme size %d larger than %d", len(scheme.Buf()), MAX_SCHEME_LENGTH)
 	} else {
 		r.scheme = scheme
 		pos += len(r.scheme.Buf())
 	}
 
-	// timestamp and signature bit
-	encode = r.buf[0] & 0x01
-	if encode == 0x01 {
-
-		// timestamp
+	// timestamp bit
+	hasTimestamp := (r.buf[0] >> 2) & 0x01
+	if hasTimestamp != 0 {
 		if len(r.buf) < pos {
-			return fmt.Errorf("MappedRecord::Decode - invalid buf, no timestamp, %d, %x", len(r.buf), r.buf)
+			return 0, fmt.Errorf("MappedRecord::Decode - invalid buf, no timestamp, %d, %x", len(r.buf), r.buf)
 		}
 		r.timestamp, err = collection.BytesToTime(r.buf[pos:])
 		if err != nil {
-			return err
+			return 0, fmt.Errorf("MappedRecord::Decode - timestamp error [%v]", err)
 		} else {
 			pos += 8
 		}
+	}
 
-		// signature (optional)
+	// signature (optional)
+	hasSignature := (r.buf[0] >> 1) & 0x01
+	if hasSignature != 0 {
 		if len(r.buf) < pos {
-			return fmt.Errorf("MappedRecord::Decode - invalid buf, no signature, %d, %x", len(r.buf), r.buf)
+			return 0, fmt.Errorf("MappedRecord::Decode - invalid buf, no signature, %d, %x", len(r.buf), r.buf)
 		} else if len(r.buf) < pos+64 { // 2 * 32 bytes signature
-			// signature is optional - even if timestamp and signature bit is set
-			// return err
+			// signature is optional - even if signature bit is set
 			r.signature_r = nil
 			r.signature_s = nil
 		} else {
@@ -283,16 +246,16 @@ func (r *MappedRecord) Decode() (err error) {
 
 	r.decoded = true
 
-	return nil
+	return pos, nil
 }
 
 ////////////////////////////////////////
 // deep copy
 
-func (r *MappedRecord) Copy() IRecord {
+func (r *MappedRecord) Copy() IEncodable {
 	buf := make([]byte, len(r.buf))
 	copy(buf, r.buf)
-	copy, err := NewMappedRecord(buf)
+	copy, _, err := NewMappedRecord(buf)
 	if err != nil {
 		// this should not happen
 		panic(fmt.Sprintf("MappedRecord:Copy - %s", err))
@@ -300,24 +263,27 @@ func (r *MappedRecord) Copy() IRecord {
 	return copy
 }
 
-func (r *MappedRecord) CopyConstruct() (IRecord, error) {
+func (r *MappedRecord) CopyConstruct() (IEncodable, error) {
 
 	result := NewRecord()
 	var err error
 
-	result.key, err = r.Key().CopyConstruct()
+	key, err := r.Key().CopyConstruct()
+	result.key = key.(IKey)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("MappedRecord::CopyConstruct - key error [%v]", err)
 	}
 
-	result.value, err = r.Value().CopyConstruct()
+	value, err := r.Value().CopyConstruct()
+	result.value = value.(IData)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("MappedRecord::CopyConstruct - value error [%v]", err)
 	}
 
-	result.scheme, err = r.Scheme().CopyConstruct()
+	scheme, err := r.Scheme().CopyConstruct()
+	result.scheme = scheme.(IData)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("MappedRecord::CopyConstruct - scheme error [%v]", err)
 	}
 
 	result.timestamp = r.Timestamp()                       // timestamp is immutable
@@ -338,7 +304,7 @@ type Record struct {
 	estDataSize   int
 	estSchemeSize int
 	// elements
-	key         IData
+	key         IKey
 	value       IData
 	scheme      IData
 	timestamp   *time.Time
@@ -356,7 +322,7 @@ func NewRecord() *Record {
 ////////////////////////////////////////
 // accessor to elements
 
-func (r *Record) Key() IData {
+func (r *Record) Key() IKey {
 	return r.key
 }
 
@@ -440,54 +406,55 @@ func (r *Record) IsEncoded() bool {
 	return r.encoded
 }
 
-func (r *Record) Encode() ([]byte, error) {
+func (r *Record) Encode(IContext) error {
 
 	buf := []byte{0x00}
 
 	// encode key
-	if r.key != nil && !r.key.IsNil() {
+	if r.key != nil && !r.key.IsEmpty() {
 
-		content_buf, magic, err := r.key.Encode(true)
+		err := r.key.Encode(nil)
 		if err != nil {
-			return nil, err
+			return fmt.Errorf("Record::Encode - key error [%v]", err)
 		}
 
-		buf[0] |= (magic & 0x03) << 6
-		buf = append(buf, content_buf...)
+		buf[0] |= byte(0x01) << 6
+		buf = append(buf, r.key.Buf()...)
 	}
 
 	// encode value
 	if r.value != nil && !r.value.IsNil() {
 
-		content_buf, magic, err := r.value.Encode(true)
+		err := r.value.Encode(nil)
 		if err != nil {
-			return nil, err
+			return fmt.Errorf("Record::Encode - value error [%v]", err)
 		}
 
-		buf[0] |= (magic & 0x03) << 4
-		buf = append(buf, content_buf...)
+		buf[0] |= byte(0x01) << 5
+		buf = append(buf, r.value.Buf()...)
 	}
 
 	// encode scheme
 	if r.scheme != nil && !r.scheme.IsNil() {
 
-		content_buf, magic, err := r.scheme.Encode(true)
+		err := r.scheme.Encode(nil)
 		if err != nil {
-			return nil, err
+			return fmt.Errorf("Record::Encode - scheme error [%v]", err)
 		}
 
-		buf[0] |= (magic & 0x03) << 2
-		buf = append(buf, content_buf...)
+		buf[0] |= byte(0x01) << 4
+		buf = append(buf, r.scheme.Buf()...)
 	}
 
 	// encode timestamp
 	if r.timestamp != nil {
 
-		buf[0] |= 0x01
+		buf[0] |= byte(0x01) << 2
 		buf = append(buf, collection.TimeToBytes(r.timestamp)...)
 
 		// encode signature
 		if r.signature_r != nil && r.signature_s != nil {
+			buf[0] |= byte(0x01) << 1
 			buf = append(buf, collection.BigIntToByteArray(r.signature_r)...)
 			buf = append(buf, collection.BigIntToByteArray(r.signature_s)...)
 		}
@@ -497,33 +464,36 @@ func (r *Record) Encode() ([]byte, error) {
 	r.buf = buf
 	r.encoded = true
 
-	return r.buf, nil
+	return nil
 }
 
 func (r *Record) IsDecoded() bool {
 	return true
 }
 
-func (r *Record) Decode() error {
-	return fmt.Errorf("Record::Decode - decode not supported")
+func (r *Record) Decode(IContext) (int, error) {
+	return 0, fmt.Errorf("Record::Decode - decode not supported")
 }
 
 ////////////////////////////////////////
 // deep copy
 
-func (r *Record) Copy() IRecord {
+func (r *Record) Copy() IEncodable {
 
 	result := &Record{}
 	if r.key != nil {
-		result.key = r.key.Copy()
+		key := r.key.Copy()
+		result.key = key.(IKey)
 	}
 
 	if r.value != nil {
-		result.value = r.value.Copy()
+		value := r.value.Copy()
+		result.value = value.(IData)
 	}
 
 	if r.scheme != nil {
-		result.scheme = r.scheme.Copy()
+		scheme := r.scheme.Copy()
+		result.scheme = scheme.(IData)
 	}
 
 	result.timestamp = r.timestamp
@@ -533,29 +503,33 @@ func (r *Record) Copy() IRecord {
 	return result
 }
 
-func (r *Record) CopyConstruct() (IRecord, error) {
-
-	var err error
+func (r *Record) CopyConstruct() (IEncodable, error) {
 
 	result := &Record{}
 	if r.key != nil {
-		result.key, err = r.key.CopyConstruct()
+		key, err := r.key.CopyConstruct()
 		if err != nil {
 			return nil, err
+		} else {
+			result.key = key.(IKey)
 		}
 	}
 
 	if r.value != nil {
-		result.value, err = r.value.CopyConstruct()
+		value, err := r.value.CopyConstruct()
 		if err != nil {
 			return nil, err
+		} else {
+			result.value = value.(IData)
 		}
 	}
 
 	if r.scheme != nil {
-		result.scheme, err = r.scheme.CopyConstruct()
+		scheme, err := r.scheme.CopyConstruct()
 		if err != nil {
 			return nil, err
+		} else {
+			result.scheme = scheme.(IData)
 		}
 	}
 
@@ -569,7 +543,7 @@ func (r *Record) CopyConstruct() (IRecord, error) {
 ////////////////////////////////////////
 // updater
 
-func (r *Record) SetKey(key IData) *Record {
+func (r *Record) SetKey(key IKey) *Record {
 	r.key = key
 	r.encoded = false
 	r.estKeySize = r.key.EstBufSize()
@@ -577,7 +551,7 @@ func (r *Record) SetKey(key IData) *Record {
 }
 
 func (r *Record) SetK(key []byte) *Record {
-	r.key = NewPrimitive(key)
+	r.key = NewKey().Add(key)
 	r.encoded = false
 	r.estKeySize = r.key.EstBufSize()
 	return r

@@ -16,6 +16,11 @@ import (
 type IData interface {
 
 	////////////////////////////////////////
+	// embeded interfaces
+	//collection.IPrintable
+	IEncodable
+
+	////////////////////////////////////////
 	// accessor to elements
 	IsNil() bool                        // whether Data is nil
 	IsPrimitive() bool                  // whether this is Primitive Data
@@ -31,31 +36,6 @@ type IData interface {
 	////////////////////////////////////////
 	// encoding, decoding, and buf
 	DataMagic() byte // 1 byte Data Magic            - return 0xff if not encoded
-	Buf() []byte     // full Data buffer             - return nil if not encoded
-	EstBufSize() int // estimated buf size
-	// whether Data is encoded      - always return true for Mapped Data
-	//                                  - return true for Constructed Data if encoded buf cache exists
-	//                                  - return false for Constructed Data if no encoded buf cache
-	IsEncoded() bool
-	// encode Data                  - for Constructed Data only, return error for Mapped Data
-	//                                  - if successful, encoded buf is kept as part of Data object
-	//                                  - bool param indicate whether to encode with parent Record context
-	//                                  - byte return value is parent bits, return 0xff if this is self-encoded as Data
-	Encode(parent bool) ([]byte, byte, error)
-	// whether Data is decoded      - always return true for Constructed Data
-	//                                  - return true for Mapped Data if data is decoded
-	//                                  - return false for Mapped Data if data is not decoded
-	IsDecoded() bool
-	// decode Data                  - for Mapped Data only, return error for Constructed Data
-	//                                  - if successful, individual data array, record list, or primitive data are decoded and kept as part of Data object
-	//                                  - parent param is data encode from parent: 0x00 is no length; 0x01 is 1 byte length; 0x02 is 2 byte length; 0x03 is custom encoding
-	//                                  - use 0xff if no parent
-	Decode(parent byte) error
-
-	////////////////////////////////////////
-	// deep copy
-	Copy() IData                   // make a deep copy of the data with same composition
-	CopyConstruct() (IData, error) // copy from source data to constructed data recursively
 }
 
 type ILookupEncoder interface {
@@ -75,7 +55,6 @@ type ICompressEncoder interface {
 type SimpleMappedData struct {
 	// buf
 	decoded bool
-	parent  byte
 	buf     []byte
 	// content
 	content []byte
@@ -84,14 +63,14 @@ type SimpleMappedData struct {
 ////////////////////////////////////////
 // constructor
 
-func NewSimpleMappedData(parent byte, buf []byte) (*SimpleMappedData, int, error) {
+func NewSimpleMappedData(buf []byte) (*SimpleMappedData, int, error) {
 
-	result := &SimpleMappedData{decoded: false, parent: parent & 0x03, buf: buf}
-	err := result.Decode(parent)
+	result := &SimpleMappedData{decoded: false, buf: buf}
+	length, err := result.Decode(nil)
 	if err != nil {
-		return nil, 0, err
+		return nil, length, err
 	} else {
-		return result, len(result.buf), nil
+		return result, length, nil
 	}
 }
 
@@ -99,7 +78,7 @@ func NewSimpleMappedData(parent byte, buf []byte) (*SimpleMappedData, int, error
 // accessor to elements
 
 func (d *SimpleMappedData) IsNil() bool {
-	return d.parent == 0
+	return len(d.content) == 0
 }
 
 func (d *SimpleMappedData) IsPrimitive() bool {
@@ -142,7 +121,7 @@ func (d *SimpleMappedData) Data() []byte {
 // encoding, decoding, and buf
 
 func (d *SimpleMappedData) DataMagic() byte {
-	return d.parent
+	return d.buf[0]
 }
 
 func (d *SimpleMappedData) Buf() []byte {
@@ -157,75 +136,45 @@ func (d *SimpleMappedData) IsEncoded() bool {
 	return true
 }
 
-func (d *SimpleMappedData) Encode(parent bool) ([]byte, byte, error) {
-	return nil, 0xff, fmt.Errorf("SimpleMappedData::Encode - encode not supported")
+func (d *SimpleMappedData) Encode(IContext) error {
+	return fmt.Errorf("SimpleMappedData::Encode - encode not supported")
 }
 
 func (d *SimpleMappedData) IsDecoded() bool {
 	return d.decoded
 }
 
-func (d *SimpleMappedData) Decode(parent byte) error {
+func (d *SimpleMappedData) Decode(IContext) (int, error) {
 
-	if (d.parent & 0x03) != (parent & 0x03) {
-		return fmt.Errorf("SimpleMappedData::Decode - parent code mismatch : %x vs %x", d.parent, parent)
+	data, length, err := DecodeVarchar(d.buf)
+	if err != nil {
+		return length, fmt.Errorf("SimpleMappedData::Decode - error %v", err)
 	}
 
-	switch d.parent & 0x03 {
+	// fill in content and buf
+	d.content = data
+	d.buf = d.buf[:length]
+	d.decoded = true
 
-	case 0x00:
-		d.content = nil
-		d.buf = nil
-		d.decoded = true
-		return nil
-
-	case 0x01:
-		if len(d.buf) < 1 {
-			return fmt.Errorf("SimpleMappedData::Decode - invalid buf 1, no length, %d, %x", len(d.buf), d.buf)
-		}
-		length := uint16(d.buf[0])
-		if len(d.buf) < 1+int(length) {
-			return fmt.Errorf("SimpleMappedData::Decode - invalid buf 1, missing content %d, %x", len(d.buf), d.buf)
-		}
-		d.content = d.buf[1 : 1+length]
-		d.buf = d.buf[0 : 1+length]
-		d.decoded = true
-		return nil
-
-	case 0x02:
-		if len(d.buf) < 2 {
-			return fmt.Errorf("SimpleMappedData::Decode - invalid buf 2, no length %d, %x", len(d.buf), d.buf)
-		}
-		length := uint16(binary.BigEndian.Uint16(d.buf))
-		if len(d.buf) < 2+int(length) {
-			return fmt.Errorf("SimpleMappedData::Decode - invalid buf 2, missing content %d, %x", len(d.buf), d.buf)
-		}
-		d.content = d.buf[2 : 2+length]
-		d.buf = d.buf[0 : 2+length]
-		d.decoded = true
-		return nil
-
-	default:
-		return fmt.Errorf("NewSimpleMappedData - invalid parent [%b]", parent)
-	}
+	return length, nil
 }
 
 ////////////////////////////////////////
 // deep copy
 
-func (d *SimpleMappedData) Copy() IData {
+func (d *SimpleMappedData) Copy() IEncodable {
 	// make a deep copy of the buf
 	buf := make([]byte, len(d.buf))
 	copy(buf, d.buf)
-	result, _, err := NewSimpleMappedData(d.parent, buf)
+	result, _, err := NewSimpleMappedData(buf)
 	if err != nil {
 		// this should not happen
-		panic(fmt.Sprintf("SimpleMappedData:Copy - %s", err))
+		panic(fmt.Sprintf("SimpleMappedData:Copy - error %v", err))
 	}
 	return result
 }
 
-func (d *SimpleMappedData) CopyConstruct() (IData, error) {
+func (d *SimpleMappedData) CopyConstruct() (IEncodable, error) {
 	// make a deep copy of the buf
 	buf := make([]byte, len(d.content))
 	copy(buf, d.content)
@@ -253,21 +202,21 @@ type StandardMappedData struct {
 ////////////////////////////////////////
 // constructor
 
-func NewStandardMappedData(buf []byte) (*StandardMappedData, error) {
+func NewStandardMappedData(buf []byte) (*StandardMappedData, int, error) {
 
 	if len(buf) < 1 {
-		return nil, fmt.Errorf("NewStandardMappedData - invalid empty buf")
+		return nil, 0, fmt.Errorf("NewStandardMappedData - invalid empty buf")
 	}
 
 	d := &StandardMappedData{decoded: false, buf: buf}
 
 	// decode
-	err := d.Decode(0xff)
+	length, err := d.Decode(nil)
 	if err != nil {
-		return nil, err
+		return nil, length, err
 	}
 
-	return d, nil
+	return d, length, nil
 }
 
 ////////////////////////////////////////
@@ -338,12 +287,13 @@ func (d *StandardMappedData) DataAt(idx uint16) (IData, error) {
 			if len(d.content) < pos {
 				return nil, fmt.Errorf("StandardMappedData:DataAt[%d] - invalid content %d - %d, %x", idx, i, len(d.content), d.content)
 			}
-			d.data_array[i], err = NewStandardMappedData(d.content[pos:])
+			d.data_array[i], _, err = NewStandardMappedData(d.content[pos:])
 			if err != nil {
 				return nil, err
 			}
 		}
 		pos += len(d.data_array[i].Buf())
+		//pos += length
 	}
 
 	return d.data_array[idx], nil
@@ -374,7 +324,7 @@ func (d *StandardMappedData) RecordAt(idx uint16) (IRecord, error) {
 			if len(d.content) < pos {
 				return nil, fmt.Errorf("StandardMappedData:RecordAt[%d] - invalid content %d - %d, %x", idx, i, len(d.content), d.content)
 			}
-			d.record_list[i], err = NewMappedRecord(d.content[pos:])
+			d.record_list[i], _, err = NewMappedRecord(d.content[pos:])
 			if err != nil {
 				return nil, err
 			}
@@ -435,23 +385,19 @@ func (d *StandardMappedData) IsEncoded() bool {
 	return true
 }
 
-func (d *StandardMappedData) Encode(parent bool) ([]byte, byte, error) {
-	return nil, 0xff, fmt.Errorf("StandardMappedData:Encode - encode not supported")
+func (d *StandardMappedData) Encode(IContext) error {
+	return fmt.Errorf("StandardMappedData:Encode - encode not supported")
 }
 
 func (d *StandardMappedData) IsDecoded() bool {
 	return d.decoded
 }
 
-func (d *StandardMappedData) Decode(parent byte) error {
-
-	if parent&0x03 != 0x03 {
-		return fmt.Errorf("StandardMappedData::Decode - unsupported parent %x", parent)
-	}
+func (d *StandardMappedData) Decode(IContext) (int, error) {
 
 	format_is_set := false
 
-	pos := uint16(1)
+	pos := 1
 	content_length := uint16(0)
 
 	// process data array
@@ -461,7 +407,7 @@ func (d *StandardMappedData) Decode(parent byte) error {
 		break
 	case 0x01:
 		if len(d.buf) < 1+int(pos) {
-			return fmt.Errorf("StandardMappedData::Decode - invalid buf 1, data array no size, %d, %x", len(d.buf), d.buf)
+			return 0, fmt.Errorf("StandardMappedData::Decode - invalid buf 1, data array no size, %d, %x", len(d.buf), d.buf)
 		}
 		format_is_set = true
 		d.size = uint16(d.buf[pos])
@@ -469,14 +415,14 @@ func (d *StandardMappedData) Decode(parent byte) error {
 		pos += 1
 	case 0x02:
 		if len(d.buf) < 2+int(pos) {
-			return fmt.Errorf("StandardMappedData::Decode - invalid buf 2, data array no size, %d, %x", len(d.buf), d.buf)
+			return 0, fmt.Errorf("StandardMappedData::Decode - invalid buf 2, data array no size, %d, %x", len(d.buf), d.buf)
 		}
 		format_is_set = true
 		d.size = binary.BigEndian.Uint16(d.buf[pos:])
 		d.data_array = make([]IData, d.size)
 		pos += 2
 	case 0x03:
-		return fmt.Errorf("StandardMappedData::Decode - invalid magic - data array: %x", d.buf[0])
+		return 0, fmt.Errorf("StandardMappedData::Decode - invalid magic - data array: %x", d.buf[0])
 	}
 
 	// process record list
@@ -486,10 +432,10 @@ func (d *StandardMappedData) Decode(parent byte) error {
 		break
 	case 0x01:
 		if format_is_set {
-			return fmt.Errorf("StandardMappedData::Decode - invalid magic [%x] - format set prior to record list", d.buf[0])
+			return 0, fmt.Errorf("StandardMappedData::Decode - invalid magic [%x] - format set prior to record list", d.buf[0])
 		}
 		if len(d.buf) < 1+int(pos) {
-			return fmt.Errorf("StandardMappedData::Decode - invalid buf 1, record list no size, %d, %x", len(d.buf), d.buf)
+			return 0, fmt.Errorf("StandardMappedData::Decode - invalid buf 1, record list no size, %d, %x", len(d.buf), d.buf)
 		}
 		format_is_set = true
 		d.size = uint16(d.buf[pos])
@@ -497,17 +443,17 @@ func (d *StandardMappedData) Decode(parent byte) error {
 		pos += 1
 	case 0x02:
 		if format_is_set {
-			return fmt.Errorf("StandardMappedData::Decode - invalid magic [%x] - format set prior to record list", d.buf[0])
+			return 0, fmt.Errorf("StandardMappedData::Decode - invalid magic [%x] - format set prior to record list", d.buf[0])
 		}
 		if len(d.buf) < 2+int(pos) {
-			return fmt.Errorf("StandardMappedData::Decode - invalid buf 2, record list no size, %d, %x", len(d.buf), d.buf)
+			return 0, fmt.Errorf("StandardMappedData::Decode - invalid buf 2, record list no size, %d, %x", len(d.buf), d.buf)
 		}
 		format_is_set = true
 		d.size = binary.BigEndian.Uint16(d.buf[pos:])
 		d.record_list = make([]IRecord, d.size)
 		pos += 2
 	case 0x03:
-		return fmt.Errorf("StandardMappedData::Decode - invalid magic [%x] - record list", d.buf[0])
+		return 0, fmt.Errorf("StandardMappedData::Decode - invalid magic [%x] - record list", d.buf[0])
 	}
 
 	// process lookup
@@ -517,7 +463,7 @@ func (d *StandardMappedData) Decode(parent byte) error {
 		d.lookup = nil
 	case 0x01:
 		// pos      += 2
-		return fmt.Errorf("StandardMappedData::Decode - invalid magic [%x] - lookup not supported", d.buf[0])
+		return 0, fmt.Errorf("StandardMappedData::Decode - invalid magic [%x] - lookup not supported", d.buf[0])
 	}
 
 	// process compression
@@ -527,7 +473,7 @@ func (d *StandardMappedData) Decode(parent byte) error {
 		d.compression = nil
 	case 0x01:
 		// pos      += 2
-		return fmt.Errorf("StandardMappedData::Decode - invalid magic [%x] - compression not supported", d.buf[0])
+		return 0, fmt.Errorf("StandardMappedData::Decode - invalid magic [%x] - compression not supported", d.buf[0])
 	}
 
 	// process content
@@ -537,41 +483,41 @@ func (d *StandardMappedData) Decode(parent byte) error {
 		break
 	case 0x01:
 		if len(d.buf) < 1+int(pos) {
-			return fmt.Errorf("StandardMappedData::Decode - invalid buf 1, no length, %d, %x", len(d.buf), d.buf)
+			return 0, fmt.Errorf("StandardMappedData::Decode - invalid buf 1, no length, %d, %x", len(d.buf), d.buf)
 		}
 		content_length = uint16(d.buf[pos])
 		if len(d.buf) < 1+int(pos)+int(content_length) {
-			return fmt.Errorf("StandardMappedData::Decode - invalid buf 1, missing content, %d, %x", len(d.buf), d.buf)
+			return 0, fmt.Errorf("StandardMappedData::Decode - invalid buf 1, missing content, %d, %x", len(d.buf), d.buf)
 		}
-		pos += 1 + content_length
+		pos += 1 + int(content_length)
 	case 0x02:
 		if len(d.buf) < 2+int(pos) {
-			return fmt.Errorf("StandardMappedData::Decode - invalid buf 2, no length, %d, %x", len(d.buf), d.buf)
+			return 0, fmt.Errorf("StandardMappedData::Decode - invalid buf 2, no length, %d, %x", len(d.buf), d.buf)
 		}
 		content_length = binary.BigEndian.Uint16(d.buf[pos:])
 		if len(d.buf) < 2+int(pos)+int(content_length) {
-			return fmt.Errorf("StandardMappedData::Decode - invalid buf 2, missing content, %d, %x", len(d.buf), d.buf)
+			return 0, fmt.Errorf("StandardMappedData::Decode - invalid buf 2, missing content, %d, %x", len(d.buf), d.buf)
 		}
-		pos += 2 + content_length
+		pos += 2 + int(content_length)
 	case 0x03:
-		return fmt.Errorf("StandardMappedData::Decode - invalid magic [%x] - length ", d.buf[0])
+		return 0, fmt.Errorf("StandardMappedData::Decode - invalid magic [%x] - length ", d.buf[0])
 	}
 
-	d.content = d.buf[pos-content_length : pos]
+	d.content = d.buf[pos-int(content_length) : pos]
 	d.buf = d.buf[:pos]
 	d.decoded = true
 
-	return nil
+	return pos, nil
 }
 
 ////////////////////////////////////////
 // deep copy
 
-func (d *StandardMappedData) Copy() IData {
+func (d *StandardMappedData) Copy() IEncodable {
 	// make a deep copy of the buf
 	buf := make([]byte, len(d.buf))
 	copy(buf, d.buf)
-	result, err := NewStandardMappedData(buf)
+	result, _, err := NewStandardMappedData(buf)
 	if err != nil {
 		// this should not happen
 		panic(fmt.Sprintf("StandardMappedData:Copy - %s", err))
@@ -579,7 +525,7 @@ func (d *StandardMappedData) Copy() IData {
 	return result
 }
 
-func (d *StandardMappedData) CopyConstruct() (IData, error) {
+func (d *StandardMappedData) CopyConstruct() (IEncodable, error) {
 
 	if d.IsPrimitive() {
 
@@ -606,7 +552,7 @@ func (d *StandardMappedData) CopyConstruct() (IData, error) {
 				return nil, err
 			}
 
-			result.Append(data_copy)
+			result.Append(data_copy.(IData))
 		}
 
 		return result, nil
@@ -627,7 +573,7 @@ func (d *StandardMappedData) CopyConstruct() (IData, error) {
 				return nil, err
 			}
 
-			result.Append(record_copy)
+			result.Append(record_copy.(IRecord))
 		}
 
 		return result, nil
@@ -741,13 +687,13 @@ func (d *Primitive) IsEncoded() bool {
 	return d.encoded
 }
 
-func (d *Primitive) Encode(parent bool) ([]byte, byte, error) {
+func (d *Primitive) Encode(IContext) error {
 
 	if d.data == nil {
 		d.magic = 0x00
 		d.buf = nil
 		d.encoded = true
-		return nil, 0x00, nil
+		return nil
 	}
 
 	// encode content length
@@ -755,61 +701,37 @@ func (d *Primitive) Encode(parent bool) ([]byte, byte, error) {
 
 	if content_len == 0 {
 
-		if parent {
-			buf := []byte{}
-			d.magic = 0x00
-			d.buf = buf
-			d.encoded = true
-			return buf, 0x00, nil
-		} else {
-			buf := []byte{0x00}
-			d.magic = 0x00
-			//d.magic = 0xff & 0x03
-			d.buf = buf
-			d.encoded = true
-			return buf, 0xff, nil
-		}
+		buf := []byte{0x00}
+		d.magic = 0x00
+		//d.magic = 0xff & 0x03
+		d.buf = buf
+		d.encoded = true
+		return nil
 
 	} else if content_len < 256 {
 
 		length_buf := []byte{uint8(content_len)}
-		if parent {
-			buf := append(length_buf, d.data...)
-			d.magic = 0x01
-			d.buf = buf
-			d.encoded = true
-			return buf, 0x01, nil
-		} else {
-			buf := append([]byte{0x01}, length_buf...)
-			buf = append(buf, d.data...)
-			d.magic = 0x01
-			d.buf = buf
-			d.encoded = true
-			return buf, 0xff, nil
-		}
+		buf := append([]byte{0x01}, length_buf...)
+		buf = append(buf, d.data...)
+		d.magic = 0x01
+		d.buf = buf
+		d.encoded = true
+		return nil
 
 	} else if content_len < 65536 {
 
 		// length_bits = 0x02
 		length_buf := []byte{uint8(content_len >> 8), uint8(content_len)} // BigEndian encoding
-		if parent {
-			buf := append(length_buf, d.data...)
-			d.magic = 0x02
-			d.buf = buf
-			d.encoded = true
-			return buf, 0x02, nil
-		} else {
-			buf := append([]byte{0x02}, length_buf...)
-			buf = append(buf, d.data...)
-			d.magic = 0x02
-			d.buf = buf
-			d.encoded = true
-			return buf, 0xff, nil
-		}
+		buf := append([]byte{0x02}, length_buf...)
+		buf = append(buf, d.data...)
+		d.magic = 0x02
+		d.buf = buf
+		d.encoded = true
+		return nil
 
 	} else {
 
-		return nil, 0xff, fmt.Errorf("Primitive::Encode - content length too big %d", content_len)
+		return fmt.Errorf("Primitive::Encode - content length too big %d", content_len)
 	}
 }
 
@@ -817,14 +739,14 @@ func (d *Primitive) IsDecoded() bool {
 	return true
 }
 
-func (d *Primitive) Decode(parent byte) error {
-	return fmt.Errorf("Primitive::Decode - decode not supported")
+func (d *Primitive) Decode(IContext) (int, error) {
+	return 0, fmt.Errorf("Primitive::Decode - decode not supported")
 }
 
 ////////////////////////////////////////
 // deep copy
 
-func (d *Primitive) Copy() IData {
+func (d *Primitive) Copy() IEncodable {
 
 	c := NewPrimitive(d.data)
 	if d.data == nil {
@@ -838,7 +760,7 @@ func (d *Primitive) Copy() IData {
 	return c
 }
 
-func (d *Primitive) CopyConstruct() (IData, error) {
+func (d *Primitive) CopyConstruct() (IEncodable, error) {
 
 	return d.Copy(), nil
 }
@@ -945,11 +867,11 @@ func (d *DataArray) IsEncoded() bool {
 	return d.encoded
 }
 
-func (d *DataArray) Encode(parent bool) ([]byte, byte, error) {
+func (d *DataArray) Encode(IContext) error {
 
 	if d.data_array == nil {
 		d.estBufSize = 1
-		return nil, 0x00, nil
+		return nil
 	}
 
 	buf := []byte{0x00}
@@ -965,17 +887,17 @@ func (d *DataArray) Encode(parent bool) ([]byte, byte, error) {
 		buf[0] |= 0x02 << 6
 		buf = append(buf, uint8(size>>8), uint8(size)) // BigEndian encoding
 	} else {
-		return nil, 0xff, fmt.Errorf("DataArray::Encode - unexpected size %d", size)
+		return fmt.Errorf("DataArray::Encode - unexpected size %d", size)
 	}
 
 	// encode content
 	content_buf := []byte{}
 	for i := 0; i < len(d.data_array); i++ {
-		data_buf, _, err := d.data_array[i].Encode(false)
+		err := d.data_array[i].Encode(nil)
 		if err != nil {
-			return nil, 0xff, err
+			return fmt.Errorf("DataArray::Encode - err [%v]", err)
 		}
-		content_buf = append(content_buf, data_buf...)
+		content_buf = append(content_buf, d.data_array[i].Buf()...)
 	}
 
 	content_len := len(content_buf)
@@ -984,7 +906,7 @@ func (d *DataArray) Encode(parent bool) ([]byte, byte, error) {
 		d.buf = buf
 		d.encoded = true
 		d.estBufSize = len(d.buf)
-		return buf, 0xff, nil
+		return nil
 
 	} else if content_len < 256 {
 
@@ -994,7 +916,7 @@ func (d *DataArray) Encode(parent bool) ([]byte, byte, error) {
 		d.buf = buf
 		d.encoded = true
 		d.estBufSize = len(d.buf)
-		return buf, 0xff, nil
+		return nil
 
 	} else if content_len < 65536 {
 
@@ -1004,11 +926,11 @@ func (d *DataArray) Encode(parent bool) ([]byte, byte, error) {
 		d.buf = buf
 		d.encoded = true
 		d.estBufSize = len(d.buf)
-		return buf, 0xff, nil
+		return nil
 
 	} else {
 
-		return nil, 0xff, fmt.Errorf("DataArray::Encode - content length too big %d", content_len)
+		return fmt.Errorf("DataArray::Encode - content length too big %d", content_len)
 
 	}
 }
@@ -1017,14 +939,14 @@ func (d *DataArray) IsDecoded() bool {
 	return true
 }
 
-func (d *DataArray) Decode(parent byte) error {
-	return fmt.Errorf("DataArray::Decode - decode not supported")
+func (d *DataArray) Decode(IContext) (int, error) {
+	return 0, fmt.Errorf("DataArray::Decode - decode not supported")
 }
 
 ////////////////////////////////////////
 // deep copy
 
-func (d *DataArray) Copy() IData {
+func (d *DataArray) Copy() IEncodable {
 
 	c := NewDataArray()
 	if d.data_array == nil {
@@ -1034,27 +956,27 @@ func (d *DataArray) Copy() IData {
 	// make a deep copy of the buf
 	c.data_array = make([]IData, len(d.data_array))
 	for i := 0; i < len(d.data_array); i++ {
-		c.data_array[i] = d.data_array[i].Copy()
+		c.data_array[i] = d.data_array[i].Copy().(IData)
 	}
 
 	return c
 }
 
-func (d *DataArray) CopyConstruct() (IData, error) {
+func (d *DataArray) CopyConstruct() (IEncodable, error) {
 
 	c := NewDataArray()
 	if d.data_array == nil {
 		return c, nil
 	}
 
-	var err error
-
 	// make a deep copy of the buf
 	c.data_array = make([]IData, len(d.data_array))
 	for i := 0; i < len(d.data_array); i++ {
-		c.data_array[i], err = d.data_array[i].CopyConstruct()
+		data_i, err := d.data_array[i].CopyConstruct()
 		if err != nil {
 			return nil, err
+		} else {
+			c.data_array[i] = data_i.(IData)
 		}
 	}
 
@@ -1184,10 +1106,10 @@ func (d *RecordList) IsEncoded() bool {
 	return d.encoded
 }
 
-func (d *RecordList) Encode(parent bool) ([]byte, byte, error) {
+func (d *RecordList) Encode(IContext) error {
 
 	if d.record_list == nil {
-		return nil, 0x00, nil
+		return nil
 	}
 
 	buf := []byte{0x00}
@@ -1203,18 +1125,18 @@ func (d *RecordList) Encode(parent bool) ([]byte, byte, error) {
 		buf[0] |= 0x02 << 4
 		buf = append(buf, uint8(size>>8), uint8(size)) // BigEndian encoding
 	} else {
-		return nil, 0xff, fmt.Errorf("DataArray::Encode - unexpected size %d", size)
+		return fmt.Errorf("RecordList::Encode - unexpected size %d", size)
 	}
 
 	// encode content
 	content_buf := []byte{}
 	for i := 0; i < len(d.record_list); i++ {
-		record_buf, err := d.record_list[i].Encode()
+		err := d.record_list[i].Encode(nil)
 
 		if err != nil {
-			return nil, 0xff, err
+			return fmt.Errorf("RecordList::Encode - error [%v]", err)
 		}
-		content_buf = append(content_buf, record_buf...)
+		content_buf = append(content_buf, d.record_list[i].Buf()...)
 	}
 
 	content_len := len(content_buf)
@@ -1222,7 +1144,7 @@ func (d *RecordList) Encode(parent bool) ([]byte, byte, error) {
 
 		d.buf = buf
 		d.encoded = true
-		return buf, 0xff, nil
+		return nil
 
 	} else if content_len < 256 {
 
@@ -1231,7 +1153,7 @@ func (d *RecordList) Encode(parent bool) ([]byte, byte, error) {
 		buf = append(buf, content_buf...)
 		d.buf = buf
 		d.encoded = true
-		return buf, 0xff, nil
+		return nil
 
 	} else if content_len < 65536 {
 
@@ -1240,11 +1162,11 @@ func (d *RecordList) Encode(parent bool) ([]byte, byte, error) {
 		buf = append(buf, content_buf...)
 		d.buf = buf
 		d.encoded = true
-		return buf, 0xff, nil
+		return nil
 
 	} else {
 
-		return nil, 0xff, fmt.Errorf("RecordList::Encode - content length too big %d", content_len)
+		return fmt.Errorf("RecordList::Encode - content length too big %d", content_len)
 
 	}
 }
@@ -1253,14 +1175,14 @@ func (d *RecordList) IsDecoded() bool {
 	return true
 }
 
-func (d *RecordList) Decode(parent byte) error {
-	return fmt.Errorf("RecordList::Decode - decode not supported")
+func (d *RecordList) Decode(IContext) (int, error) {
+	return 0, fmt.Errorf("RecordList::Decode - decode not supported")
 }
 
 ////////////////////////////////////////
 // deep copy
 
-func (d *RecordList) Copy() IData {
+func (d *RecordList) Copy() IEncodable {
 
 	c := NewRecordList()
 	if d.record_list == nil {
@@ -1270,27 +1192,27 @@ func (d *RecordList) Copy() IData {
 	// make a deep copy of the buf
 	c.record_list = make([]IRecord, len(d.record_list))
 	for i := 0; i < len(d.record_list); i++ {
-		c.record_list[i] = d.record_list[i].Copy()
+		c.record_list[i] = d.record_list[i].Copy().(IRecord)
 	}
 
 	return c
 }
 
-func (d *RecordList) CopyConstruct() (IData, error) {
+func (d *RecordList) CopyConstruct() (IEncodable, error) {
 
 	c := NewRecordList()
 	if d.record_list == nil {
 		return c, nil
 	}
 
-	var err error
-
 	// make a deep copy of the buf
 	c.record_list = make([]IRecord, len(d.record_list))
 	for i := 0; i < len(d.record_list); i++ {
-		c.record_list[i], err = d.record_list[i].CopyConstruct()
+		record_i, err := d.record_list[i].CopyConstruct()
 		if err != nil {
 			return nil, err
+		} else {
+			c.record_list[i] = record_i.(IRecord)
 		}
 	}
 
