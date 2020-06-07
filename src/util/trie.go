@@ -27,8 +27,9 @@ type ITrie interface {
 	Size() int             // total size
 
 	// Iterators
-	Iterator(key IKey) ITrieIterator             // nil key param returns iterator for all keys, otherwise return iterator for specified key and children
-	RangeIterator(start, end IKey) ITrieIterator // return iterator for keys within given range
+	Iterator() ITrieIterator                     // this is same as nil key that iterates all keys
+	KeyIterator(key IKey) ITrieIterator          // nil key param returns iterator for all keys, otherwise return iterator for specified key and children
+	RangeIterator(start, end IKey) ITrieIterator // return iterator for keys within given range, start inclusive, end not inclusive
 }
 
 type ITrieNode interface {
@@ -106,7 +107,7 @@ func (t *MappedTrie) Get(k IKey) IData {
 	}
 
 	// return root data is key is nil
-	if k.IsNil() {
+	if k.IsEmpty() {
 		return t.root.Data()
 	}
 
@@ -131,33 +132,36 @@ func (t *MappedTrie) Set(IKey, IData) IData {
 	panic(fmt.Sprintf("MappedTrie::Set - set not supported"))
 }
 
-func (t *MappedTrie) Iterator(k IKey) ITrieIterator {
+func (t *MappedTrie) Iterator() ITrieIterator {
+	return NewTrieKeyIterator(t.root, t.root)
+}
+
+func (t *MappedTrie) KeyIterator(k IKey) ITrieIterator {
 
 	if !t.decoded {
 		panic(fmt.Sprintf("MappedTrie::Iterator - not decoded"))
 	}
 
-	if collection.IsNil(k) {
-		return &TrieIterator{rootNode: t.root}
+	if collection.IsNil(k) || k.IsEmpty() {
+		return NewTrieKeyIterator(t.root, t.root)
 	} else {
 		node := t.Get(k)
 		if collection.IsNil(node) {
-			return &TrieIterator{} // return an empty iterator
+			return &TrieKeyIterator{} // return an empty iterator
 		} else {
-			rootNode := node.(ITrieNode)
-			return &TrieIterator{rootNode: rootNode} // return an iterator starting with given node
+			currNode := node.(ITrieNode)
+			return NewTrieKeyIterator(t.root, currNode) // return an iterator starting with given node
 		}
 	}
 }
 
-func (t *MappedTrie) RangeIterator(start, end IKey) func() IKey {
+func (t *MappedTrie) RangeIterator(start, end IKey) ITrieIterator {
 
 	if !t.decoded {
 		panic(fmt.Sprintf("MappedTrie::RangeIterator - not decoded"))
 	}
 
-	// TODO:
-	return nil
+	return NewTrieRangeIterator(t.root, start, end)
 }
 
 ////////////////////////////////////////
@@ -540,34 +544,65 @@ type TrieNode struct {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// TrieIterator
+// TrieKeyIterator
 ////////////////////////////////////////////////////////////////////////////////
 
-type TrieIterator struct {
+type TrieKeyIterator struct {
 	paths    []collection.ISortedMapIterator
 	rootNode ITrieNode
-	start    IKey
-	end      IKey
+	currNode ITrieNode
 }
 
-func (i *TrieIterator) Next() (IKey, IData) {
+func NewTrieKeyIterator(root, curr ITrieNode) *TrieKeyIterator {
+
+	result := &TrieKeyIterator{paths: make([]collection.ISortedMapIterator, 0)}
+
+	// check root validaty
+	if collection.IsNil(root) {
+		panic("NewTrieIterator - root cannot be nil")
+	} else if !root.FullKey().IsEmpty() {
+		panic("NewTrieIterator - root key is not empty")
+	} else {
+		result.rootNode = root
+	}
+
+	// check curr validaty
+	if collection.IsNil(curr) {
+		result.currNode = root
+	} else {
+		for _, subKey := range curr.FullKey().Key() {
+			child := root.GetChild(subKey)
+			if collection.IsNil(child) {
+				panic(fmt.Sprintf("NewTrieIterator - curr node [%s] is not a child of root [%s]",
+					root.FullKey().ToString(),
+					curr.FullKey().ToString()))
+			}
+		}
+		// we are here as curr is a descendent of root
+		result.currNode = curr
+	}
+
+	return result
+}
+
+func (i *TrieKeyIterator) Next() (IKey, IData) {
 
 	i.advance()
 
 	var returnNode ITrieNode
 
-	// if rootNode has not been iterated
-	if i.rootNode != nil {
-		returnNode = i.rootNode
-		iter := i.rootNode.Children().Iterator()
+	// if currNode has not been iterated
+	if !collection.IsNil(i.currNode) {
+		returnNode = i.currNode
 		if returnNode.ChildSize() != 0 {
+			iter := i.currNode.Children().Iterator()
 			if i.paths == nil {
 				i.paths = []collection.ISortedMapIterator{iter}
 			} else {
 				i.paths = append(i.paths, iter)
 			}
 		}
-		i.rootNode = nil
+		i.currNode = nil
 		return returnNode.FullKey(), returnNode.Data()
 	}
 
@@ -591,22 +626,22 @@ func (i *TrieIterator) Next() (IKey, IData) {
 	return nil, nil
 }
 
-func (i *TrieIterator) HasNext() bool {
+func (i *TrieKeyIterator) HasNext() bool {
 
 	i.advance()
 
-	return collection.IsNil(i.rootNode) && (collection.IsNil(i.paths) || len(i.paths) == 0)
+	return collection.IsNil(i.currNode) && (collection.IsNil(i.paths) || len(i.paths) == 0)
 }
 
-func (i *TrieIterator) Peek() (IKey, IData) {
+func (i *TrieKeyIterator) Peek() (IKey, IData) {
 
 	i.advance()
 
 	var returnNode ITrieNode
 
 	// if rootNode has not been iterated
-	if i.rootNode != nil {
-		returnNode = i.rootNode
+	if !collection.IsNil(i.currNode) {
+		returnNode = i.currNode
 		return returnNode.FullKey(), returnNode.Data()
 	}
 
@@ -627,21 +662,9 @@ func (i *TrieIterator) Peek() (IKey, IData) {
 	return nil, nil
 }
 
-func (i *TrieIterator) advance() {
+func (i *TrieKeyIterator) advance() {
 
-	if i.rootNode != nil {
-		if !collection.IsNil(i.start) {
-			if i.rootNode.FullKey().Compare(i.start) < 0 { // TODO
-				// if root node is not within range of start key
-				//return nil
-			}
-		}
-		if !collection.IsNil(i.end) {
-			if i.rootNode.FullKey().Compare(i.end) > 0 { // TODO
-				// if root node is not within range of end key
-				//return nil
-			}
-		}
+	if i.currNode != nil {
 		return
 	}
 
@@ -656,5 +679,359 @@ func (i *TrieIterator) advance() {
 		} else {
 			i.paths = i.paths[:len(i.paths)-1]
 		}
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// TrieRangeIterator
+////////////////////////////////////////////////////////////////////////////////
+
+type TrieRangeIterator struct {
+	rootNode         ITrieNode
+	isRoot           bool
+	startNodes       []ITrieNode
+	startChild       []byte
+	endNodes         []ITrieNode
+	endChild         []byte
+	paths            []collection.ISortedMapIterator
+	startInitialized bool
+	endMatches       []bool
+}
+
+func NewTrieRangeIterator(root ITrieNode, start, end IKey) *TrieRangeIterator {
+
+	result := &TrieRangeIterator{
+		startNodes:       make([]ITrieNode, 0),
+		endNodes:         make([]ITrieNode, 0),
+		paths:            make([]collection.ISortedMapIterator, 0),
+		startInitialized: false,
+		endMatches:       make([]bool, 0),
+	}
+
+	// check root validaty
+	if collection.IsNil(root) {
+		panic("NewTrieRangeIterator - root cannot be nil")
+	} else if !root.FullKey().IsEmpty() {
+		panic("NewTrieRangeIterator - root key is not empty")
+	} else {
+		result.rootNode = root
+		result.isRoot = true
+	}
+
+	if !collection.IsNil(start) && !collection.IsNil(end) && start.Compare(end) > 0 {
+		panic(fmt.Sprintf("NewTrieRangeIterator - start [%v] larget than end [%v]",
+			start.ToString(),
+			end.ToString()))
+	}
+
+	// process start key
+	if collection.IsNil(start) {
+		result.startChild = nil
+	} else {
+		currNode := result.rootNode
+		for _, subKey := range start.Key() {
+			child := currNode.GetChild(subKey)
+			if !collection.IsNil(child) {
+				// result.paths = append(result.paths,
+				//    currNode.Children().RangeIterator(collection.NewComparableByteSlice(subKey), nil))
+				result.startNodes = append(result.startNodes, child)
+				currNode = child
+			} else {
+				result.startChild = subKey
+				break
+			}
+		}
+	}
+
+	// process end key
+	if collection.IsNil(end) {
+		result.endChild = nil
+	} else {
+		currNode := result.rootNode
+		for _, subKey := range end.Key() {
+			child := currNode.GetChild(subKey)
+			if !collection.IsNil(child) {
+				result.endNodes = append(result.endNodes, child)
+				//if len(result.paths) < len(result.endNodes) {
+				result.endMatches = append(result.endMatches, false)
+				//} else if len(result.endMatches) != 0 && !result.endMatches[len(result.endMatches)-1] {
+				//	result.endMatches = append(result.endMatches, false)
+				//} else {
+				//	_, node := result.paths[len(result.endNodes)-1].Peek()
+				//	if collection.IsNil(node) ||
+				//		collection.CompareByteSlice(node.(ITrieNode).NodeKey(), child.NodeKey()) == 0 {
+				//		result.endMatches = append(result.endMatches, true)
+				//	} else {
+				//		result.endMatches = append(result.endMatches, false)
+				//	}
+				//}
+				currNode = child
+			} else {
+				result.endChild = subKey
+				break
+			}
+		}
+	}
+
+	return result
+}
+
+func (i *TrieRangeIterator) Next() (IKey, IData) {
+
+	i.checkStart() // this method returns with last iterator after proper start key
+	i.checkEnd()   // this method by pass any unnessary last iterators if they passed end key
+
+	// if currNode has not been iterated
+	if i.isRoot {
+
+		if len(i.paths) != 0 {
+			panic(fmt.Sprintf("TrieRangeIterator::Next - paths length [%d] is not 0 when currNode is not nil", len(i.paths)))
+		}
+		if len(i.startNodes) != 0 {
+			panic(fmt.Sprintf("TrieRangeIterator::Next - start nodes length [%d] is not 0 when currNode is not nil", len(i.startNodes)))
+		}
+
+		returnNode := i.rootNode
+		if returnNode.ChildSize() != 0 {
+
+			// create child iterator and add to paths
+			iter := i.rootNode.Children().Iterator()
+			i.paths = append(i.paths, iter)
+			i.isRoot = false
+
+			// check start and end
+			//i.checkStart()
+			i.checkEnd()
+		}
+
+		return returnNode.FullKey(), returnNode.Data()
+	}
+
+	// we are here if root node has been iterated
+	// check iterator paths
+	for i.paths != nil && len(i.paths) != 0 {
+
+		lastIter := i.paths[len(i.paths)-1]
+		if lastIter.HasNext() {
+
+			_, data := lastIter.Next()
+
+			returnNode := data.(ITrieNode)
+			if returnNode.ChildSize() != 0 {
+
+				iter := returnNode.Children().Iterator() // it is not possible to be here and have child iterator with start key
+				i.paths = append(i.paths, iter)
+			}
+
+			//i.checkStart() // this method returns with last iterator after proper start key
+			i.checkEnd() // this method by pass any unnessary last iterators if they passed end key
+			return returnNode.FullKey(), returnNode.Data()
+		}
+	}
+
+	return nil, nil
+}
+
+func (i *TrieRangeIterator) HasNext() bool {
+
+	i.checkStart()
+	i.checkEnd()
+
+	return i.isRoot || len(i.paths) != 0
+}
+
+func (i *TrieRangeIterator) Peek() (IKey, IData) {
+
+	i.checkStart() // this method returns with last iterator after proper start key
+	i.checkEnd()   // this method by pass any unnessary last iterators if they passed end key
+
+	// if currNode has not been iterated
+	if i.isRoot {
+
+		if len(i.paths) != 0 {
+			panic(fmt.Sprintf("TrieRangeIterator::Peek - paths length [%d] is not 0 when currNode is not nil", len(i.paths)))
+		}
+		if len(i.startNodes) != 0 {
+			panic(fmt.Sprintf("TrieRangeIterator::Peek - start nodes length [%d] is not 0 when currNode is not nil", len(i.startNodes)))
+		}
+
+		returnNode := i.rootNode
+		return returnNode.FullKey(), returnNode.Data()
+	}
+
+	// we are here if root node has been iterated
+	// check iterator paths
+	for i.paths != nil && len(i.paths) != 0 {
+
+		lastIter := i.paths[len(i.paths)-1]
+		if lastIter.HasNext() {
+
+			_, data := lastIter.Peek()
+
+			returnNode := data.(ITrieNode)
+			return returnNode.FullKey(), returnNode.Data()
+		}
+	}
+
+	return nil, nil
+}
+
+func (i *TrieRangeIterator) checkStart() {
+
+	if i.startInitialized {
+		return
+	}
+
+	if len(i.startNodes) == 0 {
+
+		if collection.IsNil(i.startChild) {
+			i.startInitialized = true
+			return
+		}
+
+		if i.isRoot && i.rootNode.ChildSize() != 0 {
+			// create child iterator and add to paths
+			iter := i.rootNode.Children().RangeIterator(collection.NewComparableByteSlice(i.startChild), nil)
+			i.paths = append(i.paths, iter)
+			i.isRoot = false
+		}
+
+	} else {
+
+		if i.isRoot && i.rootNode.ChildSize() != 0 {
+			// create child iterator and add to paths
+			iter := i.rootNode.Children().RangeIterator(collection.NewComparableByteSlice(i.startNodes[0].NodeKey()), nil)
+			i.paths = append(i.paths, iter)
+			i.isRoot = false
+		}
+	}
+
+	i.startInitialized = true
+	for len(i.paths) != 0 && len(i.startNodes) >= len(i.paths) {
+
+		lastIter := i.paths[len(i.paths)-1]
+		_, node := lastIter.Peek()
+
+		comp := collection.CompareByteSlice(node.(ITrieNode).NodeKey(), i.startNodes[len(i.paths)-1].NodeKey())
+		if comp < 0 {
+
+			panic(fmt.Sprintf("TrieRangeIterator::checkStart - unexpected node [%v], less than but not matching start key [%v]",
+				node.(ITrieNode).FullKey().ToString(),
+				i.startNodes[len(i.paths)-1].FullKey().ToString()))
+
+		} else if comp == 0 {
+
+			if len(i.startNodes) < len(i.paths) {
+
+				panic(fmt.Sprintf("TrieRangeIterator::checkStart - unexpected paths len [%d], greater than start nodes [%d]",
+					len(i.paths),
+					len(i.startNodes)))
+
+			} else if len(i.startNodes) == len(i.paths) {
+
+				if collection.IsNil(i.startChild) {
+					return // iterate this node, as it matches start key, and there are no child key
+				} else {
+					_, node = lastIter.Next() // bypass this node, as it matches start key, and child key exist
+					childIter := node.(ITrieNode).Children().RangeIterator(
+						collection.NewComparableByteSlice(i.startChild),
+						nil)
+					i.paths = append(i.paths, childIter)
+					return
+				}
+
+			} else {
+
+				_, node = lastIter.Next() // bypass this node, as it matches start key, and child node(s) exist
+				childIter := node.(ITrieNode).Children().RangeIterator(
+					collection.NewComparableByteSlice(i.startNodes[len(i.paths)-1].NodeKey()),
+					nil)
+				i.paths = append(i.paths, childIter)
+				// continue loop
+
+			}
+
+		} else { // comp > 0
+
+			return
+
+		}
+	}
+}
+
+func (i *TrieRangeIterator) checkEnd() {
+
+	if len(i.endNodes) != len(i.endMatches) {
+		panic(fmt.Sprintf("TrieRangeIterator::checkEnd - endNodes len [%d] does not match endMatches [%d]",
+			len(i.endNodes),
+			len(i.endMatches)))
+	}
+
+	if len(i.endNodes) == 0 {
+		return
+	}
+
+	if i.isRoot {
+		//panic("TrieRangeIterator::checkEnd - isRoot set!")
+		return
+	}
+
+	for len(i.paths) != 0 && len(i.endNodes) >= len(i.paths) {
+
+		lastIter := i.paths[len(i.paths)-1]
+		if !lastIter.HasNext() {
+			i.paths = i.paths[:len(i.paths)-1] // destack if no more element left
+			continue                           // continue to next loop
+		}
+
+		if len(i.paths) != 1 && !i.endMatches[len(i.paths)-2] {
+			return // iterate this node, as some of previous end node(s) does not match
+		}
+
+		// we are here if all previous end node(s) match(es)
+		_, node := i.paths[len(i.paths)-1].Peek()
+		if collection.IsNil(node) {
+			panic("TrieRangeIterator::checkEnd - unexpected nil node from iterator")
+		}
+
+		comp := collection.CompareByteSlice(node.(ITrieNode).NodeKey(), i.endNodes[len(i.paths)-1].NodeKey())
+		if comp > 0 {
+
+			i.endMatches[len(i.paths)-1] = true
+			i.paths = i.paths[:len(i.paths)-1]
+			continue // next loop
+
+		} else if comp == 0 {
+
+			i.endMatches[len(i.paths)-1] = true
+			if len(i.paths) > len(i.endNodes) {
+
+				panic(fmt.Sprintf("TrieRangeIterator::checkEnd - unexpected paths len [%d], greater than end nodes [%d]",
+					len(i.paths),
+					len(i.endNodes)))
+
+			} else if len(i.paths) == len(i.endNodes) {
+
+				if collection.IsNil(i.endChild) {
+
+					i.paths = i.paths[:len(i.paths)-1] // bypass this node, this node matches full end key, (no child)
+					continue                           // next loop
+
+				} else {
+
+					return // iterate this node, this node does not match full end key, child exist
+				}
+
+			} else { // len(i.paths) < len(i.endNodes)
+
+				return // iterate this node, this node does not match ffull end key, child exist
+			}
+
+		} else { // comp < 0
+
+			i.endMatches[len(i.paths)-1] = false // iterate this node, as more element exists
+			return                               // just return
+		}
+
 	}
 }
