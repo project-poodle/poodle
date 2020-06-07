@@ -747,21 +747,59 @@ A Consensus ID is encoded as:
 
 ### Consensus Block Encoding ###
 
-                       Request
-          Operation      or
-           Count       Response
+           Domain
+           Block        Domain
+           Count        Block
              |         |     |
      X ... X X X ... X X ... X ... ... X ... X
      |     |   |     |                 |     |
-    Consensus  Request                 Request
-       ID        or                      or
-               Response                Response
+    Consensus   Domain                  Domain
+       ID       Block                   Block
 
 A Consensus Block is encoded as:
 
 - Consensus ID
-- Followed by 1 byte Operation Count (maximum 255)
-- Followed by a list of Request or Response
+- Followed by 1 byte Domain Block Count (maximum 127)
+- Followed by a list of Domain Blocks
+
+
+### Domain Block Encoding ###
+
+           Tablet
+           Block          Tablet
+           Count          Block
+             |           |     |
+     X ... X X X ... X X ... X ... ... X ... X
+     |     |   |     |                 |     |
+      Domain    Tablet                  Tablet
+      Name      Block                   Block
+
+A Domain Block is encoded as:
+
+- Domain Name
+- Followed by 1 byte Tablet Block Count (maximum 127)
+- Followed by a list of Tablet Blocks
+
+
+### Tablet Block Encoding ###
+
+          Request
+            or         Request
+          Response       or
+           Count       Response
+             |         |     |
+     X ... X X X ... X X ... X ... ... X ... X
+     |     |   |     |                 |     |
+      Tablet   Request                 Request
+      Name       or                      or
+               Response                Response
+
+
+A Tablet Block is encoded as:
+
+- Tablet Name
+- Followed by 1 byte Request or Response Count (maximum 127)
+- Followed by a list of Requests or Responses
 
 
 ### Request and Response Magic ###
