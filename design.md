@@ -889,11 +889,11 @@ content, followed by optional test millis:
      Request
        and
      Response
-      Magic           Test Millis (optional)
+      Magic          Test Millis (optional)
         |             |     |
         X X ... ... X X ... X
           |         |
-          Record Content
+         Record Content
 
 
 
