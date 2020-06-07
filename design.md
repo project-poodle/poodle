@@ -433,13 +433,13 @@ following components:
   - Tablet name is an alpha-numeric string separated by '.'
   - Tablet name is required as part of the standard Scheme
 
-- Attribute Groups
+- Groups
   - This is similar to column group in a NoSQL table
-  - Attribute Group name is an alpha-numeric string separated by '/'
-  - Attribute Group name is optional part of a Scheme
+  - Group name is an alpha-numeric string separated by '/'
+  - Group name is optional part of a Scheme
 
 A full Scheme ID includes Consensus ID, Domain, Tablet, and optional
-Attribute Groups. E.g.
+Groups. E.g.
 
     <consensus_id>, <domain>:<tablet>[/<attribute-group>]
 
@@ -462,7 +462,7 @@ in all format.
 
 Examples below:
 
-| Scheme | Consensus ID | Domain | Tablet | Attribute Group |
+| Scheme | Consensus ID | Domain | Tablet | Group |
 | :--- | :--- | :--- | :--- | :--- |
 | \<C\>, cluster:conf                           | Cluster ID | cluster consensus | cluster conf tablet | base attribute group |
 | \<C\>, cluster:node                           | Cluster ID | cluster consensus | node tablet | base attribute group for membership |
@@ -789,13 +789,13 @@ A Consensus Block is encoded as:
 - Bit 5 and 4 are ops bits
   - 00 means GET
     - this gets the specified key of specific Consensus ID, Domain,
-      Tablet, and Attribute Group
+      Tablet, and Group
   - 01 means SET
     - this sets value of the specified key of specific Consensus ID,
-      Domain, Tablet, and Attribute Group. Both UPDATE and CLEAR Records
+      Domain, Tablet, and Group. Both UPDATE and CLEAR Records
       are considered SET
   - 10 means GROUPS
-    - this retrieves a list of Attribute Groups under the specified Key
+    - this retrieves a list of Groups under the specified Key
       of specific Consensus ID, Domain and Tablet
   - 11 means KEYS
     - this retrieves a list of Keys with the specified Key as prefix,
@@ -914,10 +914,10 @@ Poodle treats different portion of the Record Scheme separately:
   - Tablet information is removed from Scheme when the Record is
     stored in SSTable
 
-- Attribute Group
-  - All Attribute Groups of the same Consensus ID, same Domain, and same
+- Group
+  - All Groups of the same Consensus ID, same Domain, and same
     Tablet are stored in the same groups of SSTable
-  - Attribute Group information is stored in the Scheme field of a Record
+  - Group information is stored in the Scheme field of a Record
     in SSTable
 
 
@@ -942,14 +942,14 @@ A SSTable consists of:
   - followed by crc32 of the offset lookup (one per file)
 
 - followed by a list of Record Groups
-  - each Record Group share the same Key, with one or more Attribute Groups
+  - each Record Group share the same Key, with one or more Groups
   - Record Groups are sorted by Key and are stored in sorted order
   - a crc32 is at the end of all the Record Groups (one per file)
 
-- Attribute Groups for Key
-  - Default Attribute Group has empty name, and is always stored as the
+- Groups for Key
+  - Default Group has empty name, and is always stored as the
     first record.
-  - Other Attribute Groups (if exist), are stored in sorted order
+  - Other Groups (if exist), are stored in sorted order
 
 
 ### Record Offset Lookup ###
@@ -1093,7 +1093,7 @@ store all block level data:
     - e.g. a 4KB block information will be stored in a Record with:
       - Key
         - 8 bytes file inode id + 5 bytes block prefix
-      - Attribute Group
+      - Group
         - 6 bits block prefix as attribute group id (masked with 0xfc)
       - Record
         - 6 or 8 bits block prefix as in the
