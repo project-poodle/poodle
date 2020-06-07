@@ -358,49 +358,53 @@ A Record cannot exceed 64 KB, with following constraints:
 
 The first byte is a __magic__.
 
-              Timestamp
-                 and
-              Signature
-                 bit
-    Key    Scheme |
-    | |     | |   |
+          Timestamp
+              |   
+       Scheme |   
+          |   |   Reserved
+     Key  |   |   |
+      |   |   |   |
     7 6 5 4 3 2 1 0
-        | |     |
-       Value    |
-              Clear
-               bit
+    |   |   |   |
+    | Value |   |
+    |       |   |
+    |     Clear |
+    |           |
+    |       Signature
+    |
+    Reserved
 
-- Bit 7 and 6 are the key bits for encoding of key
-  - 00 means no key
-  - 01 means 1 byte to represent key length (up to 255 bytes)
-  - 10 means 2 bytes to represent key length (up to 4 KB)
-  - 11 means key is encoded with __data encoding__
+- Bit 7 is reserved bit
+  - 0 means normal
+  - 1 is undefined
 
-- Bit 5 and 4 are the value bits for encoding of value
-  - 00 means no value
-  - 01 means 1 byte to represent value length (up to 255 bytes)
-  - 10 means 2 bytes to represent value length (up to 56 KB)
-  - 11 means value is encoded with __data encoding__
+- Bit 6 is the key bit
+  - 0 means no key
+  - 1 means key exists, encoded with __key encoding__
 
-- Bit 3 and 2 are the value bits for encoding of scheme
-  - 00 means no scheme
-  - 01 means 1 byte to represent scheme length (up to 255 bytes)
-  - 10 means 2 bytes to represent scheme length (up to 2 KB)
-  - 11 means scheme is encoded with __data encoding__
+- Bit 5 is the value bit
+  - 0 means no value
+  - 1 means value exists, encoded with __data encoding__
 
-- Bit 1 is the clear bit
+- Bit 4 are the scheme bit
+  - 0 means no scheme
+  - 1 means scheme exists, encoded with __scheme encoding__
+
+- Bit 3 is the clear bit
   - 1 means 'CLEAR' flag
   - 0 means 'UPDATE' flag
 
-- Bit 0 is the timestamp and signature bit
-  - 1 means there is a timestamp and signature at the end of the record
-  - 0 means no timestamp or signature at the end of the record
+- Bit 2 is the timestamp bit
+  - 1 means there is a timestamp at the end of the record
+  - 0 means no timestamp at the end of the record
+
+- Bit 1 is the signature bit
+  - 1 means there is a signature at the end of the record
+  - 0 means no signature at the end of the record
   - Signature is present only in Distributed Ledger Network Traffic and
     Distributed Ledger Consensus Block
   - Signature is __not__ present for SSTable (Distribute Ledger or Raft
     Consensus), nor Raft replication log.
-    - In these cases, even if this bit is set to 1, only timestamp is
-      present with the record
   - source content of the signature include binary consensus ID, concatenated
     with Record content, including Record Magic, Key, Value, Scheme, and
     Timestamp
