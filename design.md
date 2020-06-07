@@ -412,9 +412,9 @@ The first byte is a __magic__.
     cannot be encoded with lookup scheme, or compression scheme
 
 
-### Scheme ID Format ###
+### Consensus Scheme Format ###
 
-A Scheme ID consists of Consensus ID and Scheme, and consists of the
+A Consensus Scheme consists of Consensus ID and Scheme, and consists of the
 following components:
 
 - Consensus ID
@@ -438,7 +438,7 @@ following components:
   - Bucket name is an alpha-numeric string separated by '/'
   - Bucket name is optional part of a Scheme
 
-A full Scheme ID includes Consensus ID, Domain, Tablet, and optional
+A full Consensus Scheme includes Consensus ID, Domain, Tablet, and optional
 Buckets. E.g.
 
     <consensus_id>, <domain>:<tablet>[/<buckets>]
