@@ -24,7 +24,7 @@ type ITrie interface {
 	Get(IKey) IData        // get
 	Put(IKey, IData) IData // put
 	Remove(IKey) IData     // remove
-	Size() int             // total size
+	Entries() int          // total size
 
 	// Iterators
 	Iterator() ITrieIterator                     // this is same as nil key that iterates all keys
@@ -169,6 +169,10 @@ func (t *MappedTrie) RangeIterator(start, end IKey) ITrieIterator {
 
 func (t *MappedTrie) Buf() []byte {
 	return t.buf
+}
+
+func (t *MappedTrie) EstBufSize() uint32 {
+	return uint32(len(t.buf))
 }
 
 func (t *MappedTrie) IsEncoded() bool {
@@ -396,6 +400,10 @@ func (tn *MappedTrieNode) Buf() []byte {
 	return tn.buf
 }
 
+func (tn *MappedTrieNode) EstBufSize() uint32 {
+	return uint32(len(tn.buf))
+}
+
 func (tn *MappedTrieNode) IsEncoded() bool {
 	return true
 }
@@ -434,7 +442,7 @@ func (tn *MappedTrieNode) Decode(IContext) (int, error) {
 	tn.nodeKey = nodeKey
 	pos += nodeKeyN
 
-	// parent
+	// parent offset
 	parentOffset, parentN, err := DecodeUvarint(tn.buf[pos:])
 	if err != nil {
 		return 0, fmt.Errorf("MappedTrieNode::Decode - parent offset - %s", err)
@@ -455,7 +463,7 @@ func (tn *MappedTrieNode) Decode(IContext) (int, error) {
 	tn.nodeData = nodeData
 	pos += nodeDataN
 
-	// children size
+	// child size
 	childSize, childSizeN, err := DecodeUvarint(tn.buf)
 	if err != nil {
 		return 0, fmt.Errorf("MappedTrieNode::Decode - child size - %s", err)
@@ -521,26 +529,452 @@ func (tn *MappedTrieNode) ToString() string {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Constructed Trie & TrieNode
+// Constructed Trie
 ////////////////////////////////////////////////////////////////////////////////
 
 type Trie struct {
 	// elements
 	root ITrieNode
 	// buf
-	encoded bool
-	buf     []byte
+	encoded    bool
+	buf        []byte
+	estBufSize uint32
 }
+
+func NewTrie() *Trie {
+	return &Trie{
+		root:       NewTrieNode(nil, []byte{}, nil),
+		estBufSize: 1,
+	}
+}
+
+////////////////////////////////////////
+// accessor to elements
+
+func (t *Trie) Get(k IKey) IData {
+
+	// return root data is key is nil
+	if k.IsEmpty() {
+		return t.root.Data()
+	}
+
+	currNode := t.root
+	for _, subKey := range k.Key() {
+		childNode := currNode.GetChild(subKey)
+		if childNode == nil {
+			return nil // if not found, return nil
+		} else {
+			currNode = childNode // traverse down
+		}
+	}
+
+	if currNode != nil {
+		return currNode.Data()
+	} else {
+		return nil
+	}
+}
+
+func (t *Trie) Set(k IKey, d IData) IData {
+
+	// set root data is key is nil
+	if k.IsEmpty() {
+		resultData := t.root.Data()
+		t.root.SetData(d)
+		return resultData
+	}
+
+	currNode := t.root
+	for _, subKey := range k.Key() {
+		childNode := currNode.GetChild(subKey)
+		if childNode == nil {
+			childNode = NewTrieNode(currNode, subKey, nil)
+			currNode.PutChild(subKey, childNode)
+			currNode = childNode
+			t.estBufSize += childNode.EstBufSize()
+		} else {
+			currNode = childNode // traverse down
+		}
+	}
+
+	if currNode == nil {
+		panic("Trie::Set - unexpected empty currNode")
+	}
+
+	resultData := currNode.Data()
+	currNode.SetData(d)
+	t.estBufSize += estimateDataBufSize(d) - estimateDataBufSize(resultData)
+	// if d is nil, clean up unused nodes
+	if d == nil {
+		currNode.Parent().RemoveChild(currNode.NodeKey())
+		t.estBufSize -= currNode.EstBufSize()
+		for currNode = currNode.Parent(); currNode.ChildSize() == 0 && currNode.Data() == nil; {
+			currNode.Parent().RemoveChild(currNode.NodeKey())
+			t.estBufSize -= currNode.EstBufSize()
+			currNode = currNode.Parent()
+		}
+	}
+	return resultData
+}
+
+func (t *Trie) Iterator() ITrieIterator {
+	return NewTrieKeyIterator(t.root, t.root)
+}
+
+func (t *Trie) KeyIterator(k IKey) ITrieIterator {
+
+	if collection.IsNil(k) || k.IsEmpty() {
+		return NewTrieKeyIterator(t.root, t.root)
+	} else {
+		node := t.Get(k)
+		if collection.IsNil(node) {
+			return &TrieKeyIterator{} // return an empty iterator
+		} else {
+			currNode := node.(ITrieNode)
+			return NewTrieKeyIterator(t.root, currNode) // return an iterator starting with given node
+		}
+	}
+}
+
+func (t *Trie) RangeIterator(start, end IKey) ITrieIterator {
+
+	return NewTrieRangeIterator(t.root, start, end)
+}
+
+////////////////////////////////////////
+// encode, decode, and buf
+
+func (t *Trie) Buf() []byte {
+	if !t.encoded {
+		panic("Trie::Buf - not encoded")
+	}
+
+	return t.buf
+}
+
+func (t *Trie) EstBufSize() uint32 {
+	if t.estBufSize > 0 {
+		return t.estBufSize
+	} else {
+		return 1
+	}
+}
+
+func (t *Trie) IsEncoded() bool {
+	return t.encoded
+}
+
+func (t *Trie) Encode(ctx IContext) error {
+
+	buf := make([]byte, t.EstBufSize())
+	pos := 0
+
+	// encode root node
+	t.root.SetOffset(uint32(pos))
+	t.root.Encode(ctx)
+	if len(buf) > pos+len(t.root.Buf()) {
+		copy(buf[pos:], t.root.Buf())
+	} else {
+		buf = append(buf[:pos], t.root.Buf()...)
+	}
+	pos += len(t.root.Buf())
+
+	// encode children
+	iterList := []collection.ISortedMapIterator{t.root.Children().Iterator()}
+	for lastIter := iterList[len(iterList)-1]; len(iterList) != 0; {
+		if lastIter.HasNext() {
+
+			// get next node, and encode
+			_, data := lastIter.Next()
+			node := data.(*TrieNode)
+			node.SetOffset(uint32(pos))
+			node.Encode(ctx)
+
+			// encode node
+			if len(buf) > pos+len(node.Buf()) {
+				copy(buf[pos:], node.Buf())
+			} else {
+				buf = append(buf[:pos], node.Buf()...)
+			}
+			pos += len(node.Buf())
+
+			// check if children exist
+			if node.ChildSize() != 0 {
+				iterList = append(iterList, node.Children().Iterator())
+				lastIter = iterList[len(iterList)-1]
+			}
+
+		} else {
+
+			// encode dummy node
+			if len(buf) > pos+1 {
+				buf[pos] = byte(0x00)
+			} else {
+				buf = append(buf[:pos], byte(0x00))
+			}
+			pos += 1
+
+			// destack
+			iterList = iterList[:len(iterList)-1]
+		}
+	}
+
+	// we are here if encoding has completed successfully
+	t.buf = buf
+	return nil
+}
+
+func (t *Trie) IsDecoded() bool {
+	return true
+}
+
+func (t *Trie) Decode(IContext) (int, error) {
+	return 0, fmt.Errorf("Trie::Decode - not supported")
+}
+
+////////////////////////////////////////
+// copy
+
+func (t *Trie) Copy() IEncodable {
+
+	buf := make([]byte, len(t.buf))
+	copy(buf, t.buf)
+	result, _, err := NewMappedTrie(buf)
+	if err != nil {
+		panic(fmt.Sprintf("MappedTrie::Copy - unexpected error %s", err))
+	}
+
+	return result
+}
+
+func (t *Trie) CopyConstruct() (IEncodable, error) {
+	return t.Copy(), nil
+}
+
+////////////////////////////////////////
+// return in readable format
+
+func (t *Trie) Print(w io.Writer, indent int) {
+	fmt.Fprintf(w, "%"+strconv.Itoa(indent)+"%s\n", "", t.ToString())
+	if t.root != nil {
+		t.root.Print(w, indent+4)
+	}
+}
+
+func (t *Trie) ToString() string {
+
+	return fmt.Sprintf("Trie: r=%s, buf=%v",
+		t.root.ToString(),
+		t.buf[:collection.MinInt(len(t.buf), 32)])
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Constructed TrieNode
+////////////////////////////////////////////////////////////////////////////////
 
 type TrieNode struct {
 	// elements
 	parent   ITrieNode
-	children []ITrieNode
+	children *collection.SortedMap
+	nodeKey  []byte
 	data     IData
 	// buf
 	encoded bool
 	buf     []byte
 	offset  uint32
+}
+
+func NewTrieNode(parent ITrieNode, nodeKey []byte, data IData) *TrieNode {
+	if collection.IsNil(parent) {
+		return &TrieNode{
+			parent:   nil,
+			nodeKey:  nil,
+			data:     data,
+			children: collection.NewSortedMap(),
+		}
+
+	}
+	return &TrieNode{
+		parent:   parent,
+		nodeKey:  nodeKey,
+		data:     data,
+		children: collection.NewSortedMap(),
+	}
+}
+
+////////////////////////////////////////
+// accessor to elements - parent, children, and keys
+func (tn *TrieNode) FullKey() IKey {
+
+	subKeys := []([]byte){}
+	var currNode ITrieNode
+	for currNode = tn; currNode != nil; currNode = currNode.Parent() {
+		subKeys = append([]([]byte){currNode.NodeKey()}, subKeys...)
+	}
+
+	fullKey := NewKey()
+	for _, subKey := range subKeys {
+		fullKey.Add(subKey)
+	}
+
+	return fullKey
+}
+
+func (tn *TrieNode) NodeKey() []byte {
+	return tn.nodeKey
+}
+
+func (tn *TrieNode) Parent() ITrieNode {
+	return tn.parent
+}
+
+func (tn *TrieNode) Children() *collection.SortedMap {
+	return tn.children
+}
+
+func (tn *TrieNode) ChildSize() int {
+	return tn.children.Size()
+}
+
+func (tn *TrieNode) GetChild(nodeKey []byte) ITrieNode {
+	return tn.children.Get(collection.NewComparableByteSlice(nodeKey)).(ITrieNode)
+}
+
+func (tn *TrieNode) PutChild(nodeKey []byte, n ITrieNode) error {
+	tn.children.Put(collection.NewComparableByteSlice(nodeKey), n)
+	return nil
+}
+
+func (tn *TrieNode) RemoveChild(nodeKey []byte) error {
+	tn.children.Remove(collection.NewComparableByteSlice(nodeKey))
+	return nil
+}
+
+func (tn *TrieNode) Data() IData {
+	return tn.data
+}
+
+func (tn *TrieNode) SetData(data IData) error {
+	tn.data = data
+	return nil
+}
+
+////////////////////////////////////////
+// encode, decode, and buf
+
+func (tn *TrieNode) Buf() []byte {
+	if !tn.encoded {
+		panic("TrieNode::Buf - not encoded")
+	}
+
+	return tn.buf
+}
+
+func (tn *TrieNode) EstBufSize() uint32 {
+	return 4 + 1 + uint32(len(tn.nodeKey)) + estimateDataBufSize(tn.data)
+}
+
+func (tn *TrieNode) IsEncoded() bool {
+	return tn.encoded
+}
+
+func (tn *TrieNode) Encode(IContext) error {
+
+	// node key
+	nodeKeyBuf := EncodeVarchar(tn.nodeKey)
+
+	// parent offset
+	parentOffsetBuf := EncodeUvarint(uint64(tn.parent.Offset()))
+
+	// data
+	dataBuf, _, err := tn.data.Encode(false)
+	if err != nil {
+		return fmt.Errorf("TrieNode::Encode - data encode error %v", err)
+	}
+
+	// child size
+	childSizeBuf := EncodeUvarint(uint64(tn.children.Size()))
+
+	tn.buf = make([]byte, len(nodeKeyBuf)+len(parentOffsetBuf)+len(dataBuf)+len(childSizeBuf))
+
+	pos := 0
+	copy(tn.buf[pos:], nodeKeyBuf)
+	pos += len(nodeKeyBuf)
+	copy(tn.buf[pos:], parentOffsetBuf)
+	pos += len(parentOffsetBuf)
+	copy(tn.buf[pos:], dataBuf)
+	pos += len(dataBuf)
+	copy(tn.buf[pos:], childSizeBuf)
+	pos += len(childSizeBuf)
+
+	tn.encoded = true
+	return nil
+}
+
+func (tn *TrieNode) IsDecoded() bool {
+	return true
+}
+
+func (tn *TrieNode) Decode(IContext) (int, error) {
+	return 0, fmt.Errorf("TrieNode::Decode - not supported")
+}
+
+func (tn *TrieNode) Offset() uint32 {
+	return tn.offset
+}
+
+func (tn *TrieNode) SetOffset(offset uint32) error {
+	tn.offset = offset
+	return nil
+}
+
+////////////////////////////////////////
+// copy
+
+func (tn *TrieNode) Copy() IEncodable {
+
+	buf := make([]byte, len(tn.buf))
+	copy(buf, tn.buf)
+
+	result := NewTrieNode(tn.parent, tn.nodeKey, tn.data)
+	for iter := tn.Children().Iterator(); iter.HasNext(); {
+		key, value := iter.Next()
+		result.Children().Put(key, value)
+	}
+
+	return result
+}
+
+func (tn *TrieNode) CopyConstruct() (IEncodable, error) {
+	return tn.Copy(), nil
+}
+
+////////////////////////////////////////
+// return in readable format
+
+func (tn *TrieNode) Print(w io.Writer, indent int) {
+	fmt.Fprintf(w, "%"+strconv.Itoa(indent)+"s%s", "", tn.ToString())
+	for iter := tn.children.Iterator(); iter.HasNext(); {
+		_, v := iter.Next()
+		v.(ITrieNode).Print(w, indent+4)
+	}
+}
+
+func (tn *TrieNode) ToString() string {
+
+	var buf []byte
+	if tn.buf != nil {
+		buf = tn.buf[:collection.MinInt(len(tn.buf), 16)]
+	} else {
+		buf = nil
+	}
+
+	return fmt.Sprintf("TrieNode: k=%x, child=[%d], data=%v, off=%d, buf=%v ",
+		tn.nodeKey,
+		tn.children.Size(),
+		tn.data,
+		tn.offset,
+		buf)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
