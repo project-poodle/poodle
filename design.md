@@ -519,25 +519,19 @@ A full record is encoded as following:
 Value encoding can significantly reduce size of the value by representing
 value as a lookup, or in compressed format.
 
-              Compression
-                  bit
-                   |
-             Record|
-              bit  |
-               |   |Reserved
-        VARINT |   | Value
-          bit  |   |  bit
-           |   |   |   |
+                    Reserved
+                      bit
+         Primitive     |
+           bits        |
+           |   |       |
+           |   |       |
          7 6 5 4 3 2 1 0
-         |   |   |   |
-       Array |   |   |
-        bit  |   | Length
-             |   |  bit
-          VARCHAR|
-            bit  |
-                 |
-               Lookup
-                bit  
+         |       |   |
+       Array     |   |
+        bit      |   |
+                 |   |
+               Composite
+                 bits
 
 - Bit 7 is Array bit
   - 0 means Value is not Array
