@@ -596,7 +596,8 @@ A full __value encoding__ is as following:
       |     | |     | |
       X X X X X X X X X X ... ... X
         | |     | |     |         |
-        | |     | |     Value Content
+        | |     | |     |         |
+        | |     | |    Value Content
       Optional  | |
        Array    | |
        Size     | |
