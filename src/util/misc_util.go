@@ -30,9 +30,9 @@ func EncodeVarint64(data int64) []byte {
 	lenN := binary.PutVarint(lenBuf, data)
 
 	if lenN < 0 {
-		panic(fmt.Sprintf("EncodeVarint - invalid uvarint length [%d], input [%d]", lenN, data))
+		panic(fmt.Sprintf("EncodeVarint64 - invalid uvarint length [%d], input [%d]", lenN, data))
 	} else if lenN == 0 && data != 0 {
-		panic(fmt.Sprintf("EncodeVarint - nvalid uvarint encode length [%d], input [%d]", lenN, data))
+		panic(fmt.Sprintf("EncodeVarint64 - nvalid uvarint encode length [%d], input [%d]", lenN, data))
 	}
 
 	return lenBuf[:lenN]
@@ -48,11 +48,11 @@ func DecodeVarint64(buf []byte) (int64, int, error) {
 	bufLength, bufN := binary.Varint(buf)
 	if bufN < 0 {
 		// sub key cannot have zero length
-		return 0, 0, fmt.Errorf("DecodeVarint - failed to read input length [%d]", bufN)
+		return 0, 0, fmt.Errorf("DecodeVarint64 - failed to read input length [%d]", bufN)
 	} else if bufN == 0 && len(buf) != 0 && buf[0] != 0 {
-		return 0, 0, fmt.Errorf("DecodeVarint - unexpected error - buf len [%d], first byte [%d]", len(buf), buf[0])
+		return 0, 0, fmt.Errorf("DecodeVarint64 - unexpected error - buf len [%d], first byte [%d]", len(buf), buf[0])
 	} else if len(buf) < bufN+int(bufLength) {
-		return 0, 0, fmt.Errorf("DecodeVarint - varchar length [%d] bigger than remaining buf size [%d]", bufLength, len(buf)-bufN)
+		return 0, 0, fmt.Errorf("DecodeVarint64 - varchar length [%d] bigger than remaining buf size [%d]", bufLength, len(buf)-bufN)
 	}
 
 	return bufLength, bufN, nil
