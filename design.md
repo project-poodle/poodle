@@ -634,6 +634,62 @@ The list of schemes are registered across the cluster, and can be
 used to encode value.
 
 
+### Scheme Encode Magic ###
+
+         Bucket
+           |
+    Domain |
+       |   |
+       7 6 5 4 3 2 1 0
+         |   |       |
+      Tablet |       |
+             |       |
+              Reserved
+
+Scheme Magic indicates which components of Scheme is presented
+
+- Bit 7 is Domain bit
+  - 0 means no Domain
+  - 1 means Domain exists
+
+- Bit 6 is Tablet bit
+  - 0 means no Tablet
+  - 1 means Tablet exists
+
+- Bit 5 is Bucket bit
+  - 0 means no Bucket
+  - 1 means Buckets exist
+
+- Bit 4 to 0 are reserved
+  - Reserved bits must be encoded as 0
+
+
+### Scheme Encoding ###
+
+    Scheme
+    Magic       Tablet
+      |         Content
+      |         |     |
+      X X ... X X ... X X ... ... X
+        |     |         |         |
+        Domain            Buckets
+        Content           Content
+
+Scheme is encoded as:
+
+- 1 byte Scheme Magic
+
+- Followed by Domain content (optional)
+  - encoded as VARCHAR
+
+- Followed by Tablet content (optional)
+  - encoded as VARCHAR
+
+- Followed by Buckets content (optional)
+  - encoded as VARINT for # of buckets
+  - followed by a list of VARCHAR for each bucket
+
+
 
 # P-UDP Packet #
 
