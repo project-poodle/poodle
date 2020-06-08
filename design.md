@@ -524,7 +524,7 @@ value as a lookup, or in compressed format.
                    |
              Record|
               bit  |
-               |   | Reserved
+               |   |Reserved
         VARINT |   | Value
           bit  |   |  bit
            |   |   |   |
