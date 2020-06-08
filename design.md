@@ -527,6 +527,7 @@ value as a lookup, or in compressed format.
            |     |     |
          7 6 5 4 3 2 1 0
          |         | |
+     Primitive     | |
        Array       | |
         bit        | |
                    | |
@@ -534,8 +535,8 @@ value as a lookup, or in compressed format.
                    bits
 
 - Bit 7 is Array bit
-  - 0 means Value is not Array
-  - 1 means Value is Array
+  - 0 means Value is not Primitive Array
+  - 1 means Value is Primitive Array
 
 - Bit 6, 5, 4, 3 are primitive bits
   - 0000 means Value is not primitive type
@@ -552,12 +553,12 @@ value as a lookup, or in compressed format.
 
 - Bit 2, 1 are composite bits
   - 00 means Value is not composite type
-  - 01 means Value is Value type
-  - 10 means Value is Record type
+  - 01 means Value is Value Array type
+  - 10 means Value is Record List type
   - 11 is reserved
-  - When these bits are set together with Array bit, value is composite array
-  - When these bits are set together with Array bit, a composite length is
-    encoded prior to the value content
+  - Composite types are always composite array
+  - For composite type, a composite length is encoded prior to the value
+    content
 
 - Bit 0 is reserved bit
   - This bit is always set to 1
