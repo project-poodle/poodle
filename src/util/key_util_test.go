@@ -13,9 +13,9 @@ var keyTestCases = []struct {
 	{NewEmptyKey(), []byte{0x00}},
 	{µ(NewMappedKey(nil))[0].(IKey), []byte{0x00}},
 	{NewKey(), []byte{0x00}},
-	{NewKey().Add([]byte{'1'}), []byte{0x02, 0x01, '1'}},
-	{NewKey().Add([]byte("a")), []byte{0x02, 0x01, 'a'}},
-	{NewKey().Add([]byte("a")).Add([]byte("bc")), []byte{0x05, 0x01, 'a', 0x02, 'b', 'c'}},
+	{NewKey().Add([]byte{'1'}), []byte{0x01, 0x01, '1'}},
+	{NewKey().Add([]byte("a")), []byte{0x01, 0x01, 'a'}},
+	{NewKey().Add([]byte("a")).Add([]byte("bc")), []byte{0x02, 0x01, 'a', 0x02, 'b', 'c'}},
 }
 
 func TestKey(t *testing.T) {

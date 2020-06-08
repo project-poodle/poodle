@@ -152,7 +152,7 @@ func (s *MappedScheme) IsDecoded() bool {
 }
 
 func (s *MappedScheme) Decode(IContext) (int, error) {
-	// TODO
+
 	pos := 1
 	var length int
 	var err error
@@ -191,6 +191,8 @@ func (s *MappedScheme) Decode(IContext) (int, error) {
 			pos += length
 		}
 	}
+
+	s.decoded = true
 
 	return pos, nil
 }

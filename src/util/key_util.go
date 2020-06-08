@@ -1,7 +1,6 @@
 package util
 
 import (
-	"encoding/binary"
 	"fmt"
 	"io"
 	"reflect"
@@ -219,52 +218,27 @@ func (k *MappedKey) IsDecoded() bool {
 
 func (k *MappedKey) Decode(IContext) (int, error) {
 
-	k.keys = []([]byte){}
-
-	totalKey, totalKeyN, err := DecodeVarchar(k.buf)
-	if err != nil {
-		return 0, fmt.Errorf("MappedKey::Decode - %s", err)
-	}
-
-	if totalKey == nil {
-		k.decoded = true
-		return 0, nil // return empty buf successfully
-	}
-
-	if len(totalKey) > MAX_KEY_LENGTH {
-		return 0, fmt.Errorf("MappedKey::Decode - length %d bigger than %d", len(totalKey), MAX_KEY_LENGTH)
-	}
-
 	pos := 0
-	for pos < len(totalKey) {
+	var length int
+	var err error
 
-		subKey, subKeyN, err := DecodeVarchar(totalKey[pos:])
+	subKeySize, length, err := DecodeUvarint(k.buf[pos:])
+	if err != nil {
+		return 0, fmt.Errorf("MappedKey::Decode - subKey size error [%v]", err)
+	}
+	pos += length
+	k.keys = make([][]byte, subKeySize)
+	for idx, _ := range k.keys {
+		k.keys[idx], length, err = DecodeVarchar(k.buf[pos:])
 		if err != nil {
-			return 0, fmt.Errorf("MappedKey::Decode - position [%d] - %s", pos, err)
-		} else if pos+subKeyN > len(totalKey) {
-			return 0, fmt.Errorf("MappedKey::Decode - sub key [%d / %d] at [%d] too long [%d]", subKeyN, len(subKey), pos, len(totalKey))
-		} else if len(subKey) == 0 {
-			// sub key cannot have zero length
-			return 0, fmt.Errorf("MappedKey::Decode - zero sub key length at [%d]", pos)
+			return 0, fmt.Errorf("MappedKey::Decode - subKey [%d] error [%v]", idx, err)
 		}
-		k.keys = append(k.keys, subKey)
-		pos += subKeyN
+		pos += length
 	}
 
-	// check if we have parsed all of key buffer
-	if pos > len(totalKey) {
-		return 0, fmt.Errorf("MappedKey::Decode - position [%d] out of bound %d", pos, len(totalKey)+totalKeyN)
-	}
-
-	// we are here when len(totalKey) == pos
-	if pos != len(totalKey) {
-		panic(fmt.Sprintf("MappedKey::Decode - position [%d] does not match key length %d", pos, len(totalKey)))
-	}
-
-	k.buf = k.buf[:totalKeyN] // set buf to exact key length
 	k.decoded = true
 
-	return totalKeyN, nil
+	return pos, nil
 }
 
 func (k *MappedKey) Copy() IEncodable {
@@ -427,44 +401,29 @@ func (k *Key) IsEncoded() bool {
 }
 
 func (k *Key) Encode(IContext) error {
-	// TODO
-	bufs := make([][]byte, len(k.keys))
 
-	// calculate total key length
-	totalLength := 0
-	lenBuf := make([]byte, 10) // maximum 10 bytes
-	for i, subKey := range k.keys {
-		lenN := binary.PutUvarint(lenBuf, uint64(len(subKey)))
-		if lenN <= 0 {
-			panic(fmt.Sprintf("[%d] invalid uvarint length %d", lenN, len(subKey)))
+	buf := []byte{}
+
+	if k.keys != nil {
+		buf = append(buf, EncodeUvarint(uint64(len(k.keys)))...)
+		if len(buf) > MAX_KEY_LENGTH {
+			return fmt.Errorf("Key::Encode - key length [%d] exceeding maximum [%d]",
+				len(buf),
+				MAX_KEY_LENGTH)
 		}
-		bufs[i] = make([]byte, lenN+len(subKey))
-		copy(bufs[i], lenBuf[:lenN])
-		copy(bufs[i][lenN:], subKey)
-		totalLength += len(bufs[i])
-	}
-
-	// encode total key length
-	totalN := binary.PutUvarint(lenBuf, uint64(totalLength))
-	buf := make([]byte, totalN+totalLength)
-	copy(buf, lenBuf[:totalN])
-
-	// encode each sub key
-	pos := totalN
-	for i := range bufs {
-		copy(buf[pos:], bufs[i])
-		pos += len(bufs[i])
-	}
-
-	if pos > MAX_KEY_LENGTH {
-		return fmt.Errorf("Key::Encode - key length %d bigger than %d", pos, MAX_KEY_LENGTH)
-	} else if pos != len(buf) {
-		return fmt.Errorf("Key::Encode - buf length %d does not match pos %d", len(buf), pos)
+		for _, subKey := range k.keys {
+			buf = append(buf, EncodeVarchar(subKey)...)
+			if len(buf) > MAX_KEY_LENGTH {
+				return fmt.Errorf("Key::Encode - key length [%d] exceeding maximum [%d]",
+					len(buf),
+					MAX_KEY_LENGTH)
+			}
+		}
 	}
 
 	// record encoded buf
-	k.buf = buf[:pos]
-	k.estBufSize = pos
+	k.buf = buf
+	k.estBufSize = len(k.buf)
 	k.encoded = true
 
 	return nil
