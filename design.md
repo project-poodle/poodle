@@ -542,23 +542,27 @@ value as a lookup, or in compressed format.
   - 0000 means Value is not primitive type
   - 0001 means Value is VARINT primitive type
   - 0010 means Value is VARUINT primitive type
-  - 0011 means Value is VARCHAR primitive type with no encoding
-  - 0100 means Value is VARCHAR primitive type with lookup encoding
-  - 0101 means Value is VARCHAR primitive type with compression encoding
-  - 0110 means Value is FIXCHAR primitive type with no encoding
-  - 0111 is reserved
-  - 1xxx are reserved
+  - 0011 means Value is FIXINT primitive type
+  - 0100 means Value is FIXUINT primitive type
+  - 0101 means Value is FLOAT32 primitive type
+  - 0110 means Value is FLOAT64 primitive type
+  - 0111 means Value is VARCHAR primitive type with no encoding
+  - 1000 means Value is VARCHAR primitive type with lookup encoding
+  - 1001 means Value is VARCHAR primitive type with compression encoding
+  - 1010 means Value is FIXCHAR primitive type with no encoding
+  - 1011 to 1111 are reserved
   - When these bits are set together with Array bit, value is primitive array
-  - For FIXCHAR encoding, a FIXCHAR length is encoded prior to value content
+  - For FIXCHAR, FIXINT, and FIXUINT encoding, a FIXED length is encoded prior
+    to value content
 
 - Bit 2, 1 are composite bits
   - 00 means Value is not composite type
   - 01 means Value is Value Array type
   - 10 means Value is Record List type
   - 11 is reserved
-  - Composite types are always composite array
-  - For composite type, a composite length is encoded prior to the value
-    content
+  - Composite types are always Array
+  - For composite type, a composite size, and composite length are encoded
+    prior to the value content
 
 - Bit 0 is reserved bit
   - This bit is always set to 1
@@ -583,7 +587,7 @@ Note:
 A full __value encoding__ is as following:
 
                    Optional
-                   FIXCHAR
+                   FIXED
                    Length
            Optional | |
            Lookup   | |
