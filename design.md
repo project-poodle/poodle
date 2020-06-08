@@ -519,82 +519,98 @@ A full record is encoded as following:
 Value encoding can significantly reduce size of the value by representing
 value as a lookup, or in compressed format.
 
-             Compression
-                |
-         Record |
-          List  |
-          | |   |
-      7 6 5 4 3 2 1 0
-      | |     |   | |
-     Value    |   | |
-     Array    |  Length
-              |
-            Lookup
+              Compression
+                  bit
+                   |
+             Record|
+              bit  |
+               |   | Reserved
+        VARINT |   | Value
+          bit  |   |  bit
+           |   |   |   |
+         7 6 5 4 3 2 1 0
+         |   |   |   |
+       Array |   |   |
+        bit  |   | Length
+             |   |  bit
+          VARCHAR|
+            bit  |
+                 |
+               Lookup
+                bit  
 
-- Bit 7 and 6 are Value Array bits
-  - 00 means not a Value Array
-  - 01 means 1 byte of array element count
-  - 10 means 2 bytes of array element count
-  - 11 is reserved
-  - The Value Array bits cannot be set when Record List bits are also set
+- Bit 7 is Array bit
+  - 0 means Value is not Array
+  - 1 means Value is Array
 
-- Bit 5 and 4 are Record List bits
-  - 00 means not a Record List
-  - 01 means 1 byte of list element count
-  - 10 means 2 bytes of list element count
-  - 11 is reserved
-  - The Record List bits cannot be set when Value Array bits are also set
+- Bit 6 is VARINT bit
+  - 0 means Value is not VARINT primitive type
+  - 1 means Value is VARINT primitive type
+  - When this bit is set together with Array bit, value is VARINT array
+
+- Bit 5 is VARCHAR bit
+  - 0 means Value is not VARCHAR primitive type
+  - 1 means Value is VARCHAR primitive type
+  - When this bit is set together with Array bit, value is VARCHAR array
+
+- Bit 4 is Record bit
+  - 0 means Value is not Record type
+  - 1 means Value is Record type
+  - When this bit is set together with Array bit, value is Record array
 
 - Bit 3 is lookup scheme bit
   - 0 means no lookup scheme
-  - 1 means 2 bytes of lookup scheme
+  - 1 means a VARINT lookup scheme
 
 - Bit 2 is compression scheme bit
   - 0 means no compression scheme
-  - 1 means 2 bytes off compression scheme
+  - 1 means a VARINT compression scheme
 
-- Bit 1 and 0 are length of value length
-  - When lookup bit is 1, this 2 bits represent lookup value length, not
-    length of value length
-  - 00 means 0 length
-  - 01 means 1 byte length
-  - 10 means 2 bytes length
-  - 11 is reserved
+- Bit 1 is value length bit
+  - 0 means no length
+  - 1 means length is present
+
+- Bit 0 is reserved bit
+  - This bit is always set to 1
+  - such bit differentiate Value Magic from Record Magic
 
 Note:
 
 - The following encoding schemes are mutually exclusive:
-  - Value Array
-  - Record List
-  - Lookup Scheme
-  - Compression Scheme
+  - VARINT
+  - VARCHAR
+  - Record
 
 - A properly encoded Value can have only one of the encoding schemes from
   above.
 
-- If none of these encoding scheme are set, and if Value is encoded inside
-  a Record, then Value content will be normalized to become as part of
-  Record encoding.
+- Lookup Scheme and Compress Scheme can only be used together with VARINT
+  or VARCHAR primitives.  The following encoding schemes are mutually
+  exclusive:
+  - Record
+  - Lookup Scheme
+  - Compress Scheme
 
 
 ### Value Encoding ###
 
 A full __value encoding__ is as following:
 
-    Value
-    Magic         Length
-     |    Lookup   | |
-     |     | |     | |
-     |     | |     | |
-     X X X X X X X X X X ... ... X
-       | |     | |     |         |
-       | |     | |     Value Content
-      Value    | |
-      Array    | |
-       or    Compression
-      Record
-      List
-      Count
+                  Optional
+                   Length
+          Optional  | |
+           Lookup   | |
+    Value   | |     | |
+    Magic   | |     | |
+      |     | |     | |
+      X X X X X X X X X X ... ... X
+        | |     | |     |         |
+        | |     | |     Value Content
+      Optional  | |
+       Array    | |
+       Size     | |
+              Optional
+             Compression
 
 When value size is relatively small (less than ~1k), and when possible
 enumeration of value content is limited, lookup can be an effective
