@@ -326,18 +326,38 @@ func (s *Scheme) Encode(IContext) error {
 	if s.domain != nil {
 		buf[0] |= 0x00 << 7
 		buf = append(buf, EncodeVarchar(s.domain)...)
+		if len(buf) > MAX_SCHEME_LENGTH {
+			return fmt.Errorf("Scheme::Encode - scheme length [%d] exceeding maximum [%d]",
+				len(buf),
+				MAX_SCHEME_LENGTH)
+		}
 	}
 
 	if s.tablet != nil {
 		buf[0] |= 0x00 << 6
 		buf = append(buf, EncodeVarchar(s.tablet)...)
+		if len(buf) > MAX_SCHEME_LENGTH {
+			return fmt.Errorf("Scheme::Encode - scheme length [%d] exceeding maximum [%d]",
+				len(buf),
+				MAX_SCHEME_LENGTH)
+		}
 	}
 
 	if s.buckets != nil {
 		buf[0] |= 0x00 << 5
 		buf = append(buf, EncodeUvarint(uint64(len(s.buckets)))...)
+		if len(buf) > MAX_SCHEME_LENGTH {
+			return fmt.Errorf("Scheme::Encode - scheme length [%d] exceeding maximum [%d]",
+				len(buf),
+				MAX_SCHEME_LENGTH)
+		}
 		for _, bucket := range s.buckets {
 			buf = append(buf, EncodeVarchar(bucket)...)
+			if len(buf) > MAX_SCHEME_LENGTH {
+				return fmt.Errorf("Scheme::Encode - scheme length [%d] exceeding maximum [%d]",
+					len(buf),
+					MAX_SCHEME_LENGTH)
+			}
 		}
 	}
 
