@@ -537,25 +537,29 @@ value as a lookup, or in compressed format.
   - 0 means Value is not Array
   - 1 means Value is Array
 
-- Bit 6, 5, and 4 are primitive bits
+- Bit 6, 5, 4 are primitive bits
   - 000 means Value is not primitive type
   - 001 means Value is VARINT primitive type
   - 010 means Value is VARUINT primitive type
   - 011 means Value is VARCHAR primitive type with no encoding
   - 100 means Value is VARCHAR primitive type with lookup encoding
   - 101 means Value is VARCHAR primitive type with compression encoding
-  - 110, 111 are reserved
+  - 110 means Value is FIXCHAR primitive type with no encoding
+  - 111 is reserved
   - When these bits are set together with Array bit, value is primitive array
+  - For FIXCHAR encoding, a FIXCHAR length is encoded prior to value content
 
 - Bit 3, 2, 1 are composite bits
   - 000 means Value is not composite type
   - 001 means Value is Value type
   - 010 means Value is Record type
-  - 011 means Value is Key type
-  - 100 means Value is Scheme type
-  - 101 means Value is Consensus ID type
+  - 011 is reserved for Key type
+  - 100 is reserved for Scheme type
+  - 101 is reserved for Consensus ID type
   - 110 and 111 are reserved
   - When these bits are set together with Array bit, value is composite array
+  - When these bits are set together with Array bit, a composite length is
+    encoded prior to the value content
 
 - Bit 0 is reserved bit
   - This bit is always set to 1
@@ -579,25 +583,25 @@ Note:
 
 A full __value encoding__ is as following:
 
-                  Optional
-                  Composite
+                   Optional
+                   FIXCHAR
                    Length
-          Optional  | |
+           Optional | |
            Lookup   | |
            Scheme   | |
-    Value   | |     | |
-    Magic   | |     | |
-      |     | |     | |
-      X X X X X X X X X X ... ... X
-        | |     | |     |         |
-        | |     | |     |         |
-        | |     | |    Value Content
-      Optional  | |
-       Array    | |
+    Value   | |     | |    Value Content
+    Magic   | |     | |     |         |
+      |     | |     | |     |         |
+      X X X X X X X X X X X X ... ... X
+        | |     | |     | |
+        | |     | |     | |
+        | |     | |    Optional
+       Optional | |    Composite
+       Array    | |    Length
        Size     | |
               Optional
-             Compression
-               Scheme
+              Compression
+              Scheme
 
 When value size is relatively small (less than ~1k), and when possible
 enumeration of value content is limited, lookup can be an effective
