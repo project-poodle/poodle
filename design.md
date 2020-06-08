@@ -543,53 +543,42 @@ value as a lookup, or in compressed format.
   - 0 means Value is not Array
   - 1 means Value is Array
 
-- Bit 6 is VARINT bit
-  - 0 means Value is not VARINT primitive type
-  - 1 means Value is VARINT primitive type
-  - When this bit is set together with Array bit, value is VARINT array
+- Bit 6, 5, and 4 are primitive bits
+  - 000 means Value is not primitive type
+  - 001 means Value is VARINT primitive type
+  - 010 means Value is VARUINT primitive type
+  - 011 means Value is VARCHAR primitive type with no encoding
+  - 100 means Value is VARCHAR primitive type with lookup encoding
+  - 101 means Value is VARCHAR primitive type with compression encoding
+  - 110, 111 are reserved
+  - When these bits are set together with Array bit, value is primitive array
 
-- Bit 5 is VARCHAR bit
-  - 0 means Value is not VARCHAR primitive type
-  - 1 means Value is VARCHAR primitive type
-  - When this bit is set together with Array bit, value is VARCHAR array
-
-- Bit 4 is Record bit
-  - 0 means Value is not Record type
-  - 1 means Value is Record type
-  - When this bit is set together with Array bit, value is Record array
-
-- Bit 3 is lookup scheme bit
-  - 0 means no lookup scheme
-  - 1 means a VARINT lookup scheme
-
-- Bit 2 is compression scheme bit
-  - 0 means no compression scheme
-  - 1 means a VARINT compression scheme
-
-- Bit 1 is value length bit
-  - 0 means no length
-  - 1 means length is present
+- Bit 3, 2, 1 are composite bits
+  - 000 means Value is not composite type
+  - 001 means Value is Value type
+  - 010 means Value is Record type
+  - 011 means Value is Key type
+  - 100 means Value is Scheme type
+  - 101 means Value is Consensus ID type
+  - 110 and 111 are reserved
+  - When these bits are set together with Array bit, value is composite array
 
 - Bit 0 is reserved bit
   - This bit is always set to 1
-  - such bit differentiate Value Magic from Record Magic
+  - This bit differentiates Value Magic from Record Magic
 
 Note:
 
 - The following encoding schemes are mutually exclusive:
-  - VARINT
-  - VARCHAR
-  - Record
+  - primitive bits
+  - composite bits
 
-- A properly encoded Value can have only one of the encoding schemes from
-  above.
+- A properly encoded Value can have only one of the encoded types from
+  the above.
 
-- Lookup Scheme and Compress Scheme can only be used together with VARINT
-  or VARCHAR primitives.  The following encoding schemes are mutually
-  exclusive:
-  - Record
-  - Lookup Scheme
-  - Compress Scheme
+- Lookup Scheme and Compress Scheme can only be used together with VARCHAR
+  primitives.  The Lookup Scheme and Compress Scheme number are encoded as
+  VARINT.
 
 
 ### Value Encoding ###
@@ -597,9 +586,11 @@ Note:
 A full __value encoding__ is as following:
 
                   Optional
+                  Composite
                    Length
           Optional  | |
            Lookup   | |
+           Scheme   | |
     Value   | |     | |
     Magic   | |     | |
       |     | |     | |
@@ -611,6 +602,7 @@ A full __value encoding__ is as following:
        Size     | |
               Optional
              Compression
+               Scheme
 
 When value size is relatively small (less than ~1k), and when possible
 enumeration of value content is limited, lookup can be an effective
