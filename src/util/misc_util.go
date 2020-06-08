@@ -24,7 +24,7 @@ func Ternary(statement bool, a, b interface{}) interface{} {
 // Encode and Decode Varchar
 ////////////////////////////////////////////////////////////////////////////////
 
-func EncodeVarint(data int64) []byte {
+func EncodeVarint64(data int64) []byte {
 
 	lenBuf := make([]byte, 10) // maximum 10 bytes
 	lenN := binary.PutVarint(lenBuf, data)
@@ -38,7 +38,7 @@ func EncodeVarint(data int64) []byte {
 	return lenBuf[:lenN]
 }
 
-func DecodeVarint(buf []byte) (int64, int, error) {
+func DecodeVarint64(buf []byte) (int64, int, error) {
 
 	// empty input
 	if buf == nil || len(buf) == 0 {
@@ -58,21 +58,21 @@ func DecodeVarint(buf []byte) (int64, int, error) {
 	return bufLength, bufN, nil
 }
 
-func EncodeUvarint(data uint64) []byte {
+func EncodeUvarint64(data uint64) []byte {
 
 	lenBuf := make([]byte, 10) // maximum 10 bytes
 	lenN := binary.PutUvarint(lenBuf, data)
 
 	if lenN < 0 {
-		panic(fmt.Sprintf("EncodeUvarint - invalid uvarint length [%d], input [%d]", lenN, data))
+		panic(fmt.Sprintf("EncodeUvarint64 - invalid uvarint length [%d], input [%d]", lenN, data))
 	} else if lenN == 0 && data != 0 {
-		panic(fmt.Sprintf("EncodeUvarint - nvalid uvarint encode length [%d], input [%d]", lenN, data))
+		panic(fmt.Sprintf("EncodeUvarint64 - nvalid uvarint encode length [%d], input [%d]", lenN, data))
 	}
 
 	return lenBuf[:lenN]
 }
 
-func DecodeUvarint(buf []byte) (uint64, int, error) {
+func DecodeUvarint64(buf []byte) (uint64, int, error) {
 
 	// empty input
 	if buf == nil || len(buf) == 0 {
@@ -82,11 +82,11 @@ func DecodeUvarint(buf []byte) (uint64, int, error) {
 	bufLength, bufN := binary.Uvarint(buf)
 	if bufN < 0 {
 		// sub key cannot have zero length
-		return 0, 0, fmt.Errorf("DecodeUvarint - failed to read input length [%d]", bufN)
+		return 0, 0, fmt.Errorf("DecodeUvarint64 - failed to read input length [%d]", bufN)
 	} else if bufN == 0 && len(buf) != 0 && buf[0] != 0 {
-		return 0, 0, fmt.Errorf("DecodeUvarint - unexpected error - buf len [%d], first byte [%d]", len(buf), buf[0])
+		return 0, 0, fmt.Errorf("DecodeUvarint64 - unexpected error - buf len [%d], first byte [%d]", len(buf), buf[0])
 	} else if len(buf) < bufN+int(bufLength) {
-		return 0, 0, fmt.Errorf("DecodeUvarint - varchar length [%d] bigger than remaining buf size [%d]", bufLength, len(buf)-bufN)
+		return 0, 0, fmt.Errorf("DecodeUvarint64 - varchar length [%d] bigger than remaining buf size [%d]", bufLength, len(buf)-bufN)
 	}
 
 	return bufLength, bufN, nil

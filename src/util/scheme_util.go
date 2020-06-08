@@ -177,7 +177,7 @@ func (s *MappedScheme) Decode(IContext) (int, error) {
 
 	// decode buckets
 	if s.buf[0]|(0x01<<5) != 0 {
-		bucketSize, length, err := DecodeUvarint(s.buf[pos:])
+		bucketSize, length, err := DecodeUvarint64(s.buf[pos:])
 		if err != nil {
 			return 0, fmt.Errorf("MappedScheme::Decode - bucket size error [%v]", err)
 		}
@@ -347,7 +347,7 @@ func (s *Scheme) Encode(IContext) error {
 
 	if s.buckets != nil {
 		buf[0] |= 0x00 << 5
-		buf = append(buf, EncodeUvarint(uint64(len(s.buckets)))...)
+		buf = append(buf, EncodeUvarint64(uint64(len(s.buckets)))...)
 		if len(buf) > MAX_SCHEME_LENGTH {
 			return fmt.Errorf("Scheme::Encode - scheme length [%d] exceeding maximum [%d]",
 				len(buf),

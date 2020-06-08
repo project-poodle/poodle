@@ -421,7 +421,7 @@ func (tn *MappedTrieNode) Decode(IContext) (int, error) {
 	pos := 0
 
 	// check if this is a dummy Trie Node
-	isDummy, isDummyN, err := DecodeUvarint(tn.buf[pos:])
+	isDummy, isDummyN, err := DecodeUvarint64(tn.buf[pos:])
 	if err != nil {
 		return 0, fmt.Errorf("MappedTrieNode::Decode - dummy - %s", err)
 	}
@@ -443,7 +443,7 @@ func (tn *MappedTrieNode) Decode(IContext) (int, error) {
 	pos += nodeKeyN
 
 	// parent offset
-	parentOffset, parentN, err := DecodeUvarint(tn.buf[pos:])
+	parentOffset, parentN, err := DecodeUvarint64(tn.buf[pos:])
 	if err != nil {
 		return 0, fmt.Errorf("MappedTrieNode::Decode - parent offset - %s", err)
 	}
@@ -464,7 +464,7 @@ func (tn *MappedTrieNode) Decode(IContext) (int, error) {
 	pos += nodeValueN
 
 	// child size
-	childSize, childSizeN, err := DecodeUvarint(tn.buf)
+	childSize, childSizeN, err := DecodeUvarint64(tn.buf)
 	if err != nil {
 		return 0, fmt.Errorf("MappedTrieNode::Decode - child size - %s", err)
 	}
@@ -884,7 +884,7 @@ func (tn *TrieNode) Encode(IContext) error {
 	nodeKeyBuf := EncodeVarchar(tn.nodeKey)
 
 	// parent offset
-	parentOffsetBuf := EncodeUvarint(uint64(tn.parent.Offset()))
+	parentOffsetBuf := EncodeUvarint64(uint64(tn.parent.Offset()))
 
 	// data
 	err := tn.data.Encode(false)
@@ -893,7 +893,7 @@ func (tn *TrieNode) Encode(IContext) error {
 	}
 
 	// child size
-	childSizeBuf := EncodeUvarint(uint64(tn.children.Size()))
+	childSizeBuf := EncodeUvarint64(uint64(tn.children.Size()))
 
 	tn.buf = make([]byte, len(nodeKeyBuf)+len(parentOffsetBuf)+len(tn.data.Buf())+len(childSizeBuf))
 

@@ -222,7 +222,7 @@ func (k *MappedKey) Decode(IContext) (int, error) {
 	var length int
 	var err error
 
-	subKeySize, length, err := DecodeUvarint(k.buf[pos:])
+	subKeySize, length, err := DecodeUvarint64(k.buf[pos:])
 	if err != nil {
 		return 0, fmt.Errorf("MappedKey::Decode - subKey size error [%v]", err)
 	}
@@ -405,7 +405,7 @@ func (k *Key) Encode(IContext) error {
 	buf := []byte{}
 
 	if k.keys != nil {
-		buf = append(buf, EncodeUvarint(uint64(len(k.keys)))...)
+		buf = append(buf, EncodeUvarint64(uint64(len(k.keys)))...)
 		if len(buf) > MAX_KEY_LENGTH {
 			return fmt.Errorf("Key::Encode - key length [%d] exceeding maximum [%d]",
 				len(buf),
