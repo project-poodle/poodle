@@ -521,42 +521,40 @@ value as a lookup, or in compressed format.
 
                     Reserved
                       bit
-         Primitive     |
-           bits        |
-           |   |       |
-           |   |       |
+           Primitive   |
+             bits      |
+           |     |     |
+           |     |     |
          7 6 5 4 3 2 1 0
-         |       |   |
-       Array     |   |
-        bit      |   |
-                 |   |
-               Composite
-                 bits
+         |         | |
+       Array       | |
+        bit        | |
+                   | |
+                 Composite
+                   bits
 
 - Bit 7 is Array bit
   - 0 means Value is not Array
   - 1 means Value is Array
 
-- Bit 6, 5, 4 are primitive bits
-  - 000 means Value is not primitive type
-  - 001 means Value is VARINT primitive type
-  - 010 means Value is VARUINT primitive type
-  - 011 means Value is VARCHAR primitive type with no encoding
-  - 100 means Value is VARCHAR primitive type with lookup encoding
-  - 101 means Value is VARCHAR primitive type with compression encoding
-  - 110 means Value is FIXCHAR primitive type with no encoding
-  - 111 is reserved
+- Bit 6, 5, 4, 3 are primitive bits
+  - 0000 means Value is not primitive type
+  - 0001 means Value is VARINT primitive type
+  - 0010 means Value is VARUINT primitive type
+  - 0011 means Value is VARCHAR primitive type with no encoding
+  - 0100 means Value is VARCHAR primitive type with lookup encoding
+  - 0101 means Value is VARCHAR primitive type with compression encoding
+  - 0110 means Value is FIXCHAR primitive type with no encoding
+  - 0111 is reserved
+  - 1xxx are reserved
   - When these bits are set together with Array bit, value is primitive array
   - For FIXCHAR encoding, a FIXCHAR length is encoded prior to value content
 
-- Bit 3, 2, 1 are composite bits
-  - 000 means Value is not composite type
-  - 001 means Value is Value type
-  - 010 means Value is Record type
-  - 011 is reserved for Key type
-  - 100 is reserved for Scheme type
-  - 101 is reserved for Consensus ID type
-  - 110 and 111 are reserved
+- Bit 2, 1 are composite bits
+  - 00 means Value is not composite type
+  - 01 means Value is Value type
+  - 10 means Value is Record type
+  - 11 is reserved
   - When these bits are set together with Array bit, value is composite array
   - When these bits are set together with Array bit, a composite length is
     encoded prior to the value content
