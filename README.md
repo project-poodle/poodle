@@ -1,6 +1,8 @@
+![Poodle Logo](./Poodle-light.svg)
+
 # Project Poodle
 
-Project Poodle is next generation storage service:
+Project Poodle is future storage service:
  
 - Dynamically scales from a few nodes to 10s of thousands of nodes per cluster
 
