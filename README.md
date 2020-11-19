@@ -1,4 +1,4 @@
-<img alt="Poodle Logo" src="./Poodle-light.svg" width="400px" height="400px" />
+<img alt="Poodle Logo" src="./poodle.svg" width="400px" height="400px" />
 
 # Project Poodle
 
