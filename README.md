@@ -1,4 +1,4 @@
-![Poodle Logo](./Poodle-light.svg)
+<img alt="Poodle Logo" src="./Poodle-light.svg" width="200px" height="200px" />
 
 # Project Poodle
 
