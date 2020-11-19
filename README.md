@@ -1,4 +1,4 @@
-![Poodle Logo](./Poodle-light.svg =250x250)
+![Poodle Logo](./Poodle-light.svg)
 
 # Project Poodle
 
